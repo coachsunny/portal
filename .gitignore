@@ -1,0 +1,29 @@
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 环境变量与敏感信息
+.env
+.env.local
+.env.*.local
+
+# 依赖（如果以后用到 npm）
+node_modules/
+
+# 临时文件
+*.tmp
+*.log
+*.bak
+*.old
+
+# 构建产物（如果以后用到构建工具）
+dist/
+build/
+.cache/
