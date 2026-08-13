@@ -5,12 +5,12 @@
 const SUPABASE_URL = 'https://subwcjqahjbgkdrocyoz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_g8JbxP_AvORrvkQntqMbSA_HOOlrsP-';
 
-// 初始化 Supabase 客户端（全局可用）
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// 初始化 Supabase 客户端（全局可用，变量名用 sb 避免和 CDN 全局对象冲突）
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // 工具函数：获取当前登录用户
 async function getCurrentUser() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await sb.auth.getUser();
   return user;
 }
 
@@ -18,7 +18,7 @@ async function getCurrentUser() {
 async function getUserRole() {
   const user = await getCurrentUser();
   if (!user) return null;
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from('profiles')
     .select('role, name')
     .eq('id', user.id)

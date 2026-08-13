@@ -45,7 +45,7 @@
   <script>
     // 页面加载时检查登录状态
     window.addEventListener('load', async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await sb.auth.getUser();
       if (user) {
         showUserInfo(user);
       }
@@ -63,7 +63,7 @@
         return;
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
       
       if (error) {
         messageEl.textContent = '登录失败：' + error.message;
@@ -96,7 +96,7 @@
 
     // 退出登录
     async function handleLogout() {
-      await supabase.auth.signOut();
+      await sb.auth.signOut();
       document.getElementById('login-form').classList.remove('hidden');
       document.getElementById('user-info').classList.add('hidden');
       document.getElementById('email').value = '';
