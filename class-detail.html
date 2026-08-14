@@ -54,9 +54,14 @@
     <div id="panel-chapters" class="hidden">
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-lg font-semibold text-gray-800">章节列表</h2>
-        <button onclick="openChapterModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center">
-          <span class="mr-2">➕</span> 新建章节
-        </button>
+        <div class="flex space-x-2">
+          <button onclick="openLibraryModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition flex items-center">
+            <span class="mr-2">📦</span> 资源库
+          </button>
+          <button onclick="openChapterModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center">
+            <span class="mr-2">➕</span> 新建章节
+          </button>
+        </div>
       </div>
       <div id="chapter-list" class="space-y-4"></div>
       <div id="empty-chapters" class="hidden text-center py-12 bg-white rounded-xl border border-gray-100">
@@ -67,6 +72,7 @@
     </div>
   </main>
 
+  <!-- 添加学员弹窗 -->
   <div id="add-student-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
       <div class="p-6 border-b"><h3 class="text-lg font-semibold text-gray-800">添加学员到班级</h3><p class="text-sm text-gray-400 mt-1">从系统已有学员中选择，勾选后添加</p></div>
@@ -84,6 +90,7 @@
     </div>
   </div>
 
+  <!-- 章节编辑弹窗 -->
   <div id="chapter-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
       <div class="p-6 border-b"><h3 class="text-lg font-semibold text-gray-800" id="chapter-modal-title">新建章节</h3></div>
@@ -98,42 +105,135 @@
     </div>
   </div>
 
+  <!-- 添加资源弹窗（从库选 / 上传新资源） -->
   <div id="resource-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col">
+      <div class="p-6 border-b flex justify-between items-center">
+        <h3 class="text-lg font-semibold text-gray-800" id="resource-modal-title">添加资源到章节</h3>
+        <button onclick="closeResourceModal()" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
+      </div>
+      <div class="border-b px-6">
+        <div class="flex space-x-4">
+          <button onclick="switchResourceTab('library')" id="rtab-library" class="py-3 text-sm font-medium border-b-2 border-blue-600 text-blue-600">📚 从资源库选择</button>
+          <button onclick="switchResourceTab('upload')" id="rtab-upload" class="py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">⬆️ 上传新资源</button>
+        </div>
+      </div>
+      <div class="p-6 overflow-y-auto flex-1">
+        <!-- 从资源库选择 -->
+        <div id="resource-library-panel">
+          <div class="mb-4">
+            <input type="text" id="library-search" oninput="filterLibrary()" placeholder="搜索资源标题..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+          </div>
+          <div id="library-list" class="space-y-2"></div>
+          <div id="library-empty" class="hidden text-center py-8 text-gray-400">
+            <p class="text-3xl mb-2">📦</p>
+            <p>资源库还是空的</p>
+            <p class="text-sm mt-1">切换到「上传新资源」标签添加第一个资源</p>
+          </div>
+        </div>
+        <!-- 上传新资源 -->
+        <div id="resource-upload-panel" class="hidden space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">资源类型</label>
+            <div class="flex space-x-3">
+              <label class="flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition" id="type-pdf-label">
+                <input type="radio" name="resource-type" value="pdf" checked class="hidden" onchange="switchResourceType('pdf')">
+                <span class="text-center"><span class="text-2xl block mb-1">📄</span><span class="text-sm font-medium">PDF文档</span></span>
+              </label>
+              <label class="flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition" id="type-video-label">
+                <input type="radio" name="resource-type" value="video" class="hidden" onchange="switchResourceType('video')">
+                <span class="text-center"><span class="text-2xl block mb-1">🎬</span><span class="text-sm font-medium">视频(网盘)</span></span>
+              </label>
+            </div>
+          </div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">资源标题 *</label><input type="text" id="resource-title" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="给资源起个名字"></div>
+          <div id="pdf-upload-area">
+            <label class="block text-sm font-medium text-gray-700 mb-1">选择 PDF 文件 *</label>
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition cursor-pointer" onclick="document.getElementById('pdf-file').click()">
+              <input type="file" id="pdf-file" accept=".pdf" class="hidden" onchange="onPdfSelected(event)">
+              <p class="text-3xl mb-2">📎</p>
+              <p class="text-sm text-gray-600" id="pdf-file-name">点击选择 PDF 文件</p>
+              <p class="text-xs text-gray-400 mt-1">最大 10MB，上传后自动加入全局资源库</p>
+            </div>
+          </div>
+          <div id="video-link-area" class="hidden space-y-3">
+            <div><label class="block text-sm font-medium text-gray-700 mb-1">百度网盘链接 *</label><input type="text" id="video-url" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="https://pan.baidu.com/s/..."></div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1">提取码</label><input type="text" id="video-code" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="4位提取码（选填）"></div>
+          </div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">描述（选填）</label><textarea id="resource-desc" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" placeholder="简要描述这个资源的内容"></textarea></div>
+        </div>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeResourceModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="saveResource()" id="resource-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">保存并添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 全局资源库管理弹窗 -->
+  <div id="library-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col">
+      <div class="p-6 border-b flex justify-between items-center">
+        <div>
+          <h3 class="text-lg font-semibold text-gray-800">📦 全局资源库</h3>
+          <p class="text-sm text-gray-400 mt-1">所有班级共享的资源，上传一次可被多个章节引用</p>
+        </div>
+        <button onclick="closeLibraryModal()" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
+      </div>
+      <div class="p-6 border-b flex justify-between items-center">
+        <input type="text" id="lib-manage-search" oninput="filterManageLibrary()" placeholder="搜索资源..." class="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+        <button onclick="openUploadInLibrary()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center whitespace-nowrap ml-4">
+          <span class="mr-2">⬆️</span> 上传新资源
+        </button>
+      </div>
+      <div class="p-6 overflow-y-auto flex-1">
+        <div id="lib-manage-list" class="space-y-2"></div>
+        <div id="lib-manage-empty" class="hidden text-center py-12 text-gray-400">
+          <p class="text-4xl mb-3">📦</p>
+          <p>资源库还是空的</p>
+          <p class="text-sm mt-1">点击右上角「上传新资源」开始添加</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 资源库内上传弹窗 -->
+  <div id="lib-upload-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
-      <div class="p-6 border-b"><h3 class="text-lg font-semibold text-gray-800" id="resource-modal-title">添加资源</h3></div>
+      <div class="p-6 border-b"><h3 class="text-lg font-semibold text-gray-800">上传新资源到资源库</h3></div>
       <div class="p-6 space-y-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">资源类型</label>
           <div class="flex space-x-3">
-            <label class="flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition" id="type-pdf-label">
-              <input type="radio" name="resource-type" value="pdf" checked class="hidden" onchange="switchResourceType('pdf')">
+            <label class="flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition" id="lib-type-pdf-label">
+              <input type="radio" name="lib-resource-type" value="pdf" checked class="hidden" onchange="switchLibResourceType('pdf')">
               <span class="text-center"><span class="text-2xl block mb-1">📄</span><span class="text-sm font-medium">PDF文档</span></span>
             </label>
-            <label class="flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition" id="type-video-label">
-              <input type="radio" name="resource-type" value="video" class="hidden" onchange="switchResourceType('video')">
+            <label class="flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition" id="lib-type-video-label">
+              <input type="radio" name="lib-resource-type" value="video" class="hidden" onchange="switchLibResourceType('video')">
               <span class="text-center"><span class="text-2xl block mb-1">🎬</span><span class="text-sm font-medium">视频(网盘)</span></span>
             </label>
           </div>
         </div>
-        <div><label class="block text-sm font-medium text-gray-700 mb-1">资源标题 *</label><input type="text" id="resource-title" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="给资源起个名字"></div>
-        <div id="pdf-upload-area">
+        <div><label class="block text-sm font-medium text-gray-700 mb-1">资源标题 *</label><input type="text" id="lib-resource-title" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="给资源起个名字"></div>
+        <div id="lib-pdf-upload-area">
           <label class="block text-sm font-medium text-gray-700 mb-1">选择 PDF 文件 *</label>
-          <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition cursor-pointer" onclick="document.getElementById('pdf-file').click()">
-            <input type="file" id="pdf-file" accept=".pdf" class="hidden" onchange="onPdfSelected(event)">
+          <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition cursor-pointer" onclick="document.getElementById('lib-pdf-file').click()">
+            <input type="file" id="lib-pdf-file" accept=".pdf" class="hidden" onchange="onLibPdfSelected(event)">
             <p class="text-3xl mb-2">📎</p>
-            <p class="text-sm text-gray-600" id="pdf-file-name">点击选择 PDF 文件</p>
+            <p class="text-sm text-gray-600" id="lib-pdf-file-name">点击选择 PDF 文件</p>
             <p class="text-xs text-gray-400 mt-1">最大 10MB</p>
           </div>
         </div>
-        <div id="video-link-area" class="hidden space-y-3">
-          <div><label class="block text-sm font-medium text-gray-700 mb-1">百度网盘链接 *</label><input type="text" id="video-url" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="https://pan.baidu.com/s/..."></div>
-          <div><label class="block text-sm font-medium text-gray-700 mb-1">提取码</label><input type="text" id="video-code" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="4位提取码（选填）"></div>
+        <div id="lib-video-link-area" class="hidden space-y-3">
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">百度网盘链接 *</label><input type="text" id="lib-video-url" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="https://pan.baidu.com/s/..."></div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">提取码</label><input type="text" id="lib-video-code" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="4位提取码（选填）"></div>
         </div>
-        <div><label class="block text-sm font-medium text-gray-700 mb-1">排序</label><input type="number" id="resource-order" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="1" min="0"></div>
+        <div><label class="block text-sm font-medium text-gray-700 mb-1">描述（选填）</label><textarea id="lib-resource-desc" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" placeholder="简要描述这个资源的内容"></textarea></div>
       </div>
       <div class="p-6 border-t flex justify-end space-x-3">
-        <button onclick="closeResourceModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
-        <button onclick="saveResource()" id="resource-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">保存</button>
+        <button onclick="closeLibUploadModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="saveLibraryResource()" id="lib-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">保存到资源库</button>
       </div>
     </div>
   </div>
@@ -143,6 +243,8 @@
   <script>
     let currentSession = null, classId = null, classInfo = null, selectedStudents = new Set();
     let editingChapterId = null, currentChapterId = null, selectedPdfFile = null, currentTab = 'students';
+    let allLibraryResources = [], selectedLibraryIds = new Set();
+    let libSelectedPdfFile = null;
 
     window.addEventListener('load', async () => {
       currentSession = await requireTeacher();
@@ -238,6 +340,8 @@
       catch (e) { alert('移除学员失败：' + e.message); }
     }
 
+    // ========== 章节与资源（方案A：全局资源库 + 章节引用） ==========
+
     async function loadChapters() {
       try {
         const { data: chapters, error } = await sb.from('chapters').select('*').eq('class_id', classId).order('sort_order', { ascending: true });
@@ -245,10 +349,21 @@
         const list = document.getElementById('chapter-list'), empty = document.getElementById('empty-chapters');
         if (!chapters || chapters.length === 0) { list.innerHTML = ''; empty.classList.remove('hidden'); return; }
         empty.classList.add('hidden');
-        const { data: resources, error: re } = await sb.from('resources').select('*').in('chapter_id', chapters.map(c => c.id)).order('sort_order', { ascending: true });
-        if (re) throw re;
+
+        // 通过关联表查询每个章节的资源
+        const { data: chapterRes, error: cre } = await sb
+          .from('chapter_resources')
+          .select('chapter_id, sort_order, resources(id, type, title, file_url, extraction_code, description)')
+          .in('chapter_id', chapters.map(c => c.id))
+          .order('sort_order', { ascending: true });
+        if (cre) throw cre;
+
         const byCh = {};
-        (resources || []).forEach(r => { if (!byCh[r.chapter_id]) byCh[r.chapter_id] = []; byCh[r.chapter_id].push(r); });
+        (chapterRes || []).forEach(cr => {
+          if (!byCh[cr.chapter_id]) byCh[cr.chapter_id] = [];
+          if (cr.resources) byCh[cr.chapter_id].push({ ...cr.resources, cr_sort: cr.sort_order });
+        });
+
         list.innerHTML = chapters.map(c => {
           const rl = byCh[c.id] || [];
           return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -260,14 +375,14 @@
                 <button onclick="deleteChapter(${c.id})" class="px-2 py-1.5 text-red-500 hover:bg-red-50 rounded-lg transition" title="删除">🗑️</button>
               </div>
             </div>
-            <div class="p-4">${rl.length === 0 ? '<p class="text-sm text-gray-400 text-center py-4">暂无资源，点击「添加资源」上传</p>' :
+            <div class="p-4">${rl.length === 0 ? '<p class="text-sm text-gray-400 text-center py-4">暂无资源，点击「添加资源」从资源库选择或上传新资源</p>' :
               `<div class="space-y-2">${rl.map(r => `<div class="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition">
-                <div class="flex items-center"><span class="text-xl mr-3">${r.type === 'pdf' ? '📄' : '🎬'}</span>
-                <div><p class="text-sm font-medium text-gray-800">${escapeHtml(r.title)}</p><p class="text-xs text-gray-400">${r.type === 'pdf' ? 'PDF文档' : '视频 · 提取码: ' + (r.extraction_code || '无')}</p></div></div>
-                <div class="flex items-center space-x-2">
+                <div class="flex items-center flex-1 min-w-0"><span class="text-xl mr-3 flex-shrink-0">${r.type === 'pdf' ? '📄' : '🎬'}</span>
+                <div class="min-w-0"><p class="text-sm font-medium text-gray-800 truncate">${escapeHtml(r.title)}</p>${r.description ? `<p class="text-xs text-gray-400 truncate">${escapeHtml(r.description)}</p>` : `<p class="text-xs text-gray-400">${r.type === 'pdf' ? 'PDF文档' : '视频 · 提取码: ' + (r.extraction_code || '无')}</p>`}</div></div>
+                <div class="flex items-center space-x-2 flex-shrink-0 ml-2">
                   ${r.type === 'pdf' && r.file_url ? `<a href="${r.file_url}" target="_blank" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">查看</a>` : ''}
                   ${r.type === 'video' && r.file_url ? `<button onclick="copyVideoLink('${r.file_url}', '${r.extraction_code || ''}')" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">复制链接</button>` : ''}
-                  <button onclick="deleteResource(${r.id})" class="px-2 py-1.5 text-red-500 hover:bg-red-50 rounded-lg transition text-sm">删除</button>
+                  <button onclick="removeResourceFromChapter(${c.id}, ${r.id})" class="px-2 py-1.5 text-red-500 hover:bg-red-50 rounded-lg transition text-sm" title="从本章节移除">移除</button>
                 </div></div>`).join('')}</div>`}</div></div>`;
         }).join('');
       } catch (e) { console.error('加载章节失败:', e); alert('加载章节失败：' + e.message); }
@@ -292,45 +407,242 @@
       finally { btn.disabled = false; btn.textContent = '保存'; }
     }
     async function deleteChapter(id) {
-      if (!confirm('确定要删除这个章节吗？章节下的所有资源也会被删除。')) return;
-      try { await sb.from('resources').delete().eq('chapter_id', id); const { error } = await sb.from('chapters').delete().eq('id', id); if (error) throw error; loadChapters(); }
+      if (!confirm('确定要删除这个章节吗？章节与资源的关联关系也会被删除（资源本身保留在资源库中）。')) return;
+      try { const { error } = await sb.from('chapters').delete().eq('id', id); if (error) throw error; loadChapters(); }
       catch (e) { alert('删除章节失败：' + e.message); }
     }
 
-    function openResourceModal(chId) { currentChapterId = chId; selectedPdfFile = null; document.getElementById('resource-modal-title').textContent = '添加资源'; document.getElementById('resource-title').value = ''; document.getElementById('resource-order').value = '1'; document.getElementById('pdf-file').value = ''; document.getElementById('pdf-file-name').textContent = '点击选择 PDF 文件'; document.getElementById('video-url').value = ''; document.getElementById('video-code').value = ''; switchResourceType('pdf'); document.getElementById('resource-modal').classList.remove('hidden'); }
-    function closeResourceModal() { document.getElementById('resource-modal').classList.add('hidden'); currentChapterId = null; selectedPdfFile = null; }
+    // ========== 添加资源弹窗 ==========
+
+    function openResourceModal(chId) {
+      currentChapterId = chId;
+      selectedPdfFile = null;
+      selectedLibraryIds.clear();
+      document.getElementById('resource-title').value = '';
+      document.getElementById('resource-desc').value = '';
+      document.getElementById('pdf-file').value = '';
+      document.getElementById('pdf-file-name').textContent = '点击选择 PDF 文件';
+      document.getElementById('video-url').value = '';
+      document.getElementById('video-code').value = '';
+      document.getElementById('library-search').value = '';
+      switchResourceTab('library');
+      switchResourceType('pdf');
+      document.getElementById('resource-modal').classList.remove('hidden');
+      loadLibrary();
+    }
+    function closeResourceModal() { document.getElementById('resource-modal').classList.add('hidden'); currentChapterId = null; selectedPdfFile = null; selectedLibraryIds.clear(); }
+
+    function switchResourceTab(tab) {
+      const libBtn = document.getElementById('rtab-library'), upBtn = document.getElementById('rtab-upload');
+      const libPanel = document.getElementById('resource-library-panel'), upPanel = document.getElementById('resource-upload-panel');
+      const saveBtn = document.getElementById('resource-save-btn');
+      if (tab === 'library') {
+        libBtn.className = 'py-3 text-sm font-medium border-b-2 border-blue-600 text-blue-600';
+        upBtn.className = 'py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700';
+        libPanel.classList.remove('hidden'); upPanel.classList.add('hidden');
+        saveBtn.textContent = '添加选中资源';
+      } else {
+        upBtn.className = 'py-3 text-sm font-medium border-b-2 border-blue-600 text-blue-600';
+        libBtn.className = 'py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700';
+        upPanel.classList.remove('hidden'); libPanel.classList.add('hidden');
+        saveBtn.textContent = '保存并添加';
+      }
+    }
+
     function switchResourceType(type) {
       const pl = document.getElementById('type-pdf-label'), vl = document.getElementById('type-video-label'), pa = document.getElementById('pdf-upload-area'), va = document.getElementById('video-link-area');
       if (type === 'pdf') { pl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition'; vl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition'; pa.classList.remove('hidden'); va.classList.add('hidden'); }
       else { vl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition'; pl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition'; va.classList.remove('hidden'); pa.classList.add('hidden'); }
     }
+
     function onPdfSelected(e) { const f = e.target.files[0]; if (!f) return; if (f.size > 10*1024*1024) { alert('文件大小不能超过 10MB'); e.target.value = ''; return; } selectedPdfFile = f; document.getElementById('pdf-file-name').textContent = '✅ ' + f.name + ' (' + (f.size/1024).toFixed(1) + ' KB)'; }
+
+    async function loadLibrary() {
+      try {
+        const { data: resources, error } = await sb.from('resources').select('*').order('created_at', { ascending: false });
+        if (error) throw error;
+        allLibraryResources = resources || [];
+        renderLibraryList();
+      } catch (e) { console.error('加载资源库失败:', e); alert('加载资源库失败：' + e.message); }
+    }
+
+    function renderLibraryList() {
+      const container = document.getElementById('library-list'), empty = document.getElementById('library-empty');
+      const keyword = document.getElementById('library-search').value.toLowerCase();
+      const filtered = allLibraryResources.filter(r => !keyword || r.title.toLowerCase().includes(keyword));
+      if (filtered.length === 0) { container.innerHTML = ''; empty.classList.remove('hidden'); return; }
+      empty.classList.add('hidden');
+      container.innerHTML = filtered.map(r => `
+        <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 cursor-pointer transition ${selectedLibraryIds.has(r.id) ? 'bg-blue-50 border-blue-300' : ''}">
+          <input type="checkbox" value="${r.id}" ${selectedLibraryIds.has(r.id) ? 'checked' : ''} onchange="toggleLibraryResource(${r.id}, this.checked)" class="mr-3 w-4 h-4 text-blue-600">
+          <span class="text-xl mr-3">${r.type === 'pdf' ? '📄' : '🎬'}</span>
+          <div class="flex-1 min-w-0"><p class="text-sm font-medium text-gray-800 truncate">${escapeHtml(r.title)}</p><p class="text-xs text-gray-400 truncate">${r.description || (r.type === 'pdf' ? 'PDF文档' : '视频 · 提取码: ' + (r.extraction_code || '无'))}</p></div>
+        </label>`).join('');
+    }
+
+    function filterLibrary() { renderLibraryList(); }
+    function toggleLibraryResource(id, checked) { if (checked) selectedLibraryIds.add(id); else selectedLibraryIds.delete(id); }
+
     async function saveResource() {
-      const title = document.getElementById('resource-title').value.trim(); const type = document.querySelector('input[name="resource-type"]:checked').value; const order = parseInt(document.getElementById('resource-order').value) || 0;
+      const activeTab = document.getElementById('resource-library-panel').classList.contains('hidden') ? 'upload' : 'library';
+      const btn = document.getElementById('resource-save-btn');
+
+      if (activeTab === 'library') {
+        if (selectedLibraryIds.size === 0) { alert('请至少选择一个资源'); return; }
+        btn.disabled = true; btn.textContent = '添加中...';
+        try {
+          const records = Array.from(selectedLibraryIds).map(rid => ({ chapter_id: currentChapterId, resource_id: rid, sort_order: 0 }));
+          const { error } = await sb.from('chapter_resources').insert(records);
+          if (error) throw error;
+          closeResourceModal(); loadChapters();
+        } catch (e) { alert('添加资源失败：' + e.message); }
+        finally { btn.disabled = false; btn.textContent = '添加选中资源'; }
+      } else {
+        const title = document.getElementById('resource-title').value.trim();
+        const type = document.querySelector('input[name="resource-type"]:checked').value;
+        const description = document.getElementById('resource-desc').value.trim();
+        if (!title) { alert('请输入资源标题'); return; }
+        btn.disabled = true; btn.textContent = '保存中...';
+        try {
+          let fileUrl = '', code = '';
+          if (type === 'pdf') {
+            if (!selectedPdfFile) { alert('请选择 PDF 文件'); btn.disabled = false; btn.textContent = '保存并添加'; return; }
+            const ext = selectedPdfFile.name.split('.').pop() || 'pdf';
+            const path = `global/${Date.now()}.${ext}`;
+            const { data: ud, error: ue } = await sb.storage.from('resources').upload(path, selectedPdfFile);
+            if (ue) throw ue;
+            const { data: urlData } = sb.storage.from('resources').getPublicUrl(path);
+            fileUrl = urlData.publicUrl;
+          } else {
+            fileUrl = document.getElementById('video-url').value.trim(); code = document.getElementById('video-code').value.trim();
+            if (!fileUrl) { alert('请输入网盘链接'); btn.disabled = false; btn.textContent = '保存并添加'; return; }
+          }
+          // 先插入全局资源
+          const { data: newRes, error: re } = await sb.from('resources').insert({ type, title, file_url: fileUrl, extraction_code: code, description }).select();
+          if (re) throw re;
+          // 再建立章节关联
+          const { error: ce } = await sb.from('chapter_resources').insert({ chapter_id: currentChapterId, resource_id: newRes[0].id, sort_order: 0 });
+          if (ce) throw ce;
+          closeResourceModal(); loadChapters();
+        } catch (e) { alert('保存资源失败：' + e.message); }
+        finally { btn.disabled = false; btn.textContent = '保存并添加'; }
+      }
+    }
+
+    async function removeResourceFromChapter(chapterId, resourceId) {
+      if (!confirm('确定要从本章节移除这个资源吗？（资源仍保留在全局资源库中）')) return;
+      try { const { error } = await sb.from('chapter_resources').delete().eq('chapter_id', chapterId).eq('resource_id', resourceId); if (error) throw error; loadChapters(); }
+      catch (e) { alert('移除资源失败：' + e.message); }
+    }
+
+    function copyVideoLink(url, code) { const t = code ? `链接：${url}\n提取码：${code}` : url; navigator.clipboard.writeText(t).then(() => alert('链接和提取码已复制到剪贴板')).catch(() => alert('复制失败，请手动复制：' + url + (code ? ' 提取码：' + code : ''))); }
+
+    // ========== 全局资源库管理 ==========
+
+    function openLibraryModal() {
+      document.getElementById('lib-manage-search').value = '';
+      document.getElementById('library-modal').classList.remove('hidden');
+      loadManageLibrary();
+    }
+    function closeLibraryModal() { document.getElementById('library-modal').classList.add('hidden'); }
+
+    async function loadManageLibrary() {
+      try {
+        const { data: resources, error } = await sb.from('resources').select('*').order('created_at', { ascending: false });
+        if (error) throw error;
+        allLibraryResources = resources || [];
+        renderManageLibraryList();
+      } catch (e) { console.error('加载资源库失败:', e); alert('加载资源库失败：' + e.message); }
+    }
+
+    function renderManageLibraryList() {
+      const container = document.getElementById('lib-manage-list'), empty = document.getElementById('lib-manage-empty');
+      const keyword = document.getElementById('lib-manage-search').value.toLowerCase();
+      const filtered = allLibraryResources.filter(r => !keyword || r.title.toLowerCase().includes(keyword));
+      if (filtered.length === 0) { container.innerHTML = ''; empty.classList.remove('hidden'); return; }
+      empty.classList.add('hidden');
+      container.innerHTML = filtered.map(r => `
+        <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+          <div class="flex items-center flex-1 min-w-0">
+            <span class="text-xl mr-3 flex-shrink-0">${r.type === 'pdf' ? '📄' : '🎬'}</span>
+            <div class="min-w-0"><p class="text-sm font-medium text-gray-800 truncate">${escapeHtml(r.title)}</p><p class="text-xs text-gray-400 truncate">${r.description || (r.type === 'pdf' ? 'PDF文档' : '视频 · 提取码: ' + (r.extraction_code || '无'))}</p></div>
+          </div>
+          <div class="flex items-center space-x-2 flex-shrink-0 ml-2">
+            ${r.type === 'pdf' && r.file_url ? `<a href="${r.file_url}" target="_blank" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">查看</a>` : ''}
+            ${r.type === 'video' && r.file_url ? `<button onclick="copyVideoLink('${r.file_url}', '${r.extraction_code || ''}')" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">复制链接</button>` : ''}
+            <button onclick="editLibraryResource(${r.id})" class="px-2 py-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition text-sm" title="编辑">✏️</button>
+            <button onclick="deleteLibraryResource(${r.id})" class="px-2 py-1.5 text-red-500 hover:bg-red-50 rounded-lg transition text-sm" title="删除">🗑️</button>
+          </div>
+        </div>`).join('');
+    }
+
+    function filterManageLibrary() { renderManageLibraryList(); }
+
+    function openUploadInLibrary() {
+      libSelectedPdfFile = null;
+      document.getElementById('lib-resource-title').value = '';
+      document.getElementById('lib-resource-desc').value = '';
+      document.getElementById('lib-pdf-file').value = '';
+      document.getElementById('lib-pdf-file-name').textContent = '点击选择 PDF 文件';
+      document.getElementById('lib-video-url').value = '';
+      document.getElementById('lib-video-code').value = '';
+      switchLibResourceType('pdf');
+      document.getElementById('lib-upload-modal').classList.remove('hidden');
+    }
+    function closeLibUploadModal() { document.getElementById('lib-upload-modal').classList.add('hidden'); libSelectedPdfFile = null; }
+
+    function switchLibResourceType(type) {
+      const pl = document.getElementById('lib-type-pdf-label'), vl = document.getElementById('lib-type-video-label'), pa = document.getElementById('lib-pdf-upload-area'), va = document.getElementById('lib-video-link-area');
+      if (type === 'pdf') { pl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition'; vl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition'; pa.classList.remove('hidden'); va.classList.add('hidden'); }
+      else { vl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition'; pl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition'; va.classList.remove('hidden'); pa.classList.add('hidden'); }
+    }
+
+    function onLibPdfSelected(e) { const f = e.target.files[0]; if (!f) return; if (f.size > 10*1024*1024) { alert('文件大小不能超过 10MB'); e.target.value = ''; return; } libSelectedPdfFile = f; document.getElementById('lib-pdf-file-name').textContent = '✅ ' + f.name + ' (' + (f.size/1024).toFixed(1) + ' KB)'; }
+
+    async function saveLibraryResource() {
+      const title = document.getElementById('lib-resource-title').value.trim();
+      const type = document.querySelector('input[name="lib-resource-type"]:checked').value;
+      const description = document.getElementById('lib-resource-desc').value.trim();
       if (!title) { alert('请输入资源标题'); return; }
-      const btn = document.getElementById('resource-save-btn'); btn.disabled = true; btn.textContent = '保存中...';
+      const btn = document.getElementById('lib-save-btn'); btn.disabled = true; btn.textContent = '保存中...';
       try {
         let fileUrl = '', code = '';
         if (type === 'pdf') {
-          if (!selectedPdfFile) { alert('请选择 PDF 文件'); btn.disabled = false; btn.textContent = '保存'; return; }
-          const ext = selectedPdfFile.name.split('.').pop() || 'pdf';
-          const path = `class-${classId}/chapter-${currentChapterId}/${Date.now()}.${ext}`;
-          const { data: ud, error: ue } = await sb.storage.from('resources').upload(path, selectedPdfFile);
+          if (!libSelectedPdfFile) { alert('请选择 PDF 文件'); btn.disabled = false; btn.textContent = '保存到资源库'; return; }
+          const ext = libSelectedPdfFile.name.split('.').pop() || 'pdf';
+          const path = `global/${Date.now()}.${ext}`;
+          const { data: ud, error: ue } = await sb.storage.from('resources').upload(path, libSelectedPdfFile);
           if (ue) throw ue;
           const { data: urlData } = sb.storage.from('resources').getPublicUrl(path);
           fileUrl = urlData.publicUrl;
         } else {
-          fileUrl = document.getElementById('video-url').value.trim(); code = document.getElementById('video-code').value.trim();
-          if (!fileUrl) { alert('请输入网盘链接'); btn.disabled = false; btn.textContent = '保存'; return; }
+          fileUrl = document.getElementById('lib-video-url').value.trim(); code = document.getElementById('lib-video-code').value.trim();
+          if (!fileUrl) { alert('请输入网盘链接'); btn.disabled = false; btn.textContent = '保存到资源库'; return; }
         }
-        const { error } = await sb.from('resources').insert({ chapter_id: currentChapterId, type, title, file_url: fileUrl, extraction_code: code, sort_order: order });
+        const { error } = await sb.from('resources').insert({ type, title, file_url: fileUrl, extraction_code: code, description });
         if (error) throw error;
-        closeResourceModal(); loadChapters();
+        closeLibUploadModal(); loadManageLibrary();
       } catch (e) { alert('保存资源失败：' + e.message); }
-      finally { btn.disabled = false; btn.textContent = '保存'; }
+      finally { btn.disabled = false; btn.textContent = '保存到资源库'; }
     }
-    async function deleteResource(id) { if (!confirm('确定要删除这个资源吗？')) return; try { const { error } = await sb.from('resources').delete().eq('id', id); if (error) throw error; loadChapters(); } catch (e) { alert('删除资源失败：' + e.message); } }
-    function copyVideoLink(url, code) { const t = code ? `链接：${url}\n提取码：${code}` : url; navigator.clipboard.writeText(t).then(() => alert('链接和提取码已复制到剪贴板')).catch(() => alert('复制失败，请手动复制：' + url + (code ? ' 提取码：' + code : ''))); }
+
+    async function editLibraryResource(id) {
+      const r = allLibraryResources.find(x => x.id === id);
+      if (!r) return;
+      const newTitle = prompt('编辑资源标题：', r.title);
+      if (newTitle === null) return;
+      const newDesc = prompt('编辑资源描述（选填）：', r.description || '');
+      if (newDesc === null) return;
+      try { const { error } = await sb.from('resources').update({ title: newTitle.trim(), description: newDesc.trim() }).eq('id', id); if (error) throw error; loadManageLibrary(); if (currentTab === 'chapters') loadChapters(); }
+      catch (e) { alert('更新失败：' + e.message); }
+    }
+
+    async function deleteLibraryResource(id) {
+      if (!confirm('确定要从资源库删除这个资源吗？所有章节对该资源的引用也会被删除，且无法恢复。')) return;
+      try { const { error } = await sb.from('resources').delete().eq('id', id); if (error) throw error; loadManageLibrary(); if (currentTab === 'chapters') loadChapters(); }
+      catch (e) { alert('删除资源失败：' + e.message); }
+    }
+
     function escapeHtml(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
     function formatDate(s) { if (!s) return '-'; return new Date(s).toLocaleDateString('zh-CN'); }
   </script>
