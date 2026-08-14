@@ -106,7 +106,7 @@ function renderNavbar(session, currentPage) {
     { id: 'dashboard', label: '首页', href: 'admin-dashboard.html' },
     { id: 'classes', label: '班级管理', href: 'classes.html' },
     { id: 'resources', label: '资源管理', href: 'resources.html' },
-    { id: 'quizzes', label: '测验管理', href: 'classes.html?tab=quizzes' },
+    { id: 'quizzes', label: '测验管理', href: 'quizzes.html' },
     { id: 'questions', label: '学员提问', href: 'classes.html?tab=questions' }
   ] : [
     { id: 'dashboard', label: '首页', href: PAGES.student },
