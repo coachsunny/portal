@@ -110,7 +110,7 @@ function renderNavbar(session, currentPage) {
     { id: 'questions', label: '学员提问', href: '#' }
   ] : [
     { id: 'dashboard', label: '首页', href: PAGES.student },
-    { id: 'resources', label: '学习资源', href: '#' },
+    { id: 'resources', label: '学习资源', href: 'student-resources.html' },
     { id: 'quizzes', label: '我的测验', href: '#' },
     { id: 'questions', label: '我的提问', href: '#' }
   ];

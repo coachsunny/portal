@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学习资源 - 自牧平施教练班</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- 班级选择器 -->
+    <div class="mb-6">
+      <label class="block text-sm font-medium text-gray-700 mb-2">选择班级</label>
+      <select id="class-select" onchange="onClassChange()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+        <option value="">加载中...</option>
+      </select>
+    </div>
+
+    <!-- 班级信息 -->
+    <div id="class-info" class="hidden bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+      <h1 class="text-xl font-bold text-gray-800" id="class-name"></h1>
+      <p class="text-gray-500 mt-1" id="class-description"></p>
+    </div>
+
+    <!-- 章节与资源列表 -->
+    <div id="chapters-container">
+      <div class="text-center py-12 text-gray-400">
+        <p class="text-4xl mb-3">📚</p>
+        <p>请选择班级查看学习资源</p>
+      </div>
+    </div>
+
+    <div id="empty-chapters" class="hidden text-center py-12 bg-white rounded-xl border border-gray-100">
+      <p class="text-4xl mb-3">📖</p>
+      <p class="text-gray-500">这个班级还没有章节</p>
+      <p class="text-gray-400 text-sm mt-1">老师还没有添加学习内容</p>
+    </div>
+  </main>
+
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let currentSession = null;
+    let myClasses = [];
+    let currentClassId = null;
+
+    window.addEventListener('load', async () => {
+      currentSession = await requireStudent();
+      if (!currentSession) return;
+      renderNavbar(currentSession, 'resources');
+      await loadMyClasses();
+    });
+
+    async function loadMyClasses() {
+      try {
+        const { data: members, error } = await sb
+          .from('class_members')
+          .select('class_id, joined_at, classes(id, name, description, status)')
+          .eq('user_id', currentSession.user.id)
+          .order('joined_at', { ascending: true });
+        if (error) throw error;
+
+        myClasses = (members || []).map(m => m.classes).filter(c => c);
+        const select = document.getElementById('class-select');
+
+        if (myClasses.length === 0) {
+          select.innerHTML = '<option value="">您还没有加入任何班级</option>';
+          select.disabled = true;
+          document.getElementById('chapters-container').innerHTML = '<div class="text-center py-12 bg-white rounded-xl border border-gray-100"><p class="text-4xl mb-3">👋</p><p class="text-gray-500">您还没有加入任何班级</p><p class="text-gray-400 text-sm mt-1">请联系老师加入班级</p></div>';
+          return;
+        }
+
+        select.innerHTML = myClasses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+        // 默认选中第一个
+        currentClassId = myClasses[0].id;
+        select.value = currentClassId;
+        await loadChapters();
+      } catch (e) {
+        console.error('加载班级失败:', e);
+        alert('加载班级失败：' + e.message);
+      }
+    }
+
+    function onClassChange() {
+      currentClassId = document.getElementById('class-select').value;
+      if (currentClassId) loadChapters();
+    }
+
+    async function loadChapters() {
+      if (!currentClassId) return;
+
+      // 显示班级信息
+      const cls = myClasses.find(c => c.id == currentClassId);
+      if (cls) {
+        document.getElementById('class-info').classList.remove('hidden');
+        document.getElementById('class-name').textContent = cls.name;
+        document.getElementById('class-description').textContent = cls.description || '';
+      }
+
+      try {
+        // 加载章节
+        const { data: chapters, error: ce } = await sb
+          .from('chapters')
+          .select('*')
+          .eq('class_id', currentClassId)
+          .order('sort_order', { ascending: true });
+        if (ce) throw ce;
+
+        const container = document.getElementById('chapters-container');
+        const empty = document.getElementById('empty-chapters');
+
+        if (!chapters || chapters.length === 0) {
+          container.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+        empty.classList.add('hidden');
+
+        // 加载每个章节的资源
+        const { data: chapterRes, error: re } = await sb
+          .from('chapter_resources')
+          .select('chapter_id, sort_order, resources(id, type, title, file_url, extraction_code, description)')
+          .in('chapter_id', chapters.map(c => c.id))
+          .order('sort_order', { ascending: true });
+        if (re) throw re;
+
+        // 按章节分组
+        const resByChapter = {};
+        (chapterRes || []).forEach(cr => {
+          if (!resByChapter[cr.chapter_id]) resByChapter[cr.chapter_id] = [];
+          if (cr.resources) resByChapter[cr.chapter_id].push(cr.resources);
+        });
+
+        // 渲染
+        container.innerHTML = chapters.map((ch, idx) => {
+          const resources = resByChapter[ch.id] || [];
+          return `
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+              <div class="p-4 bg-gray-50 border-b">
+                <div class="flex items-center">
+                  <span class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium mr-3">${idx + 1}</span>
+                  <h2 class="text-lg font-semibold text-gray-800">${escapeHtml(ch.title)}</h2>
+                  <span class="ml-3 text-xs text-gray-400">${resources.length} 个资源</span>
+                </div>
+              </div>
+              <div class="p-4">
+                ${resources.length === 0 ? '<p class="text-sm text-gray-400 text-center py-4">暂无资源</p>' :
+                  `<div class="space-y-3">${resources.map(r => renderResourceCard(r)).join('')}</div>`}
+              </div>
+            </div>`;
+        }).join('');
+      } catch (e) {
+        console.error('加载章节失败:', e);
+        alert('加载学习资源失败：' + e.message);
+      }
+    }
+
+    function renderResourceCard(r) {
+      const isPdf = r.type === 'pdf';
+      return `
+        <div class="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition">
+          <div class="flex items-center flex-1 min-w-0">
+            <span class="text-2xl mr-4 flex-shrink-0">${isPdf ? '📄' : '🎬'}</span>
+            <div class="min-w-0">
+              <p class="font-medium text-gray-800 truncate">${escapeHtml(r.title)}</p>
+              ${r.description ? `<p class="text-xs text-gray-400 truncate mt-1">${escapeHtml(r.description)}</p>` : `<p class="text-xs text-gray-400 mt-1">${isPdf ? 'PDF 文档' : '视频课程 · 百度网盘'}</p>`}
+            </div>
+          </div>
+          <div class="flex-shrink-0 ml-4">
+            ${isPdf && r.file_url ? `<a href="${r.file_url}" target="_blank" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition inline-flex items-center"><span class="mr-1">👁️</span> 查看</a>` : ''}
+            ${!isPdf && r.file_url ? `<button onclick="copyVideoLink('${r.file_url}', '${r.extraction_code || ''}')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition inline-flex items-center"><span class="mr-1">📋</span> 复制链接</button>` : ''}
+          </div>
+        </div>`;
+    }
+
+    function copyVideoLink(url, code) {
+      const text = code ? `链接：${url}\n提取码：${code}` : url;
+      navigator.clipboard.writeText(text).then(() => {
+        alert('链接和提取码已复制到剪贴板\n\n' + text);
+      }).catch(() => {
+        alert('复制失败，请手动复制：\n' + url + (code ? '\n提取码：' + code : ''));
+      });
+    }
+
+    function escapeHtml(text) {
+      const d = document.createElement('div');
+      d.textContent = text;
+      return d.innerHTML;
+    }
+  </script>
+</body>
+</html>
