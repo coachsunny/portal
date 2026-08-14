@@ -23,6 +23,12 @@
       </button>
     </div>
 
+    <!-- 快捷操作提示 -->
+    <div id="tab-hint" class="hidden mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+      <p class="text-sm text-blue-700" id="tab-hint-text">请选择一个班级进行操作</p>
+      <a href="classes.html" class="text-sm text-blue-600 hover:text-blue-800 font-medium">清除筛选</a>
+    </div>
+
     <!-- 筛选标签 -->
     <div class="flex space-x-2 mb-6">
       <button onclick="filterClasses('active')" id="filter-active" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-700">进行中</button>
@@ -76,12 +82,27 @@
     let currentSession = null;
     let editingClassId = null;
     let currentFilter = 'active';
+    let targetTab = null;
 
     // 页面初始化
     window.addEventListener('load', async () => {
       currentSession = await requireTeacher();
       if (!currentSession) return;
       renderNavbar(currentSession, 'classes');
+
+      // 读取URL参数
+      const params = new URLSearchParams(window.location.search);
+      targetTab = params.get('tab');
+      if (targetTab) {
+        const hintTexts = {
+          resources: '请选择一个班级，进入后管理学习资源',
+          quizzes: '请选择一个班级，进入后管理测验题目',
+          questions: '请选择一个班级，进入后查看学员提问'
+        };
+        document.getElementById('tab-hint-text').textContent = hintTexts[targetTab] || '请选择一个班级进行操作';
+        document.getElementById('tab-hint').classList.remove('hidden');
+      }
+
       loadClasses();
     });
 
@@ -132,7 +153,10 @@
               ${c.start_date ? `<span>📅 ${c.start_date}</span>` : ''}
             </div>
             <div class="flex space-x-2">
-              <a href="class-detail.html?id=${c.id}" class="flex-1 text-center px-3 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-sm font-medium transition">进入班级</a>
+              <a href="class-detail.html?id=${c.id}${targetTab ? '&tab=' + targetTab : ''}" class="flex-1 text-center px-3 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-sm font-medium transition">进入班级</a>
+              <a href="class-detail.html?id=${c.id}&tab=resources" class="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm transition" title="管理资源">📚</a>
+              <a href="class-detail.html?id=${c.id}&tab=quizzes" class="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm transition" title="管理测验">📝</a>
+              <a href="class-detail.html?id=${c.id}&tab=questions" class="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm transition" title="学员提问">💬</a>
               <button onclick="editClass(${c.id})" class="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm transition" title="编辑">✏️</button>
               <button onclick="toggleArchive(${c.id}, '${c.status}')" class="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm transition" title="${c.status === 'active' ? '归档' : '恢复'}">
                 ${c.status === 'active' ? '📦' : '♻️'}

@@ -105,9 +105,9 @@ function renderNavbar(session, currentPage) {
   const navItems = isTeacher ? [
     { id: 'dashboard', label: '首页', href: 'admin-dashboard.html' },
     { id: 'classes', label: '班级管理', href: 'classes.html' },
-    { id: 'resources', label: '资源管理', href: 'classes.html' },
-    { id: 'quizzes', label: '测验管理', href: 'classes.html' },
-    { id: 'questions', label: '学员提问', href: 'classes.html' }
+    { id: 'resources', label: '资源管理', href: 'classes.html?tab=resources' },
+    { id: 'quizzes', label: '测验管理', href: 'classes.html?tab=quizzes' },
+    { id: 'questions', label: '学员提问', href: 'classes.html?tab=questions' }
   ] : [
     { id: 'dashboard', label: '首页', href: PAGES.student },
     { id: 'resources', label: '学习资源', href: 'student-resources.html' },

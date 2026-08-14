@@ -374,6 +374,14 @@
       if (!classId) { alert('缺少班级 ID'); window.location.href = 'classes.html'; return; }
       await loadClassInfo();
       await loadStudents();
+
+      // 读取URL参数，自动切换标签
+      const tabParam = params.get('tab');
+      if (tabParam) {
+        const tabMap = { resources: 'chapters', chapters: 'chapters', quizzes: 'quizzes', questions: 'questions', students: 'students' };
+        const targetTab = tabMap[tabParam];
+        if (targetTab) switchTab(targetTab);
+      }
     });
 
     function switchTab(tab) {
