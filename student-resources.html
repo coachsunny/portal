@@ -38,12 +38,34 @@
     </div>
   </main>
 
+  <!-- 答题弹窗 -->
+  <div id="quiz-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col">
+      <div class="p-6 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">测验答题</h3>
+        <p class="text-sm text-gray-500 mt-2" id="quiz-question-text"></p>
+      </div>
+      <div class="p-6 overflow-y-auto flex-1">
+        <div id="quiz-result-area" class="hidden mb-4"></div>
+        <div id="quiz-answer-area">
+          <label class="block text-sm font-medium text-gray-700 mb-2">你的答案</label>
+          <textarea id="quiz-answer-input" rows="6" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="请输入你的答案..."></textarea>
+        </div>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeQuizModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="submitQuizAnswer()" id="quiz-submit-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">提交答案</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/supabase-client.js"></script>
   <script src="js/auth.js"></script>
   <script>
     let currentSession = null;
     let myClasses = [];
     let currentClassId = null;
+    let currentQuizId = null;
 
     window.addEventListener('load', async () => {
       currentSession = await requireStudent();
@@ -72,7 +94,6 @@
         }
 
         select.innerHTML = myClasses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
-        // 默认选中第一个
         currentClassId = myClasses[0].id;
         select.value = currentClassId;
         await loadChapters();
@@ -90,7 +111,6 @@
     async function loadChapters() {
       if (!currentClassId) return;
 
-      // 显示班级信息
       const cls = myClasses.find(c => c.id == currentClassId);
       if (cls) {
         document.getElementById('class-info').classList.remove('hidden');
@@ -99,7 +119,6 @@
       }
 
       try {
-        // 加载章节
         const { data: chapters, error: ce } = await sb
           .from('chapters')
           .select('*')
@@ -117,7 +136,7 @@
         }
         empty.classList.add('hidden');
 
-        // 加载每个章节的资源
+        // 加载资源
         const { data: chapterRes, error: re } = await sb
           .from('chapter_resources')
           .select('chapter_id, sort_order, resources(id, type, title, file_url, extraction_code, description)')
@@ -125,28 +144,54 @@
           .order('sort_order', { ascending: true });
         if (re) throw re;
 
-        // 按章节分组
         const resByChapter = {};
         (chapterRes || []).forEach(cr => {
           if (!resByChapter[cr.chapter_id]) resByChapter[cr.chapter_id] = [];
           if (cr.resources) resByChapter[cr.chapter_id].push(cr.resources);
         });
 
+        // 加载测验题目
+        const { data: quizzes, error: qe } = await sb
+          .from('quizzes')
+          .select('*')
+          .in('chapter_id', chapters.map(c => c.id))
+          .order('sort_order', { ascending: true });
+        if (qe) throw qe;
+
+        const quizzesByChapter = {};
+        (quizzes || []).forEach(q => {
+          if (!quizzesByChapter[q.chapter_id]) quizzesByChapter[q.chapter_id] = [];
+          quizzesByChapter[q.chapter_id].push(q);
+        });
+
+        // 加载我的答题记录
+        const { data: submissions, error: se } = await sb
+          .from('quiz_submissions')
+          .select('*')
+          .eq('user_id', currentSession.user.id)
+          .in('quiz_id', (quizzes || []).map(q => q.id));
+        if (se) throw se;
+
+        const subMap = {};
+        (submissions || []).forEach(s => { subMap[s.quiz_id] = s; });
+
         // 渲染
         container.innerHTML = chapters.map((ch, idx) => {
           const resources = resByChapter[ch.id] || [];
+          const chapterQuizzes = quizzesByChapter[ch.id] || [];
           return `
             <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
               <div class="p-4 bg-gray-50 border-b">
                 <div class="flex items-center">
                   <span class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium mr-3">${idx + 1}</span>
                   <h2 class="text-lg font-semibold text-gray-800">${escapeHtml(ch.title)}</h2>
-                  <span class="ml-3 text-xs text-gray-400">${resources.length} 个资源</span>
+                  <span class="ml-3 text-xs text-gray-400">${resources.length} 资源 · ${chapterQuizzes.length} 测验</span>
                 </div>
               </div>
               <div class="p-4">
-                ${resources.length === 0 ? '<p class="text-sm text-gray-400 text-center py-4">暂无资源</p>' :
-                  `<div class="space-y-3">${resources.map(r => renderResourceCard(r)).join('')}</div>`}
+                ${resources.length > 0 ? `<div class="mb-4"><p class="text-xs font-medium text-gray-500 mb-2">📚 学习资源</p><div class="space-y-3">${resources.map(r => renderResourceCard(r)).join('')}</div></div>` : ''}
+                ${chapterQuizzes.length > 0 ? `<div><p class="text-xs font-medium text-gray-500 mb-2">📝 章节测验</p><div class="space-y-3">${chapterQuizzes.map(q => renderQuizCard(q, subMap[q.id])).join('')}</div></div>` : ''}
+                ${resources.length === 0 && chapterQuizzes.length === 0 ? '<p class="text-sm text-gray-400 text-center py-4">暂无内容</p>' : ''}
               </div>
             </div>`;
         }).join('');
@@ -174,8 +219,95 @@
         </div>`;
     }
 
+    function renderQuizCard(q, submission) {
+      const answered = !!submission;
+      const graded = submission && submission.score !== null;
+      return `
+        <div class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition cursor-pointer" onclick="openQuizModal(${q.id}, '${escapeHtml(q.question_text).replace(/'/g, "\\'")}')">
+          <div class="flex items-start justify-between">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-gray-800">${escapeHtml(q.question_text)}</p>
+              ${answered ? `<p class="text-xs text-gray-400 mt-2">已提交 · ${formatDate(submission.submitted_at)}</p>` : '<p class="text-xs text-gray-400 mt-2">点击答题</p>'}
+            </div>
+            <div class="flex-shrink-0 ml-3">
+              ${graded ? `<span class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">${submission.score} 分</span>` :
+                answered ? `<span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded">待评分</span>` :
+                `<span class="text-xs px-2 py-1 bg-blue-100 text-blue-600 rounded">未答题</span>`}
+            </div>
+          </div>
+          ${graded && submission.teacher_comment ? `<div class="mt-3 text-sm text-blue-700 bg-blue-50 rounded-lg p-3"><span class="font-medium">老师评语：</span>${escapeHtml(submission.teacher_comment)}</div>` : ''}
+        </div>`;
+    }
+
+    function openQuizModal(quizId, questionText) {
+      currentQuizId = quizId;
+      document.getElementById('quiz-question-text').textContent = questionText;
+      document.getElementById('quiz-answer-input').value = '';
+      document.getElementById('quiz-result-area').classList.add('hidden');
+      document.getElementById('quiz-answer-area').classList.remove('hidden');
+      document.getElementById('quiz-submit-btn').classList.remove('hidden');
+      document.getElementById('quiz-submit-btn').textContent = '提交答案';
+      document.getElementById('quiz-submit-btn').disabled = false;
+
+      // 检查是否已答过
+      sb.from('quiz_submissions').select('*').eq('quiz_id', quizId).eq('user_id', currentSession.user.id).single().then(({ data: sub, error }) => {
+        if (sub) {
+          document.getElementById('quiz-answer-input').value = sub.answer || '';
+          if (sub.score !== null) {
+            // 已评分，显示结果，不可编辑
+            document.getElementById('quiz-answer-area').classList.add('hidden');
+            document.getElementById('quiz-submit-btn').classList.add('hidden');
+            document.getElementById('quiz-result-area').classList.remove('hidden');
+            document.getElementById('quiz-result-area').innerHTML = `
+              <div class="bg-gray-50 rounded-lg p-4 mb-3">
+                <p class="text-xs font-medium text-gray-500 mb-2">你的答案</p>
+                <p class="text-sm text-gray-700 whitespace-pre-wrap">${escapeHtml(sub.answer || '（无内容）')}</p>
+              </div>
+              <div class="bg-green-50 rounded-lg p-4">
+                <p class="text-sm font-medium text-green-700">得分：${sub.score} 分</p>
+                ${sub.teacher_comment ? `<p class="text-sm text-green-600 mt-2"><span class="font-medium">老师评语：</span>${escapeHtml(sub.teacher_comment)}</p>` : ''}
+              </div>`;
+          } else {
+            // 已提交但未评分，可以修改
+            document.getElementById('quiz-submit-btn').textContent = '更新答案';
+          }
+        }
+        document.getElementById('quiz-modal').classList.remove('hidden');
+      });
+    }
+
+    function closeQuizModal() {
+      document.getElementById('quiz-modal').classList.add('hidden');
+      currentQuizId = null;
+    }
+
+    async function submitQuizAnswer() {
+      const answer = document.getElementById('quiz-answer-input').value.trim();
+      if (!answer) { alert('请输入答案'); return; }
+      const btn = document.getElementById('quiz-submit-btn');
+      btn.disabled = true; btn.textContent = '提交中...';
+      try {
+        // 检查是否已有记录
+        const { data: existing, error: ee } = await sb.from('quiz_submissions').select('id').eq('quiz_id', currentQuizId).eq('user_id', currentSession.user.id).maybeSingle();
+        if (ee) throw ee;
+        if (existing) {
+          const { error } = await sb.from('quiz_submissions').update({ answer, submitted_at: new Date().toISOString() }).eq('id', existing.id);
+          if (error) throw error;
+        } else {
+          const { error } = await sb.from('quiz_submissions').insert({ quiz_id: currentQuizId, user_id: currentSession.user.id, answer });
+          if (error) throw error;
+        }
+        alert('答案提交成功！');
+        closeQuizModal();
+        loadChapters();
+      } catch (e) {
+        alert('提交失败：' + e.message);
+      } finally {
+        btn.disabled = false; btn.textContent = '提交答案';
+      }
+    }
+
     function copyVideoLink(url, code) {
-      // 如果有提取码，自动拼到URL上，粘贴到浏览器可直接打开
       const copyUrl = code ? `${url}?pwd=${code}` : url;
       navigator.clipboard.writeText(copyUrl).then(() => {
         alert('链接已复制到剪贴板\n\n' + copyUrl + (code ? '\n\n提取码：' + code + '（已自动带入网址）' : ''));
@@ -188,6 +320,11 @@
       const d = document.createElement('div');
       d.textContent = text;
       return d.innerHTML;
+    }
+
+    function formatDate(s) {
+      if (!s) return '-';
+      return new Date(s).toLocaleDateString('zh-CN');
     }
   </script>
 </body>
