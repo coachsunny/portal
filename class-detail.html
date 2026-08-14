@@ -1028,14 +1028,15 @@
       if (currentGradeValue === null) { alert('请选择合格或不合格'); return; }
       const comment = document.getElementById('grade-comment').value.trim();
       const score = currentGradeValue === 'pass' ? 1 : 0;
+      const gradingId = currentGradingId;
       const btn = document.getElementById('grade-save-btn');
       btn.disabled = true; btn.textContent = '保存中...';
       try {
-        const { error } = await sb.from('quiz_submissions').update({ score, teacher_comment: comment, graded_at: new Date().toISOString() }).eq('id', currentGradingId);
+        const { error } = await sb.from('quiz_submissions').update({ score, teacher_comment: comment, graded_at: new Date().toISOString() }).eq('id', gradingId);
         if (error) throw error;
         closeGradeModal();
         // 刷新答题列表
-        const { data: sub } = await sb.from('quiz_submissions').select('quiz_id').eq('id', currentGradingId).single();
+        const { data: sub } = await sb.from('quiz_submissions').select('quiz_id').eq('id', gradingId).single();
         if (sub) await loadSubmissions(sub.quiz_id);
       } catch (e) { alert('保存失败：' + e.message); }
       finally { btn.disabled = false; btn.textContent = '保存评分'; }
