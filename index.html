@@ -95,7 +95,13 @@
           .single();
 
         if (profileError || !profile) {
-          throw new Error('未找到用户资料（profiles表中缺少对应记录），请联系管理员');
+          console.error('profile查询失败:', {
+            userId: data.user.id,
+            error: profileError,
+            data: profile
+          });
+          const errMsg = profileError ? profileError.message : '返回空数据';
+          throw new Error('未找到用户资料：' + errMsg + '（用户ID: ' + data.user.id + '）');
         }
 
         messageEl.textContent = `欢迎 ${profile.name}，正在跳转...`;
