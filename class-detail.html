@@ -313,7 +313,8 @@
         let fileUrl = '', code = '';
         if (type === 'pdf') {
           if (!selectedPdfFile) { alert('请选择 PDF 文件'); btn.disabled = false; btn.textContent = '保存'; return; }
-          const path = `class-${classId}/chapter-${currentChapterId}/${Date.now()}-${selectedPdfFile.name}`;
+          const ext = selectedPdfFile.name.split('.').pop() || 'pdf';
+          const path = `class-${classId}/chapter-${currentChapterId}/${Date.now()}.${ext}`;
           const { data: ud, error: ue } = await sb.storage.from('resources').upload(path, selectedPdfFile);
           if (ue) throw ue;
           const { data: urlData } = sb.storage.from('resources').getPublicUrl(path);
