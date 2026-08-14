@@ -107,12 +107,12 @@ function renderNavbar(session, currentPage) {
     { id: 'classes', label: '班级管理', href: 'classes.html' },
     { id: 'resources', label: '资源管理', href: 'classes.html' },
     { id: 'quizzes', label: '测验管理', href: 'classes.html' },
-    { id: 'questions', label: '学员提问', href: '#' }
+    { id: 'questions', label: '学员提问', href: 'classes.html' }
   ] : [
     { id: 'dashboard', label: '首页', href: PAGES.student },
     { id: 'resources', label: '学习资源', href: 'student-resources.html' },
     { id: 'quizzes', label: '我的测验', href: 'student-resources.html' },
-    { id: 'questions', label: '我的提问', href: '#' }
+    { id: 'questions', label: '我的提问', href: 'student-questions.html' }
   ];
 
   const navHtml = `

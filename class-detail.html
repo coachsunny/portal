@@ -35,6 +35,7 @@
       <button onclick="switchTab('students')" id="tab-students" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-700">👥 学员管理</button>
       <button onclick="switchTab('chapters')" id="tab-chapters" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">📚 章节与资源</button>
       <button onclick="switchTab('quizzes')" id="tab-quizzes" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">📝 测验管理</button>
+      <button onclick="switchTab('questions')" id="tab-questions" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">💬 学员提问</button>
     </div>
 
     <div id="panel-students" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -85,6 +86,26 @@
         <p class="text-4xl mb-3">📝</p>
         <p class="text-gray-500">还没有测验题目</p>
         <p class="text-gray-400 text-sm mt-1">先创建章节，然后添加测验题目</p>
+      </div>
+    </div>
+
+    <!-- 学员提问面板 -->
+    <div id="panel-questions" class="hidden">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-lg font-semibold text-gray-800">学员提问</h2>
+        <div class="flex items-center space-x-2">
+          <select id="question-filter" onchange="loadQuestions()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+            <option value="all">全部提问</option>
+            <option value="open">待回复</option>
+            <option value="answered">已回复</option>
+          </select>
+        </div>
+      </div>
+      <div id="question-list" class="space-y-4"></div>
+      <div id="empty-questions" class="hidden text-center py-12 bg-white rounded-xl border border-gray-100">
+        <p class="text-4xl mb-3">💬</p>
+        <p class="text-gray-500">还没有学员提问</p>
+        <p class="text-gray-400 text-sm mt-1">学员可以在学习页面发起提问</p>
       </div>
     </div>
   </main>
@@ -317,6 +338,25 @@
     </div>
   </div>
 
+  <!-- 回复提问弹窗 -->
+  <div id="reply-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
+      <div class="p-6 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">回复学员提问</h3>
+        <p class="text-sm text-gray-500 mt-2" id="reply-question-content"></p>
+        <p class="text-xs text-gray-400 mt-1" id="reply-question-meta"></p>
+      </div>
+      <div class="p-6">
+        <label class="block text-sm font-medium text-gray-700 mb-2">回复内容</label>
+        <textarea id="reply-content" rows="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="输入回复内容..."></textarea>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeReplyModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="saveReply()" id="reply-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">发送回复</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/supabase-client.js"></script>
   <script src="js/auth.js"></script>
   <script>
@@ -338,13 +378,14 @@
 
     function switchTab(tab) {
       currentTab = tab;
-      ['students','chapters','quizzes'].forEach(t => {
+      ['students','chapters','quizzes','questions'].forEach(t => {
         const btn = document.getElementById('tab-' + t), panel = document.getElementById('panel-' + t);
         if (t === tab) { btn.className = 'px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-700'; panel.classList.remove('hidden'); }
         else { btn.className = 'px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50'; panel.classList.add('hidden'); }
       });
       if (tab === 'chapters') loadChapters();
       if (tab === 'quizzes') loadQuizzes();
+      if (tab === 'questions') loadQuestions();
     }
 
     async function loadClassInfo() {
@@ -915,6 +956,81 @@
         const quizId = currentQuizId || (await sb.from('quiz_submissions').select('quiz_id').eq('id', id).single()).data.quiz_id;
         await loadSubmissions(quizId);
       } catch (e) { alert('评分失败：' + e.message); }
+    }
+
+    // ========== 学员提问管理 ==========
+    let replyingQuestionId = null;
+
+    async function loadQuestions() {
+      try {
+        const filter = document.getElementById('question-filter').value;
+        let query = sb.from('questions').select('*, profiles(name)').eq('class_id', classId).order('created_at', { ascending: false });
+        if (filter !== 'all') query = query.eq('status', filter);
+        const { data: questions, error } = await query;
+        if (error) throw error;
+
+        const container = document.getElementById('question-list');
+        const empty = document.getElementById('empty-questions');
+
+        if (!questions || questions.length === 0) {
+          container.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+        empty.classList.add('hidden');
+
+        container.innerHTML = questions.map(q => {
+          const isAnswered = q.status === 'answered';
+          return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div class="flex items-start justify-between mb-3">
+              <div class="flex items-center">
+                <span class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium mr-3">${escapeHtml((q.profiles && q.profiles.name) ? q.profiles.name[0] : '?')}</span>
+                <div>
+                  <p class="font-medium text-gray-800">${escapeHtml(q.profiles ? q.profiles.name : '未知学员')}</p>
+                  <p class="text-xs text-gray-400">${formatDate(q.created_at)}</p>
+                </div>
+              </div>
+              <span class="text-xs px-2 py-1 rounded ${isAnswered ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${isAnswered ? '已回复' : '待回复'}</span>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3 mb-3">
+              <p class="text-sm text-gray-700 whitespace-pre-wrap">${escapeHtml(q.content)}</p>
+            </div>
+            ${q.teacher_reply ? `<div class="bg-blue-50 rounded-lg p-3 mb-3"><p class="text-xs text-blue-500 font-medium mb-1">老师回复（${formatDate(q.replied_at)}）</p><p class="text-sm text-blue-700 whitespace-pre-wrap">${escapeHtml(q.teacher_reply)}</p></div>` : ''}
+            <div class="flex justify-end">
+              <button onclick="openReplyModal(${q.id}, '${escapeHtml(q.content).replace(/'/g, "\\'")}', '${escapeHtml(q.profiles ? q.profiles.name : '')}', '${formatDate(q.created_at)}')" class="px-4 py-2 text-sm ${isAnswered ? 'text-gray-600 hover:bg-gray-100 border border-gray-300' : 'bg-blue-600 hover:bg-blue-700 text-white'} rounded-lg transition">${isAnswered ? '修改回复' : '回复'}</button>
+            </div>
+          </div>`;
+        }).join('');
+      } catch (e) { console.error('加载提问失败:', e); alert('加载提问失败：' + e.message); }
+    }
+
+    function openReplyModal(id, content, name, date) {
+      replyingQuestionId = id;
+      document.getElementById('reply-question-content').textContent = content;
+      document.getElementById('reply-question-meta').textContent = `${name} · ${date}`;
+      document.getElementById('reply-content').value = '';
+      // 如果已有回复，加载到输入框
+      sb.from('questions').select('teacher_reply').eq('id', id).single().then(({ data }) => {
+        if (data && data.teacher_reply) document.getElementById('reply-content').value = data.teacher_reply;
+      });
+      document.getElementById('reply-modal').classList.remove('hidden');
+    }
+
+    function closeReplyModal() {
+      document.getElementById('reply-modal').classList.add('hidden');
+      replyingQuestionId = null;
+    }
+
+    async function saveReply() {
+      const reply = document.getElementById('reply-content').value.trim();
+      if (!reply) { alert('请输入回复内容'); return; }
+      const btn = document.getElementById('reply-save-btn'); btn.disabled = true; btn.textContent = '发送中...';
+      try {
+        const { error } = await sb.from('questions').update({ teacher_reply: reply, status: 'answered', replied_at: new Date().toISOString() }).eq('id', replyingQuestionId);
+        if (error) throw error;
+        closeReplyModal(); loadQuestions();
+      } catch (e) { alert('回复失败：' + e.message); }
+      finally { btn.disabled = false; btn.textContent = '发送回复'; }
     }
 
     function escapeHtml(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
