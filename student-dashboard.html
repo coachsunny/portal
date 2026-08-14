@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学员首页 - 自牧平施教练班</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <!-- 导航栏由 auth.js 动态渲染 -->
+
+  <!-- 主内容区 -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- 欢迎区 -->
+    <div class="mb-8">
+      <h1 class="text-2xl font-bold text-gray-800" id="welcome-title">同学您好</h1>
+      <p class="text-gray-500 mt-1">欢迎开始今天的学习</p>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500">我的班级</p>
+            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-classes">-</p>
+          </div>
+          <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+            <span class="text-2xl">📚</span>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500">待完成测验</p>
+            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-quizzes">-</p>
+          </div>
+          <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+            <span class="text-2xl">📝</span>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500">我的提问</p>
+            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-questions">-</p>
+          </div>
+          <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+            <span class="text-2xl">💬</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 我的班级 -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-8">
+      <h2 class="text-lg font-semibold text-gray-800 mb-4">我的班级</h2>
+      <div id="class-list">
+        <div class="text-center py-12 text-gray-400">
+          <p class="text-4xl mb-2">📚</p>
+          <p>暂无班级</p>
+          <p class="text-sm mt-1">请联系老师加入班级</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 学习进度 -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <h2 class="text-lg font-semibold text-gray-800 mb-4">学习进度</h2>
+      <div class="text-center py-12 text-gray-400">
+        <p class="text-4xl mb-2">📊</p>
+        <p>暂无学习记录</p>
+        <p class="text-sm mt-1">开始学习后这里会显示你的进度</p>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let currentSession = null;
+
+    // 页面初始化
+    window.addEventListener('load', async () => {
+      // 检查学员权限
+      currentSession = await requireStudent();
+      if (!currentSession) return;
+
+      // 渲染导航栏
+      renderNavbar(currentSession, 'dashboard');
+
+      // 更新欢迎语
+      document.getElementById('welcome-title').textContent = `${currentSession.name} 同学，您好`;
+
+      // 加载数据
+      loadMyData();
+    });
+
+    // 加载我的数据
+    async function loadMyData() {
+      try {
+        const userId = currentSession.user.id;
+
+        // 我的班级数量
+        const { count: classCount } = await sb
+          .from('class_members')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId);
+        document.getElementById('stat-classes').textContent = classCount || 0;
+
+        // 我的提问数量
+        const { count: questionCount } = await sb
+          .from('questions')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId);
+        document.getElementById('stat-questions').textContent = questionCount || 0;
+
+        // 待完成测验（暂时显示0，后续开发时计算）
+        document.getElementById('stat-quizzes').textContent = 0;
+
+        // 加载班级列表
+        loadMyClasses(userId);
+      } catch (error) {
+        console.error('加载数据失败:', error);
+      }
+    }
+
+    // 加载我的班级列表
+    async function loadMyClasses(userId) {
+      try {
+        const { data: memberships, error } = await sb
+          .from('class_members')
+          .select('class_id, classes(id, name, description, status)')
+          .eq('user_id', userId);
+
+        if (error) throw error;
+
+        const classListEl = document.getElementById('class-list');
+        
+        if (!memberships || memberships.length === 0) {
+          return; // 保持默认的空状态
+        }
+
+        classListEl.innerHTML = memberships.map(m => {
+          const c = m.classes;
+          return `
+            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg mb-3 hover:bg-gray-50 transition">
+              <div class="flex items-center">
+                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                  <span class="text-lg">📚</span>
+                </div>
+                <div>
+                  <h3 class="font-medium text-gray-800">${c.name}</h3>
+                  <p class="text-sm text-gray-500">${c.description || '暂无描述'}</p>
+                </div>
+              </div>
+              <span class="px-2 py-1 text-xs rounded-full ${c.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">${c.status === 'active' ? '进行中' : '已结束'}</span>
+            </div>
+          `;
+        }).join('');
+      } catch (error) {
+        console.error('加载班级列表失败:', error);
+      }
+    }
+  </script>
+</body>
+</html>

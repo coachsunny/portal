@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>老师首页 - 自牧平施教练班</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <!-- 导航栏由 auth.js 动态渲染 -->
+
+  <!-- 主内容区 -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- 欢迎区 -->
+    <div class="mb-8">
+      <h1 class="text-2xl font-bold text-gray-800" id="welcome-title">老师您好</h1>
+      <p class="text-gray-500 mt-1">欢迎回到教学管理后台</p>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500">班级数量</p>
+            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-classes">-</p>
+          </div>
+          <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+            <span class="text-2xl">📚</span>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500">学员总数</p>
+            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-students">-</p>
+          </div>
+          <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+            <span class="text-2xl">👥</span>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500">学习资源</p>
+            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-resources">-</p>
+          </div>
+          <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+            <span class="text-2xl">📄</span>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500">待回复提问</p>
+            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-questions">-</p>
+          </div>
+          <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+            <span class="text-2xl">💬</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 快捷操作 -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-8">
+      <h2 class="text-lg font-semibold text-gray-800 mb-4">快捷操作</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <a href="#" class="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition">
+          <span class="text-3xl mb-2">➕</span>
+          <span class="text-sm text-gray-700">创建班级</span>
+        </a>
+        <a href="#" class="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition">
+          <span class="text-3xl mb-2">👤</span>
+          <span class="text-sm text-gray-700">添加学员</span>
+        </a>
+        <a href="#" class="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition">
+          <span class="text-3xl mb-2">📤</span>
+          <span class="text-sm text-gray-700">上传资源</span>
+        </a>
+        <a href="#" class="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition">
+          <span class="text-3xl mb-2">📝</span>
+          <span class="text-sm text-gray-700">创建测验</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- 最近动态 -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <h2 class="text-lg font-semibold text-gray-800 mb-4">最近动态</h2>
+      <div class="text-center py-12 text-gray-400">
+        <p class="text-4xl mb-2">📋</p>
+        <p>暂无动态记录</p>
+        <p class="text-sm mt-1">后续开发将显示学员提交、提问等动态</p>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let currentSession = null;
+
+    // 页面初始化
+    window.addEventListener('load', async () => {
+      // 检查老师权限
+      currentSession = await requireTeacher();
+      if (!currentSession) return;
+
+      // 渲染导航栏
+      renderNavbar(currentSession, 'dashboard');
+
+      // 更新欢迎语
+      document.getElementById('welcome-title').textContent = `${currentSession.name} 老师，您好`;
+
+      // 加载统计数据
+      loadStats();
+    });
+
+    // 加载统计数据
+    async function loadStats() {
+      try {
+        // 班级数量
+        const { count: classCount } = await sb
+          .from('classes')
+          .select('*', { count: 'exact', head: true });
+        document.getElementById('stat-classes').textContent = classCount || 0;
+
+        // 学员数量（profiles 中 role=student）
+        const { count: studentCount } = await sb
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('role', 'student');
+        document.getElementById('stat-students').textContent = studentCount || 0;
+
+        // 资源数量
+        const { count: resourceCount } = await sb
+          .from('resources')
+          .select('*', { count: 'exact', head: true });
+        document.getElementById('stat-resources').textContent = resourceCount || 0;
+
+        // 待回复提问数量
+        const { count: questionCount } = await sb
+          .from('questions')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'open');
+        document.getElementById('stat-questions').textContent = questionCount || 0;
+      } catch (error) {
+        console.error('加载统计数据失败:', error);
+      }
+    }
+  </script>
+</body>
+</html>
