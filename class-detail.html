@@ -147,6 +147,19 @@
             </div>
           </div>
           <div><label class="block text-sm font-medium text-gray-700 mb-1">资源标题 *</label><input type="text" id="resource-title" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="给资源起个名字"></div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">资源范围</label>
+          <div class="flex space-x-3">
+            <label class="flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition" id="scope-global-label">
+              <input type="radio" name="resource-scope" value="global" checked class="hidden" onchange="switchScope('global')">
+              <span class="text-center"><span class="text-xl block mb-1">🌐</span><span class="text-sm font-medium">全局共享</span><span class="text-xs text-gray-400 block mt-1">所有班级可用</span></span>
+            </label>
+            <label class="flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition" id="scope-class-label">
+              <input type="radio" name="resource-scope" value="class" class="hidden" onchange="switchScope('class')">
+              <span class="text-center"><span class="text-xl block mb-1">🏫</span><span class="text-sm font-medium">仅本班</span><span class="text-xs text-gray-400 block mt-1">只有本班级可见</span></span>
+            </label>
+          </div>
+        </div>
           <div id="pdf-upload-area">
             <label class="block text-sm font-medium text-gray-700 mb-1">选择 PDF 文件 *</label>
             <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition cursor-pointer" onclick="document.getElementById('pdf-file').click()">
@@ -216,6 +229,19 @@
           </div>
         </div>
         <div><label class="block text-sm font-medium text-gray-700 mb-1">资源标题 *</label><input type="text" id="lib-resource-title" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="给资源起个名字"></div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">资源范围</label>
+          <div class="flex space-x-3">
+            <label class="flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition" id="lib-scope-global-label">
+              <input type="radio" name="lib-resource-scope" value="global" checked class="hidden" onchange="switchLibScope('global')">
+              <span class="text-center"><span class="text-xl block mb-1">🌐</span><span class="text-sm font-medium">全局共享</span><span class="text-xs text-gray-400 block mt-1">所有班级可用</span></span>
+            </label>
+            <label class="flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition" id="lib-scope-class-label">
+              <input type="radio" name="lib-resource-scope" value="class" class="hidden" onchange="switchLibScope('class')">
+              <span class="text-center"><span class="text-xl block mb-1">🏫</span><span class="text-sm font-medium">仅本班</span><span class="text-xs text-gray-400 block mt-1">只有本班级可见</span></span>
+            </label>
+          </div>
+        </div>
         <div id="lib-pdf-upload-area">
           <label class="block text-sm font-medium text-gray-700 mb-1">选择 PDF 文件 *</label>
           <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition cursor-pointer" onclick="document.getElementById('lib-pdf-file').click()">
@@ -451,15 +477,28 @@
 
     function switchResourceType(type) {
       const pl = document.getElementById('type-pdf-label'), vl = document.getElementById('type-video-label'), pa = document.getElementById('pdf-upload-area'), va = document.getElementById('video-link-area');
-      if (type === 'pdf') { pl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition'; vl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition'; pa.classList.remove('hidden'); va.classList.add('hidden'); }
-      else { vl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition'; pl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition'; va.classList.remove('hidden'); pa.classList.add('hidden'); }
+      if (type === 'pdf') { pl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition'; vl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition'; pa.classList.remove('hidden'); va.classList.add('hidden'); switchScope('global'); }
+      else { vl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition'; pl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition'; va.classList.remove('hidden'); pa.classList.add('hidden'); switchScope('class'); }
+    }
+
+    function switchScope(scope) {
+      const gl = document.getElementById('scope-global-label'), cl = document.getElementById('scope-class-label');
+      if (scope === 'global') { gl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition'; cl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition'; document.querySelector('input[name="resource-scope"][value="global"]').checked = true; }
+      else { cl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition'; gl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition'; document.querySelector('input[name="resource-scope"][value="class"]').checked = true; }
+    }
+
+    function switchLibScope(scope) {
+      const gl = document.getElementById('lib-scope-global-label'), cl = document.getElementById('lib-scope-class-label');
+      if (scope === 'global') { gl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition'; cl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition'; document.querySelector('input[name="lib-resource-scope"][value="global"]').checked = true; }
+      else { cl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition'; gl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition'; document.querySelector('input[name="lib-resource-scope"][value="class"]').checked = true; }
     }
 
     function onPdfSelected(e) { const f = e.target.files[0]; if (!f) return; if (f.size > 10*1024*1024) { alert('文件大小不能超过 10MB'); e.target.value = ''; return; } selectedPdfFile = f; document.getElementById('pdf-file-name').textContent = '✅ ' + f.name + ' (' + (f.size/1024).toFixed(1) + ' KB)'; }
 
     async function loadLibrary() {
       try {
-        const { data: resources, error } = await sb.from('resources').select('*').order('created_at', { ascending: false });
+        // 加载全局资源 + 本班专属资源
+        const { data: resources, error } = await sb.from('resources').select('*').or(`class_id.is.null,class_id.eq.${classId}`).order('created_at', { ascending: false });
         if (error) throw error;
         allLibraryResources = resources || [];
         renderLibraryList();
@@ -476,7 +515,7 @@
         <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 cursor-pointer transition ${selectedLibraryIds.has(r.id) ? 'bg-blue-50 border-blue-300' : ''}">
           <input type="checkbox" value="${r.id}" ${selectedLibraryIds.has(r.id) ? 'checked' : ''} onchange="toggleLibraryResource(${r.id}, this.checked)" class="mr-3 w-4 h-4 text-blue-600">
           <span class="text-xl mr-3">${r.type === 'pdf' ? '📄' : '🎬'}</span>
-          <div class="flex-1 min-w-0"><p class="text-sm font-medium text-gray-800 truncate">${escapeHtml(r.title)}</p><p class="text-xs text-gray-400 truncate">${r.description || (r.type === 'pdf' ? 'PDF文档' : '视频 · 提取码: ' + (r.extraction_code || '无'))}</p></div>
+          <div class="flex-1 min-w-0"><p class="text-sm font-medium text-gray-800 truncate">${escapeHtml(r.title)} ${r.class_id ? '<span class="ml-1 text-xs px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded">本班</span>' : '<span class="ml-1 text-xs px-1.5 py-0.5 bg-green-100 text-green-600 rounded">全局</span>'}</p><p class="text-xs text-gray-400 truncate">${r.description || (r.type === 'pdf' ? 'PDF文档' : '视频 · 提取码: ' + (r.extraction_code || '无'))}</p></div>
         </label>`).join('');
     }
 
@@ -517,8 +556,11 @@
             fileUrl = document.getElementById('video-url').value.trim(); code = document.getElementById('video-code').value.trim();
             if (!fileUrl) { alert('请输入网盘链接'); btn.disabled = false; btn.textContent = '保存并添加'; return; }
           }
-          // 先插入全局资源
-          const { data: newRes, error: re } = await sb.from('resources').insert({ type, title, file_url: fileUrl, extraction_code: code, description }).select();
+          // 先插入资源（全局或本班专属）
+          const scope = document.querySelector('input[name="resource-scope"]:checked').value;
+          const resourceData = { type, title, file_url: fileUrl, extraction_code: code, description };
+          if (scope === 'class') resourceData.class_id = parseInt(classId);
+          const { data: newRes, error: re } = await sb.from('resources').insert(resourceData).select();
           if (re) throw re;
           // 再建立章节关联
           const { error: ce } = await sb.from('chapter_resources').insert({ chapter_id: currentChapterId, resource_id: newRes[0].id, sort_order: 0 });
@@ -548,7 +590,8 @@
 
     async function loadManageLibrary() {
       try {
-        const { data: resources, error } = await sb.from('resources').select('*').order('created_at', { ascending: false });
+        // 加载全局资源 + 本班专属资源
+        const { data: resources, error } = await sb.from('resources').select('*').or(`class_id.is.null,class_id.eq.${classId}`).order('created_at', { ascending: false });
         if (error) throw error;
         allLibraryResources = resources || [];
         renderManageLibraryList();
@@ -565,7 +608,7 @@
         <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
           <div class="flex items-center flex-1 min-w-0">
             <span class="text-xl mr-3 flex-shrink-0">${r.type === 'pdf' ? '📄' : '🎬'}</span>
-            <div class="min-w-0"><p class="text-sm font-medium text-gray-800 truncate">${escapeHtml(r.title)}</p><p class="text-xs text-gray-400 truncate">${r.description || (r.type === 'pdf' ? 'PDF文档' : '视频 · 提取码: ' + (r.extraction_code || '无'))}</p></div>
+            <div class="min-w-0"><p class="text-sm font-medium text-gray-800 truncate">${escapeHtml(r.title)} ${r.class_id ? '<span class="ml-1 text-xs px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded">本班</span>' : '<span class="ml-1 text-xs px-1.5 py-0.5 bg-green-100 text-green-600 rounded">全局</span>'}</p><p class="text-xs text-gray-400 truncate">${r.description || (r.type === 'pdf' ? 'PDF文档' : '视频 · 提取码: ' + (r.extraction_code || '无'))}</p></div>
           </div>
           <div class="flex items-center space-x-2 flex-shrink-0 ml-2">
             ${r.type === 'pdf' && r.file_url ? `<a href="${r.file_url}" target="_blank" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">查看</a>` : ''}
@@ -593,8 +636,8 @@
 
     function switchLibResourceType(type) {
       const pl = document.getElementById('lib-type-pdf-label'), vl = document.getElementById('lib-type-video-label'), pa = document.getElementById('lib-pdf-upload-area'), va = document.getElementById('lib-video-link-area');
-      if (type === 'pdf') { pl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition'; vl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition'; pa.classList.remove('hidden'); va.classList.add('hidden'); }
-      else { vl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition'; pl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition'; va.classList.remove('hidden'); pa.classList.add('hidden'); }
+      if (type === 'pdf') { pl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition'; vl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition'; pa.classList.remove('hidden'); va.classList.add('hidden'); switchLibScope('global'); }
+      else { vl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition'; pl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition'; va.classList.remove('hidden'); pa.classList.add('hidden'); switchLibScope('class'); }
     }
 
     function onLibPdfSelected(e) { const f = e.target.files[0]; if (!f) return; if (f.size > 10*1024*1024) { alert('文件大小不能超过 10MB'); e.target.value = ''; return; } libSelectedPdfFile = f; document.getElementById('lib-pdf-file-name').textContent = '✅ ' + f.name + ' (' + (f.size/1024).toFixed(1) + ' KB)'; }
@@ -619,7 +662,10 @@
           fileUrl = document.getElementById('lib-video-url').value.trim(); code = document.getElementById('lib-video-code').value.trim();
           if (!fileUrl) { alert('请输入网盘链接'); btn.disabled = false; btn.textContent = '保存到资源库'; return; }
         }
-        const { error } = await sb.from('resources').insert({ type, title, file_url: fileUrl, extraction_code: code, description });
+        const scope = document.querySelector('input[name="lib-resource-scope"]:checked').value;
+        const resourceData = { type, title, file_url: fileUrl, extraction_code: code, description };
+        if (scope === 'class') resourceData.class_id = parseInt(classId);
+        const { error } = await sb.from('resources').insert(resourceData);
         if (error) throw error;
         closeLibUploadModal(); loadManageLibrary();
       } catch (e) { alert('保存资源失败：' + e.message); }
