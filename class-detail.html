@@ -357,6 +357,34 @@
     </div>
   </div>
 
+  <!-- 评分弹窗 -->
+  <div id="grade-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
+      <div class="p-6 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">学员答题评分</h3>
+        <p class="text-sm text-gray-500 mt-2" id="grade-student-name"></p>
+        <div class="bg-gray-50 rounded-lg p-3 mt-3 text-sm text-gray-700 whitespace-pre-wrap" id="grade-answer"></div>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">评分结果</label>
+          <div class="flex space-x-3">
+            <button onclick="selectGrade('pass')" id="grade-pass-btn" class="flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg text-sm font-medium transition hover:border-green-400">✅ 合格</button>
+            <button onclick="selectGrade('fail')" id="grade-fail-btn" class="flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg text-sm font-medium transition hover:border-red-400">❌ 不合格</button>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">评语（选填）</label>
+          <textarea id="grade-comment" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="输入评语..."></textarea>
+        </div>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeGradeModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="saveGrade()" id="grade-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">保存评分</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/supabase-client.js"></script>
   <script src="js/auth.js"></script>
   <script>
@@ -795,6 +823,8 @@
     // ========== 测验管理 ==========
     let editingQuizId = null;
     let allQuizzes = {};
+    let currentGradingId = null;
+    let currentGradeValue = null;
 
     async function loadQuizzes() {
       try {
@@ -942,7 +972,7 @@
             <div class="flex items-center justify-between mb-2">
               <span class="font-medium text-gray-800">${escapeHtml(s.name)}</span>
               <div class="flex items-center space-x-2">
-                ${sub.score !== null ? `<span class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">${sub.score} 分</span>` : '<span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded">待评分</span>'}
+                ${sub.score !== null ? `<span class="text-xs px-2 py-1 ${sub.score === 1 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} rounded">${sub.score === 1 ? '合格' : '不合格'}</span>` : '<span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded">待评分</span>'}
                 <span class="text-xs text-gray-400">${formatDate(sub.submitted_at)}</span>
               </div>
             </div>
@@ -955,19 +985,60 @@
     }
 
     async function gradeSubmission(id) {
-      const scoreStr = prompt('请输入分数（0-100）：');
-      if (scoreStr === null) return;
-      const score = parseInt(scoreStr);
-      if (isNaN(score) || score < 0 || score > 100) { alert('请输入0-100之间的数字'); return; }
-      const comment = prompt('请输入评语（选填）：') || '';
+      currentGradingId = id;
+      currentGradeValue = null;
+      // 加载已有评分
       try {
-        const { error } = await sb.from('quiz_submissions').update({ score, teacher_comment: comment, graded_at: new Date().toISOString() }).eq('id', id);
+        const { data: sub, error } = await sb.from('quiz_submissions').select('*').eq('id', id).single();
         if (error) throw error;
-        // 刷新当前弹窗
-        const questionText = document.getElementById('submission-question').textContent;
-        const quizId = currentQuizId || (await sb.from('quiz_submissions').select('quiz_id').eq('id', id).single()).data.quiz_id;
-        await loadSubmissions(quizId);
-      } catch (e) { alert('评分失败：' + e.message); }
+        document.getElementById('grade-student-name').textContent = '学员答案';
+        document.getElementById('grade-answer').textContent = sub.answer || '（无内容）';
+        document.getElementById('grade-comment').value = sub.teacher_comment || '';
+        if (sub.score !== null) {
+          selectGrade(sub.score === 1 ? 'pass' : 'fail');
+        } else {
+          // 重置按钮样式
+          document.getElementById('grade-pass-btn').className = 'flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg text-sm font-medium transition hover:border-green-400';
+          document.getElementById('grade-fail-btn').className = 'flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg text-sm font-medium transition hover:border-red-400';
+        }
+        document.getElementById('grade-modal').classList.remove('hidden');
+      } catch (e) { alert('加载答题失败：' + e.message); }
+    }
+
+    function selectGrade(value) {
+      currentGradeValue = value;
+      const passBtn = document.getElementById('grade-pass-btn');
+      const failBtn = document.getElementById('grade-fail-btn');
+      if (value === 'pass') {
+        passBtn.className = 'flex-1 px-4 py-3 border-2 border-green-500 bg-green-50 text-green-700 rounded-lg text-sm font-medium transition';
+        failBtn.className = 'flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg text-sm font-medium transition hover:border-red-400';
+      } else {
+        failBtn.className = 'flex-1 px-4 py-3 border-2 border-red-500 bg-red-50 text-red-700 rounded-lg text-sm font-medium transition';
+        passBtn.className = 'flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg text-sm font-medium transition hover:border-green-400';
+      }
+    }
+
+    function closeGradeModal() {
+      document.getElementById('grade-modal').classList.add('hidden');
+      currentGradingId = null;
+      currentGradeValue = null;
+    }
+
+    async function saveGrade() {
+      if (currentGradeValue === null) { alert('请选择合格或不合格'); return; }
+      const comment = document.getElementById('grade-comment').value.trim();
+      const score = currentGradeValue === 'pass' ? 1 : 0;
+      const btn = document.getElementById('grade-save-btn');
+      btn.disabled = true; btn.textContent = '保存中...';
+      try {
+        const { error } = await sb.from('quiz_submissions').update({ score, teacher_comment: comment, graded_at: new Date().toISOString() }).eq('id', currentGradingId);
+        if (error) throw error;
+        closeGradeModal();
+        // 刷新答题列表
+        const { data: sub } = await sb.from('quiz_submissions').select('quiz_id').eq('id', currentGradingId).single();
+        if (sub) await loadSubmissions(sub.quiz_id);
+      } catch (e) { alert('保存失败：' + e.message); }
+      finally { btn.disabled = false; btn.textContent = '保存评分'; }
     }
 
     // ========== 学员提问管理 ==========
