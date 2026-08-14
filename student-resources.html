@@ -175,11 +175,12 @@
     }
 
     function copyVideoLink(url, code) {
-      const text = code ? `链接：${url}\n提取码：${code}` : url;
-      navigator.clipboard.writeText(text).then(() => {
-        alert('链接和提取码已复制到剪贴板\n\n' + text);
+      // 如果有提取码，自动拼到URL上，粘贴到浏览器可直接打开
+      const copyUrl = code ? `${url}?pwd=${code}` : url;
+      navigator.clipboard.writeText(copyUrl).then(() => {
+        alert('链接已复制到剪贴板\n\n' + copyUrl + (code ? '\n\n提取码：' + code + '（已自动带入网址）' : ''));
       }).catch(() => {
-        alert('复制失败，请手动复制：\n' + url + (code ? '\n提取码：' + code : ''));
+        alert('复制失败，请手动复制：\n' + copyUrl);
       });
     }
 
