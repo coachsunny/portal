@@ -103,8 +103,8 @@ function renderNavbar(session, currentPage) {
   const roleLabel = isTeacher ? '老师' : '学员';
   
   const navItems = isTeacher ? [
-    { id: 'dashboard', label: '首页', href: PAGES.admin },
-    { id: 'classes', label: '班级管理', href: '#' },
+    { id: 'dashboard', label: '首页', href: 'admin-dashboard.html' },
+    { id: 'classes', label: '班级管理', href: 'classes.html' },
     { id: 'resources', label: '资源管理', href: '#' },
     { id: 'quizzes', label: '测验管理', href: '#' },
     { id: 'questions', label: '学员提问', href: '#' }

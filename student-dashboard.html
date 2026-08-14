@@ -153,8 +153,8 @@
                   <span class="text-lg">📚</span>
                 </div>
                 <div>
-                  <h3 class="font-medium text-gray-800">${c.name}</h3>
-                  <p class="text-sm text-gray-500">${c.description || '暂无描述'}</p>
+                  <h3 class="font-medium text-gray-800">${escapeHtml(c.name)}</h3>
+                  <p class="text-sm text-gray-500">${escapeHtml(c.description || '暂无描述')}</p>
                 </div>
               </div>
               <span class="px-2 py-1 text-xs rounded-full ${c.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">${c.status === 'active' ? '进行中' : '已结束'}</span>
@@ -164,6 +164,13 @@
       } catch (error) {
         console.error('加载班级列表失败:', error);
       }
+    }
+
+    // HTML 转义
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
     }
   </script>
 </body>
