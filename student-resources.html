@@ -85,6 +85,7 @@
     let chaptersData = [];
     let resourcesByChapter = {};
     let quizzesByChapter = {};
+    let allQuizzes = {};
     let submissionMap = {};
 
     window.addEventListener('load', async () => {
@@ -195,9 +196,11 @@
         if (qe) throw qe;
 
         quizzesByChapter = {};
+        allQuizzes = {};
         (quizzes || []).forEach(q => {
           if (!quizzesByChapter[q.chapter_id]) quizzesByChapter[q.chapter_id] = [];
           quizzesByChapter[q.chapter_id].push(q);
+          allQuizzes[q.id] = q;
         });
 
         // 加载我的答题记录
@@ -300,7 +303,7 @@
       const answered = !!submission;
       const graded = submission && submission.score !== null;
       return `
-        <div class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition cursor-pointer" onclick="openQuizModal(${q.id}, '${escapeHtml(q.question_text).replace(/'/g, "\\'")}')">
+        <div class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition cursor-pointer" onclick="openQuizModal(${q.id})">
           <div class="flex items-start justify-between">
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium text-gray-800">${escapeHtml(q.question_text)}</p>
@@ -316,9 +319,11 @@
         </div>`;
     }
 
-    function openQuizModal(quizId, questionText) {
+    function openQuizModal(quizId) {
+      const quiz = allQuizzes[quizId];
+      if (!quiz) { alert('题目不存在'); return; }
       currentQuizId = quizId;
-      document.getElementById('quiz-question-text').textContent = questionText;
+      document.getElementById('quiz-question-text').textContent = quiz.question_text;
       document.getElementById('quiz-answer-input').value = '';
       document.getElementById('quiz-result-area').classList.add('hidden');
       document.getElementById('quiz-answer-area').classList.remove('hidden');

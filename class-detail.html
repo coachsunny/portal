@@ -794,6 +794,7 @@
 
     // ========== 测验管理 ==========
     let editingQuizId = null;
+    let allQuizzes = {};
 
     async function loadQuizzes() {
       try {
@@ -811,9 +812,11 @@
 
         // 按章节分组
         const quizzesByChapter = {};
+        allQuizzes = {};
         (quizzes || []).forEach(q => {
           if (!quizzesByChapter[q.chapter_id]) quizzesByChapter[q.chapter_id] = [];
           quizzesByChapter[q.chapter_id].push(q);
+          allQuizzes[q.id] = q;
         });
 
         container.innerHTML = chapters.map((ch, idx) => {
@@ -831,7 +834,7 @@
               `<div class="space-y-3">${qs.map(q => `<div class="flex items-start justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition">
                 <div class="flex-1 min-w-0"><p class="text-sm text-gray-800">${escapeHtml(q.question_text)}</p></div>
                 <div class="flex items-center space-x-2 flex-shrink-0 ml-3">
-                  <button onclick="openSubmissions(${q.id}, '${escapeHtml(q.question_text).replace(/'/g, "\\'")}')" class="px-3 py-1.5 text-sm text-green-600 hover:bg-green-50 rounded-lg transition">👁️ 答题</button>
+                  <button onclick="openSubmissions(${q.id})" class="px-3 py-1.5 text-sm text-green-600 hover:bg-green-50 rounded-lg transition">👁️ 答题</button>
                   <button onclick="editQuiz(${q.id})" class="px-2 py-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition text-sm" title="编辑">✏️</button>
                   <button onclick="deleteQuiz(${q.id})" class="px-2 py-1.5 text-red-500 hover:bg-red-50 rounded-lg transition text-sm" title="删除">🗑️</button>
                 </div>
@@ -901,8 +904,9 @@
     }
 
     // ========== 学员答题查看 ==========
-    async function openSubmissions(quizId, questionText) {
-      document.getElementById('submission-question').textContent = questionText;
+    async function openSubmissions(quizId) {
+      const quiz = allQuizzes[quizId];
+      document.getElementById('submission-question').textContent = quiz ? quiz.question_text : '';
       document.getElementById('submissions-modal').classList.remove('hidden');
       await loadSubmissions(quizId);
     }
