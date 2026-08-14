@@ -33,10 +33,10 @@
     </div>
   </main>
 
-  <!-- 发起提问弹窗 -->
+  <!-- 提问弹窗（新建/编辑共用） -->
   <div id="ask-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
-      <div class="p-6 border-b"><h3 class="text-lg font-semibold text-gray-800">发起提问</h3></div>
+      <div class="p-6 border-b"><h3 class="text-lg font-semibold text-gray-800" id="ask-modal-title">发起提问</h3></div>
       <div class="p-6">
         <label class="block text-sm font-medium text-gray-700 mb-2">问题内容</label>
         <textarea id="ask-content" rows="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="请输入你想问的问题..."></textarea>
@@ -54,6 +54,7 @@
     let currentSession = null;
     let myClasses = [];
     let currentClassId = null;
+    let editingQuestionId = null;
 
     window.addEventListener('load', async () => {
       currentSession = await requireStudent();
@@ -122,7 +123,10 @@
             <div class="p-5">
               <div class="flex items-center justify-between mb-3">
                 <span class="text-xs text-gray-400">${formatDate(q.created_at)}</span>
-                <span class="text-xs px-2 py-1 rounded ${isAnswered ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${isAnswered ? '已回复' : '待回复'}</span>
+                <div class="flex items-center space-x-2">
+                  ${!isAnswered ? `<button onclick="openEditModal(${q.id}, '${escapeHtml(q.content).replace(/'/g, "\\'")}')" class="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 hover:bg-blue-50 rounded transition">✏️ 修改</button>` : ''}
+                  <span class="text-xs px-2 py-1 rounded ${isAnswered ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${isAnswered ? '已回复' : '待回复'}</span>
+                </div>
               </div>
               <div class="bg-gray-50 rounded-lg p-3 mb-3">
                 <p class="text-xs text-gray-500 mb-1">我的提问</p>
@@ -140,12 +144,24 @@
 
     function openAskModal() {
       if (!currentClassId) { alert('请先选择班级'); return; }
+      editingQuestionId = null;
+      document.getElementById('ask-modal-title').textContent = '发起提问';
+      document.getElementById('ask-submit-btn').textContent = '提交提问';
       document.getElementById('ask-content').value = '';
+      document.getElementById('ask-modal').classList.remove('hidden');
+    }
+
+    function openEditModal(id, content) {
+      editingQuestionId = id;
+      document.getElementById('ask-modal-title').textContent = '修改提问';
+      document.getElementById('ask-submit-btn').textContent = '保存修改';
+      document.getElementById('ask-content').value = content;
       document.getElementById('ask-modal').classList.remove('hidden');
     }
 
     function closeAskModal() {
       document.getElementById('ask-modal').classList.add('hidden');
+      editingQuestionId = null;
     }
 
     async function submitQuestion() {
@@ -153,12 +169,20 @@
       if (!content) { alert('请输入问题内容'); return; }
       const btn = document.getElementById('ask-submit-btn'); btn.disabled = true; btn.textContent = '提交中...';
       try {
-        const { error } = await sb.from('questions').insert({ class_id: parseInt(currentClassId), user_id: currentSession.user.id, content });
-        if (error) throw error;
-        alert('提问提交成功！老师回复后会在这里显示。');
+        if (editingQuestionId) {
+          // 编辑模式
+          const { error } = await sb.from('questions').update({ content }).eq('id', editingQuestionId);
+          if (error) throw error;
+          alert('修改成功！');
+        } else {
+          // 新建模式
+          const { error } = await sb.from('questions').insert({ class_id: parseInt(currentClassId), user_id: currentSession.user.id, content });
+          if (error) throw error;
+          alert('提问提交成功！老师回复后会在这里显示。');
+        }
         closeAskModal(); loadQuestions();
       } catch (e) { alert('提交失败：' + e.message); }
-      finally { btn.disabled = false; btn.textContent = '提交提问'; }
+      finally { btn.disabled = false; btn.textContent = editingQuestionId ? '保存修改' : '提交提问'; }
     }
 
     function escapeHtml(text) {

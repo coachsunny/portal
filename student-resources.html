@@ -17,24 +17,39 @@
       </select>
     </div>
 
+    <!-- 标签切换 -->
+    <div class="flex space-x-1 mb-6 bg-white rounded-xl p-1 border border-gray-100 w-fit">
+      <button onclick="switchTab('resources')" id="tab-resources" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-700">📚 学习资源</button>
+      <button onclick="switchTab('quizzes')" id="tab-quizzes" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">📝 我的测验</button>
+    </div>
+
     <!-- 班级信息 -->
     <div id="class-info" class="hidden bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
       <h1 class="text-xl font-bold text-gray-800" id="class-name"></h1>
       <p class="text-gray-500 mt-1" id="class-description"></p>
     </div>
 
-    <!-- 章节与资源列表 -->
-    <div id="chapters-container">
-      <div class="text-center py-12 text-gray-400">
-        <p class="text-4xl mb-3">📚</p>
-        <p>请选择班级查看学习资源</p>
+    <!-- 学习资源面板 -->
+    <div id="panel-resources">
+      <div id="resources-container">
+        <div class="text-center py-12 text-gray-400">
+          <p class="text-4xl mb-3">📚</p>
+          <p>请选择班级查看学习资源</p>
+        </div>
+      </div>
+      <div id="empty-resources" class="hidden text-center py-12 bg-white rounded-xl border border-gray-100">
+        <p class="text-4xl mb-3">📖</p>
+        <p class="text-gray-500">这个班级还没有学习资源</p>
       </div>
     </div>
 
-    <div id="empty-chapters" class="hidden text-center py-12 bg-white rounded-xl border border-gray-100">
-      <p class="text-4xl mb-3">📖</p>
-      <p class="text-gray-500">这个班级还没有章节</p>
-      <p class="text-gray-400 text-sm mt-1">老师还没有添加学习内容</p>
+    <!-- 测验面板 -->
+    <div id="panel-quizzes" class="hidden">
+      <div id="quizzes-container"></div>
+      <div id="empty-quizzes" class="hidden text-center py-12 bg-white rounded-xl border border-gray-100">
+        <p class="text-4xl mb-3">📝</p>
+        <p class="text-gray-500">这个班级还没有测验题目</p>
+      </div>
     </div>
   </main>
 
@@ -65,12 +80,22 @@
     let currentSession = null;
     let myClasses = [];
     let currentClassId = null;
+    let currentTab = 'resources';
     let currentQuizId = null;
+    let chaptersData = [];
+    let resourcesByChapter = {};
+    let quizzesByChapter = {};
+    let submissionMap = {};
 
     window.addEventListener('load', async () => {
       currentSession = await requireStudent();
       if (!currentSession) return;
-      renderNavbar(currentSession, 'resources');
+      // 读取URL参数决定默认标签
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('tab') === 'quizzes') {
+        currentTab = 'quizzes';
+      }
+      renderNavbar(currentSession, currentTab === 'quizzes' ? 'quizzes' : 'resources');
       await loadMyClasses();
     });
 
@@ -89,14 +114,15 @@
         if (myClasses.length === 0) {
           select.innerHTML = '<option value="">您还没有加入任何班级</option>';
           select.disabled = true;
-          document.getElementById('chapters-container').innerHTML = '<div class="text-center py-12 bg-white rounded-xl border border-gray-100"><p class="text-4xl mb-3">👋</p><p class="text-gray-500">您还没有加入任何班级</p><p class="text-gray-400 text-sm mt-1">请联系老师加入班级</p></div>';
+          document.getElementById('resources-container').innerHTML = '<div class="text-center py-12 bg-white rounded-xl border border-gray-100"><p class="text-4xl mb-3">👋</p><p class="text-gray-500">您还没有加入任何班级</p><p class="text-gray-400 text-sm mt-1">请联系老师加入班级</p></div>';
           return;
         }
 
         select.innerHTML = myClasses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
         currentClassId = myClasses[0].id;
         select.value = currentClassId;
-        await loadChapters();
+        await loadAllData();
+        switchTab(currentTab);
       } catch (e) {
         console.error('加载班级失败:', e);
         alert('加载班级失败：' + e.message);
@@ -105,12 +131,30 @@
 
     function onClassChange() {
       currentClassId = document.getElementById('class-select').value;
-      if (currentClassId) loadChapters();
+      if (currentClassId) {
+        loadAllData().then(() => switchTab(currentTab));
+      }
     }
 
-    async function loadChapters() {
-      if (!currentClassId) return;
+    function switchTab(tab) {
+      currentTab = tab;
+      ['resources', 'quizzes'].forEach(t => {
+        const btn = document.getElementById('tab-' + t);
+        const panel = document.getElementById('panel-' + t);
+        if (t === tab) {
+          btn.className = 'px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-700';
+          panel.classList.remove('hidden');
+        } else {
+          btn.className = 'px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50';
+          panel.classList.add('hidden');
+        }
+      });
+      if (tab === 'resources') renderResources();
+      if (tab === 'quizzes') renderQuizzes();
+    }
 
+    async function loadAllData() {
+      if (!currentClassId) return;
       const cls = myClasses.find(c => c.id == currentClassId);
       if (cls) {
         document.getElementById('class-info').classList.remove('hidden');
@@ -119,46 +163,38 @@
       }
 
       try {
+        // 加载章节
         const { data: chapters, error: ce } = await sb
           .from('chapters')
           .select('*')
           .eq('class_id', currentClassId)
           .order('sort_order', { ascending: true });
         if (ce) throw ce;
-
-        const container = document.getElementById('chapters-container');
-        const empty = document.getElementById('empty-chapters');
-
-        if (!chapters || chapters.length === 0) {
-          container.innerHTML = '';
-          empty.classList.remove('hidden');
-          return;
-        }
-        empty.classList.add('hidden');
+        chaptersData = chapters || [];
 
         // 加载资源
         const { data: chapterRes, error: re } = await sb
           .from('chapter_resources')
           .select('chapter_id, sort_order, resources(id, type, title, file_url, extraction_code, description)')
-          .in('chapter_id', chapters.map(c => c.id))
+          .in('chapter_id', chaptersData.map(c => c.id))
           .order('sort_order', { ascending: true });
         if (re) throw re;
 
-        const resByChapter = {};
+        resourcesByChapter = {};
         (chapterRes || []).forEach(cr => {
-          if (!resByChapter[cr.chapter_id]) resByChapter[cr.chapter_id] = [];
-          if (cr.resources) resByChapter[cr.chapter_id].push(cr.resources);
+          if (!resourcesByChapter[cr.chapter_id]) resourcesByChapter[cr.chapter_id] = [];
+          if (cr.resources) resourcesByChapter[cr.chapter_id].push(cr.resources);
         });
 
-        // 加载测验题目
+        // 加载测验
         const { data: quizzes, error: qe } = await sb
           .from('quizzes')
           .select('*')
-          .in('chapter_id', chapters.map(c => c.id))
+          .in('chapter_id', chaptersData.map(c => c.id))
           .order('sort_order', { ascending: true });
         if (qe) throw qe;
 
-        const quizzesByChapter = {};
+        quizzesByChapter = {};
         (quizzes || []).forEach(q => {
           if (!quizzesByChapter[q.chapter_id]) quizzesByChapter[q.chapter_id] = [];
           quizzesByChapter[q.chapter_id].push(q);
@@ -172,33 +208,74 @@
           .in('quiz_id', (quizzes || []).map(q => q.id));
         if (se) throw se;
 
-        const subMap = {};
-        (submissions || []).forEach(s => { subMap[s.quiz_id] = s; });
+        submissionMap = {};
+        (submissions || []).forEach(s => { submissionMap[s.quiz_id] = s; });
 
-        // 渲染
-        container.innerHTML = chapters.map((ch, idx) => {
-          const resources = resByChapter[ch.id] || [];
-          const chapterQuizzes = quizzesByChapter[ch.id] || [];
-          return `
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
-              <div class="p-4 bg-gray-50 border-b">
-                <div class="flex items-center">
-                  <span class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium mr-3">${idx + 1}</span>
-                  <h2 class="text-lg font-semibold text-gray-800">${escapeHtml(ch.title)}</h2>
-                  <span class="ml-3 text-xs text-gray-400">${resources.length} 资源 · ${chapterQuizzes.length} 测验</span>
-                </div>
-              </div>
-              <div class="p-4">
-                ${resources.length > 0 ? `<div class="mb-4"><p class="text-xs font-medium text-gray-500 mb-2">📚 学习资源</p><div class="space-y-3">${resources.map(r => renderResourceCard(r)).join('')}</div></div>` : ''}
-                ${chapterQuizzes.length > 0 ? `<div><p class="text-xs font-medium text-gray-500 mb-2">📝 章节测验</p><div class="space-y-3">${chapterQuizzes.map(q => renderQuizCard(q, subMap[q.id])).join('')}</div></div>` : ''}
-                ${resources.length === 0 && chapterQuizzes.length === 0 ? '<p class="text-sm text-gray-400 text-center py-4">暂无内容</p>' : ''}
-              </div>
-            </div>`;
-        }).join('');
       } catch (e) {
-        console.error('加载章节失败:', e);
-        alert('加载学习资源失败：' + e.message);
+        console.error('加载数据失败:', e);
+        alert('加载数据失败：' + e.message);
       }
+    }
+
+    function renderResources() {
+      const container = document.getElementById('resources-container');
+      const empty = document.getElementById('empty-resources');
+
+      const chaptersWithResources = chaptersData.filter(ch => (resourcesByChapter[ch.id] || []).length > 0);
+
+      if (chaptersWithResources.length === 0) {
+        container.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      container.innerHTML = chaptersWithResources.map((ch, idx) => {
+        const resources = resourcesByChapter[ch.id] || [];
+        return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+          <div class="p-4 bg-gray-50 border-b">
+            <div class="flex items-center">
+              <span class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium mr-3">${idx + 1}</span>
+              <h2 class="text-lg font-semibold text-gray-800">${escapeHtml(ch.title)}</h2>
+              <span class="ml-3 text-xs text-gray-400">${resources.length} 个资源</span>
+            </div>
+          </div>
+          <div class="p-4 space-y-3">
+            ${resources.map(r => renderResourceCard(r)).join('')}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function renderQuizzes() {
+      const container = document.getElementById('quizzes-container');
+      const empty = document.getElementById('empty-quizzes');
+
+      const chaptersWithQuizzes = chaptersData.filter(ch => (quizzesByChapter[ch.id] || []).length > 0);
+
+      if (chaptersWithQuizzes.length === 0) {
+        container.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      container.innerHTML = chaptersWithQuizzes.map((ch, idx) => {
+        const quizzes = quizzesByChapter[ch.id] || [];
+        const answeredCount = quizzes.filter(q => submissionMap[q.id]).length;
+        return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+          <div class="p-4 bg-gray-50 border-b">
+            <div class="flex items-center">
+              <span class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium mr-3">${idx + 1}</span>
+              <h2 class="text-lg font-semibold text-gray-800">${escapeHtml(ch.title)}</h2>
+              <span class="ml-3 text-xs text-gray-400">${answeredCount}/${quizzes.length} 已答</span>
+            </div>
+          </div>
+          <div class="p-4 space-y-3">
+            ${quizzes.map(q => renderQuizCard(q, submissionMap[q.id])).join('')}
+          </div>
+        </div>`;
+      }).join('');
     }
 
     function renderResourceCard(r) {
@@ -249,31 +326,27 @@
       document.getElementById('quiz-submit-btn').textContent = '提交答案';
       document.getElementById('quiz-submit-btn').disabled = false;
 
-      // 检查是否已答过
-      sb.from('quiz_submissions').select('*').eq('quiz_id', quizId).eq('user_id', currentSession.user.id).single().then(({ data: sub, error }) => {
-        if (sub) {
-          document.getElementById('quiz-answer-input').value = sub.answer || '';
-          if (sub.score !== null) {
-            // 已评分，显示结果，不可编辑
-            document.getElementById('quiz-answer-area').classList.add('hidden');
-            document.getElementById('quiz-submit-btn').classList.add('hidden');
-            document.getElementById('quiz-result-area').classList.remove('hidden');
-            document.getElementById('quiz-result-area').innerHTML = `
-              <div class="bg-gray-50 rounded-lg p-4 mb-3">
-                <p class="text-xs font-medium text-gray-500 mb-2">你的答案</p>
-                <p class="text-sm text-gray-700 whitespace-pre-wrap">${escapeHtml(sub.answer || '（无内容）')}</p>
-              </div>
-              <div class="bg-green-50 rounded-lg p-4">
-                <p class="text-sm font-medium text-green-700">得分：${sub.score} 分</p>
-                ${sub.teacher_comment ? `<p class="text-sm text-green-600 mt-2"><span class="font-medium">老师评语：</span>${escapeHtml(sub.teacher_comment)}</p>` : ''}
-              </div>`;
-          } else {
-            // 已提交但未评分，可以修改
-            document.getElementById('quiz-submit-btn').textContent = '更新答案';
-          }
+      const sub = submissionMap[quizId];
+      if (sub) {
+        document.getElementById('quiz-answer-input').value = sub.answer || '';
+        if (sub.score !== null) {
+          document.getElementById('quiz-answer-area').classList.add('hidden');
+          document.getElementById('quiz-submit-btn').classList.add('hidden');
+          document.getElementById('quiz-result-area').classList.remove('hidden');
+          document.getElementById('quiz-result-area').innerHTML = `
+            <div class="bg-gray-50 rounded-lg p-4 mb-3">
+              <p class="text-xs font-medium text-gray-500 mb-2">你的答案</p>
+              <p class="text-sm text-gray-700 whitespace-pre-wrap">${escapeHtml(sub.answer || '（无内容）')}</p>
+            </div>
+            <div class="bg-green-50 rounded-lg p-4">
+              <p class="text-sm font-medium text-green-700">得分：${sub.score} 分</p>
+              ${sub.teacher_comment ? `<p class="text-sm text-green-600 mt-2"><span class="font-medium">老师评语：</span>${escapeHtml(sub.teacher_comment)}</p>` : ''}
+            </div>`;
+        } else {
+          document.getElementById('quiz-submit-btn').textContent = '更新答案';
         }
-        document.getElementById('quiz-modal').classList.remove('hidden');
-      });
+      }
+      document.getElementById('quiz-modal').classList.remove('hidden');
     }
 
     function closeQuizModal() {
@@ -287,9 +360,7 @@
       const btn = document.getElementById('quiz-submit-btn');
       btn.disabled = true; btn.textContent = '提交中...';
       try {
-        // 检查是否已有记录
-        const { data: existing, error: ee } = await sb.from('quiz_submissions').select('id').eq('quiz_id', currentQuizId).eq('user_id', currentSession.user.id).maybeSingle();
-        if (ee) throw ee;
+        const existing = submissionMap[currentQuizId];
         if (existing) {
           const { error } = await sb.from('quiz_submissions').update({ answer, submitted_at: new Date().toISOString() }).eq('id', existing.id);
           if (error) throw error;
@@ -299,12 +370,10 @@
         }
         alert('答案提交成功！');
         closeQuizModal();
-        loadChapters();
-      } catch (e) {
-        alert('提交失败：' + e.message);
-      } finally {
-        btn.disabled = false; btn.textContent = '提交答案';
-      }
+        await loadAllData();
+        renderQuizzes();
+      } catch (e) { alert('提交失败：' + e.message); }
+      finally { btn.disabled = false; btn.textContent = '提交答案'; }
     }
 
     function copyVideoLink(url, code) {
