@@ -187,28 +187,33 @@
           if (cr.resources) resourcesByChapter[cr.chapter_id].push(cr.resources);
         });
 
-        // 加载测验
-        const { data: quizzes, error: qe } = await sb
-          .from('quizzes')
-          .select('*')
+        // 加载测验（通过 chapter_quizzes 关联表）
+        const { data: chapterQuizzes, error: cqe } = await sb
+          .from('chapter_quizzes')
+          .select('*, quizzes(*)')
           .in('chapter_id', chaptersData.map(c => c.id))
           .order('sort_order', { ascending: true });
-        if (qe) throw qe;
+        if (cqe) throw cqe;
 
         quizzesByChapter = {};
         allQuizzes = {};
-        (quizzes || []).forEach(q => {
-          if (!quizzesByChapter[q.chapter_id]) quizzesByChapter[q.chapter_id] = [];
-          quizzesByChapter[q.chapter_id].push(q);
-          allQuizzes[q.id] = q;
+        const quizIds = [];
+        (chapterQuizzes || []).forEach(cq => {
+          if (cq.quizzes) {
+            if (!quizzesByChapter[cq.chapter_id]) quizzesByChapter[cq.chapter_id] = [];
+            quizzesByChapter[cq.chapter_id].push(cq.quizzes);
+            allQuizzes[cq.quizzes.id] = cq.quizzes;
+            quizIds.push(cq.quizzes.id);
+          }
         });
 
-        // 加载我的答题记录
+        // 加载我的答题记录（按班级过滤）
         const { data: submissions, error: se } = await sb
           .from('quiz_submissions')
           .select('*')
           .eq('user_id', currentSession.user.id)
-          .in('quiz_id', (quizzes || []).map(q => q.id));
+          .eq('class_id', currentClassId)
+          .in('quiz_id', quizIds);
         if (se) throw se;
 
         submissionMap = {};
@@ -370,7 +375,7 @@
           const { error } = await sb.from('quiz_submissions').update({ answer, submitted_at: new Date().toISOString() }).eq('id', existing.id);
           if (error) throw error;
         } else {
-          const { error } = await sb.from('quiz_submissions').insert({ quiz_id: currentQuizId, user_id: currentSession.user.id, answer });
+          const { error } = await sb.from('quiz_submissions').insert({ quiz_id: currentQuizId, user_id: currentSession.user.id, class_id: currentClassId, answer });
           if (error) throw error;
         }
         alert('答案提交成功！');
