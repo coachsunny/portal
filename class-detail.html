@@ -8,17 +8,12 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-gray-50 min-h-screen">
-  <!-- 导航栏由 auth.js 动态渲染 -->
-
-  <!-- 主内容区 -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- 返回按钮 -->
     <a href="classes.html" class="inline-flex items-center text-gray-500 hover:text-gray-700 mb-4 text-sm">
       <span class="mr-1">←</span> 返回班级列表
     </a>
 
-    <!-- 班级信息卡片 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
       <div class="flex justify-between items-start">
         <div>
           <h1 class="text-2xl font-bold text-gray-800" id="class-name">加载中...</h1>
@@ -36,44 +31,48 @@
       </div>
     </div>
 
-    <!-- 学员管理区 -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <div class="flex space-x-1 mb-6 bg-white rounded-xl p-1 border border-gray-100 w-fit">
+      <button onclick="switchTab('students')" id="tab-students" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-700">👥 学员管理</button>
+      <button onclick="switchTab('chapters')" id="tab-chapters" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">📚 章节与资源</button>
+    </div>
+
+    <div id="panel-students" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-lg font-semibold text-gray-800">学员列表</h2>
         <button onclick="openAddStudentModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center">
           <span class="mr-2">👤</span> 添加学员
         </button>
       </div>
-
-      <!-- 学员列表 -->
-      <div id="student-list" class="space-y-3">
-        <!-- 动态渲染 -->
-      </div>
-
-      <!-- 空状态 -->
+      <div id="student-list" class="space-y-3"></div>
       <div id="empty-students" class="hidden text-center py-12">
         <p class="text-4xl mb-3">👥</p>
         <p class="text-gray-500">还没有学员</p>
         <p class="text-gray-400 text-sm mt-1">点击右上角「添加学员」把学员加入班级</p>
       </div>
     </div>
+
+    <div id="panel-chapters" class="hidden">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-lg font-semibold text-gray-800">章节列表</h2>
+        <button onclick="openChapterModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center">
+          <span class="mr-2">➕</span> 新建章节
+        </button>
+      </div>
+      <div id="chapter-list" class="space-y-4"></div>
+      <div id="empty-chapters" class="hidden text-center py-12 bg-white rounded-xl border border-gray-100">
+        <p class="text-4xl mb-3">📚</p>
+        <p class="text-gray-500">还没有章节</p>
+        <p class="text-gray-400 text-sm mt-1">点击右上角「新建章节」开始创建课程内容</p>
+      </div>
+    </div>
   </main>
 
-  <!-- 添加学员弹窗 -->
   <div id="add-student-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
-      <div class="p-6 border-b">
-        <h3 class="text-lg font-semibold text-gray-800">添加学员到班级</h3>
-        <p class="text-sm text-gray-400 mt-1">从系统已有学员中选择，勾选后添加</p>
-      </div>
+      <div class="p-6 border-b"><h3 class="text-lg font-semibold text-gray-800">添加学员到班级</h3><p class="text-sm text-gray-400 mt-1">从系统已有学员中选择，勾选后添加</p></div>
       <div class="p-6 overflow-y-auto flex-1">
-        <div id="available-students" class="space-y-2">
-          <!-- 动态渲染可选学员 -->
-        </div>
-        <div id="no-available" class="hidden text-center py-8 text-gray-400">
-          <p>没有可添加的学员</p>
-          <p class="text-sm mt-1">所有学员都已在这个班级中，或系统中还没有学员账号</p>
-        </div>
+        <div id="available-students" class="space-y-2"></div>
+        <div id="no-available" class="hidden text-center py-8 text-gray-400"><p>没有可添加的学员</p><p class="text-sm mt-1">所有学员都已在这个班级中，或系统中还没有学员账号</p></div>
       </div>
       <div class="p-6 border-t flex justify-between items-center">
         <p class="text-sm text-gray-400">没有看到学员？需先在 Supabase 后台创建学员账号</p>
@@ -85,223 +84,254 @@
     </div>
   </div>
 
+  <div id="chapter-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+      <div class="p-6 border-b"><h3 class="text-lg font-semibold text-gray-800" id="chapter-modal-title">新建章节</h3></div>
+      <div class="p-6 space-y-4">
+        <div><label class="block text-sm font-medium text-gray-700 mb-1">章节标题 *</label><input type="text" id="chapter-title" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="例如：第一章 自信建立"></div>
+        <div><label class="block text-sm font-medium text-gray-700 mb-1">排序（数字越小越靠前）</label><input type="number" id="chapter-order" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="1" min="0"></div>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeChapterModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="saveChapter()" id="chapter-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="resource-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+      <div class="p-6 border-b"><h3 class="text-lg font-semibold text-gray-800" id="resource-modal-title">添加资源</h3></div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">资源类型</label>
+          <div class="flex space-x-3">
+            <label class="flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition" id="type-pdf-label">
+              <input type="radio" name="resource-type" value="pdf" checked class="hidden" onchange="switchResourceType('pdf')">
+              <span class="text-center"><span class="text-2xl block mb-1">📄</span><span class="text-sm font-medium">PDF文档</span></span>
+            </label>
+            <label class="flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition" id="type-video-label">
+              <input type="radio" name="resource-type" value="video" class="hidden" onchange="switchResourceType('video')">
+              <span class="text-center"><span class="text-2xl block mb-1">🎬</span><span class="text-sm font-medium">视频(网盘)</span></span>
+            </label>
+          </div>
+        </div>
+        <div><label class="block text-sm font-medium text-gray-700 mb-1">资源标题 *</label><input type="text" id="resource-title" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="给资源起个名字"></div>
+        <div id="pdf-upload-area">
+          <label class="block text-sm font-medium text-gray-700 mb-1">选择 PDF 文件 *</label>
+          <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition cursor-pointer" onclick="document.getElementById('pdf-file').click()">
+            <input type="file" id="pdf-file" accept=".pdf" class="hidden" onchange="onPdfSelected(event)">
+            <p class="text-3xl mb-2">📎</p>
+            <p class="text-sm text-gray-600" id="pdf-file-name">点击选择 PDF 文件</p>
+            <p class="text-xs text-gray-400 mt-1">最大 10MB</p>
+          </div>
+        </div>
+        <div id="video-link-area" class="hidden space-y-3">
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">百度网盘链接 *</label><input type="text" id="video-url" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="https://pan.baidu.com/s/..."></div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">提取码</label><input type="text" id="video-code" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="4位提取码（选填）"></div>
+        </div>
+        <div><label class="block text-sm font-medium text-gray-700 mb-1">排序</label><input type="number" id="resource-order" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="1" min="0"></div>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeResourceModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="saveResource()" id="resource-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">保存</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/supabase-client.js"></script>
   <script src="js/auth.js"></script>
   <script>
-    let currentSession = null;
-    let classId = null;
-    let classInfo = null;
-    let selectedStudents = new Set();
+    let currentSession = null, classId = null, classInfo = null, selectedStudents = new Set();
+    let editingChapterId = null, currentChapterId = null, selectedPdfFile = null, currentTab = 'students';
 
-    // 页面初始化
     window.addEventListener('load', async () => {
       currentSession = await requireTeacher();
       if (!currentSession) return;
       renderNavbar(currentSession, 'classes');
-
-      // 从 URL 获取班级 ID
       const params = new URLSearchParams(window.location.search);
       classId = params.get('id');
-      if (!classId) {
-        alert('缺少班级 ID');
-        window.location.href = 'classes.html';
-        return;
-      }
-
+      if (!classId) { alert('缺少班级 ID'); window.location.href = 'classes.html'; return; }
       await loadClassInfo();
       await loadStudents();
     });
 
-    // 加载班级信息
+    function switchTab(tab) {
+      currentTab = tab;
+      ['students','chapters'].forEach(t => {
+        const btn = document.getElementById('tab-' + t), panel = document.getElementById('panel-' + t);
+        if (t === tab) { btn.className = 'px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-700'; panel.classList.remove('hidden'); }
+        else { btn.className = 'px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50'; panel.classList.add('hidden'); }
+      });
+      if (tab === 'chapters') loadChapters();
+    }
+
     async function loadClassInfo() {
       try {
         const { data: cls, error } = await sb.from('classes').select('*').eq('id', classId).single();
         if (error) throw error;
         classInfo = cls;
-
         document.getElementById('class-name').textContent = cls.name;
         document.getElementById('class-description').textContent = cls.description || '暂无描述';
         document.getElementById('class-date').textContent = cls.start_date ? '📅 ' + cls.start_date : '';
         document.getElementById('class-status').innerHTML = cls.status === 'active'
           ? '<span class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700">进行中</span>'
           : '<span class="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500">已归档</span>';
-      } catch (error) {
-        alert('加载班级信息失败：' + error.message);
-      }
+      } catch (e) { alert('加载班级信息失败：' + e.message); }
     }
 
-    // 加载班级学员
     async function loadStudents() {
       try {
-        const { data: members, error } = await sb
-          .from('class_members')
-          .select('user_id, joined_at, profiles(id, name, role)')
-          .eq('class_id', classId)
-          .order('joined_at', { ascending: true });
-
+        const { data: members, error } = await sb.from('class_members').select('user_id, joined_at, profiles(id, name, role)').eq('class_id', classId).order('joined_at', { ascending: true });
         if (error) throw error;
-
-        const studentList = document.getElementById('student-list');
-        const emptyState = document.getElementById('empty-students');
-
-        if (!members || members.length === 0) {
-          studentList.innerHTML = '';
-          emptyState.classList.remove('hidden');
-          document.getElementById('student-count').textContent = '0';
-          return;
-        }
-
-        emptyState.classList.add('hidden');
+        const list = document.getElementById('student-list'), empty = document.getElementById('empty-students');
+        if (!members || members.length === 0) { list.innerHTML = ''; empty.classList.remove('hidden'); document.getElementById('student-count').textContent = '0'; return; }
+        empty.classList.add('hidden');
         document.getElementById('student-count').textContent = members.length;
-
-        studentList.innerHTML = members.map(m => {
-          const profile = m.profiles;
-          return `
-            <div class="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition">
-              <div class="flex items-center">
-                <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-medium mr-3">
-                  ${profile ? profile.name.charAt(0) : '?'}
-                </div>
-                <div>
-                  <p class="font-medium text-gray-800">${profile ? escapeHtml(profile.name) : '未知用户'}</p>
-                  <p class="text-xs text-gray-400">加入时间：${formatDate(m.joined_at)}</p>
-                </div>
-              </div>
-              <button onclick="removeStudent('${m.user_id}')" class="px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 rounded-lg transition">
-                移除
-              </button>
-            </div>
-          `;
+        list.innerHTML = members.map(m => {
+          const p = m.profiles;
+          return `<div class="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition">
+            <div class="flex items-center"><div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-medium mr-3">${p ? p.name.charAt(0) : '?'}</div>
+            <div><p class="font-medium text-gray-800">${p ? escapeHtml(p.name) : '未知用户'}</p><p class="text-xs text-gray-400">加入时间：${formatDate(m.joined_at)}</p></div></div>
+            <button onclick="removeStudent('${m.user_id}')" class="px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 rounded-lg transition">移除</button></div>`;
         }).join('');
-      } catch (error) {
-        console.error('加载学员失败:', error);
-        alert('加载学员失败：' + error.message);
-      }
+      } catch (e) { console.error('加载学员失败:', e); }
     }
 
-    // 打开添加学员弹窗
     async function openAddStudentModal() {
       selectedStudents.clear();
       document.getElementById('add-btn').disabled = true;
-
       try {
-        // 获取所有学员
-        const { data: allStudents, error } = await sb
-          .from('profiles')
-          .select('id, name, role')
-          .eq('role', 'student')
-          .order('name');
-
+        const { data: all, error } = await sb.from('profiles').select('id, name, role').eq('role', 'student').order('name');
         if (error) throw error;
-
-        // 获取当前班级已有的学员 ID
-        const { data: members } = await sb
-          .from('class_members')
-          .select('user_id')
-          .eq('class_id', classId);
-
-        const memberIds = new Set((members || []).map(m => m.user_id));
-
-        // 过滤出未加入的学员
-        const available = (allStudents || []).filter(s => !memberIds.has(s.id));
-
-        const container = document.getElementById('available-students');
-        const noAvailable = document.getElementById('no-available');
-
-        if (available.length === 0) {
-          container.innerHTML = '';
-          noAvailable.classList.remove('hidden');
-        } else {
-          noAvailable.classList.add('hidden');
-          container.innerHTML = available.map(s => `
-            <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 cursor-pointer transition">
-              <input type="checkbox" value="${s.id}" onchange="toggleStudent('${s.id}', this.checked)" class="mr-3 w-4 h-4 text-blue-600">
-              <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-sm font-medium mr-3">
-                ${s.name.charAt(0)}
-              </div>
-              <span class="text-gray-700">${escapeHtml(s.name)}</span>
-            </label>
-          `).join('');
-        }
-
+        const { data: members } = await sb.from('class_members').select('user_id').eq('class_id', classId);
+        const ids = new Set((members || []).map(m => m.user_id));
+        const available = (all || []).filter(s => !ids.has(s.id));
+        const container = document.getElementById('available-students'), noAvail = document.getElementById('no-available');
+        if (available.length === 0) { container.innerHTML = ''; noAvail.classList.remove('hidden'); }
+        else { noAvail.classList.add('hidden'); container.innerHTML = available.map(s => `
+          <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 cursor-pointer transition">
+            <input type="checkbox" value="${s.id}" onchange="toggleStudent('${s.id}', this.checked)" class="mr-3 w-4 h-4 text-blue-600">
+            <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-sm font-medium mr-3">${s.name.charAt(0)}</div>
+            <span class="text-gray-700">${escapeHtml(s.name)}</span></label>`).join(''); }
         document.getElementById('add-student-modal').classList.remove('hidden');
-      } catch (error) {
-        alert('加载可选学员失败：' + error.message);
-      }
+      } catch (e) { alert('加载可选学员失败：' + e.message); }
     }
 
-    // 关闭添加学员弹窗
-    function closeAddStudentModal() {
-      document.getElementById('add-student-modal').classList.add('hidden');
-      selectedStudents.clear();
-    }
+    function closeAddStudentModal() { document.getElementById('add-student-modal').classList.add('hidden'); selectedStudents.clear(); }
+    function toggleStudent(id, checked) { if (checked) selectedStudents.add(id); else selectedStudents.delete(id); document.getElementById('add-btn').disabled = selectedStudents.size === 0; document.getElementById('add-btn').textContent = selectedStudents.size > 0 ? `添加选中 (${selectedStudents.size})` : '添加选中'; }
 
-    // 勾选/取消学员
-    function toggleStudent(id, checked) {
-      if (checked) {
-        selectedStudents.add(id);
-      } else {
-        selectedStudents.delete(id);
-      }
-      document.getElementById('add-btn').disabled = selectedStudents.size === 0;
-      document.getElementById('add-btn').textContent = selectedStudents.size > 0 ? `添加选中 (${selectedStudents.size})` : '添加选中';
-    }
-
-    // 添加选中的学员
     async function addSelectedStudents() {
       if (selectedStudents.size === 0) return;
-
-      const btn = document.getElementById('add-btn');
-      btn.disabled = true;
-      btn.textContent = '添加中...';
-
+      const btn = document.getElementById('add-btn'); btn.disabled = true; btn.textContent = '添加中...';
       try {
-        const records = Array.from(selectedStudents).map(userId => ({
-          class_id: classId,
-          user_id: userId
-        }));
-
+        const records = Array.from(selectedStudents).map(uid => ({ class_id: classId, user_id: uid }));
         const { error } = await sb.from('class_members').insert(records);
         if (error) throw error;
-
-        closeAddStudentModal();
-        loadStudents();
-      } catch (error) {
-        alert('添加学员失败：' + error.message);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '添加选中';
-      }
+        closeAddStudentModal(); loadStudents();
+      } catch (e) { alert('添加学员失败：' + e.message); }
+      finally { btn.disabled = false; btn.textContent = '添加选中'; }
     }
 
-    // 移除学员
-    async function removeStudent(userId) {
+    async function removeStudent(uid) {
       if (!confirm('确定要将这名学员移出班级吗？')) return;
+      try { const { error } = await sb.from('class_members').delete().eq('class_id', classId).eq('user_id', uid); if (error) throw error; loadStudents(); }
+      catch (e) { alert('移除学员失败：' + e.message); }
+    }
 
+    async function loadChapters() {
       try {
-        const { error } = await sb
-          .from('class_members')
-          .delete()
-          .eq('class_id', classId)
-          .eq('user_id', userId);
+        const { data: chapters, error } = await sb.from('chapters').select('*').eq('class_id', classId).order('sort_order', { ascending: true });
         if (error) throw error;
-        loadStudents();
-      } catch (error) {
-        alert('移除学员失败：' + error.message);
-      }
+        const list = document.getElementById('chapter-list'), empty = document.getElementById('empty-chapters');
+        if (!chapters || chapters.length === 0) { list.innerHTML = ''; empty.classList.remove('hidden'); return; }
+        empty.classList.add('hidden');
+        const { data: resources, error: re } = await sb.from('resources').select('*').in('chapter_id', chapters.map(c => c.id)).order('sort_order', { ascending: true });
+        if (re) throw re;
+        const byCh = {};
+        (resources || []).forEach(r => { if (!byCh[r.chapter_id]) byCh[r.chapter_id] = []; byCh[r.chapter_id].push(r); });
+        list.innerHTML = chapters.map(c => {
+          const rl = byCh[c.id] || [];
+          return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="p-4 flex items-center justify-between bg-gray-50 border-b">
+              <div class="flex items-center"><span class="text-lg mr-3">📖</span><h3 class="font-semibold text-gray-800">${escapeHtml(c.title)}</h3><span class="ml-3 text-xs text-gray-400">${rl.length} 个资源</span></div>
+              <div class="flex items-center space-x-2">
+                <button onclick="openResourceModal(${c.id})" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">➕ 添加资源</button>
+                <button onclick="editChapter(${c.id})" class="px-2 py-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition" title="编辑">✏️</button>
+                <button onclick="deleteChapter(${c.id})" class="px-2 py-1.5 text-red-500 hover:bg-red-50 rounded-lg transition" title="删除">🗑️</button>
+              </div>
+            </div>
+            <div class="p-4">${rl.length === 0 ? '<p class="text-sm text-gray-400 text-center py-4">暂无资源，点击「添加资源」上传</p>' :
+              `<div class="space-y-2">${rl.map(r => `<div class="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition">
+                <div class="flex items-center"><span class="text-xl mr-3">${r.type === 'pdf' ? '📄' : '🎬'}</span>
+                <div><p class="text-sm font-medium text-gray-800">${escapeHtml(r.title)}</p><p class="text-xs text-gray-400">${r.type === 'pdf' ? 'PDF文档' : '视频 · 提取码: ' + (r.extraction_code || '无')}</p></div></div>
+                <div class="flex items-center space-x-2">
+                  ${r.type === 'pdf' && r.file_url ? `<a href="${r.file_url}" target="_blank" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">查看</a>` : ''}
+                  ${r.type === 'video' && r.file_url ? `<button onclick="copyVideoLink('${r.file_url}', '${r.extraction_code || ''}')" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">复制链接</button>` : ''}
+                  <button onclick="deleteResource(${r.id})" class="px-2 py-1.5 text-red-500 hover:bg-red-50 rounded-lg transition text-sm">删除</button>
+                </div></div>`).join('')}</div>`}</div></div>`;
+        }).join('');
+      } catch (e) { console.error('加载章节失败:', e); alert('加载章节失败：' + e.message); }
     }
 
-    // 工具函数
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
+    function openChapterModal() { editingChapterId = null; document.getElementById('chapter-modal-title').textContent = '新建章节'; document.getElementById('chapter-title').value = ''; document.getElementById('chapter-order').value = '1'; document.getElementById('chapter-modal').classList.remove('hidden'); }
+    async function editChapter(id) {
+      try { const { data: ch, error } = await sb.from('chapters').select('*').eq('id', id).single(); if (error) throw error;
+        editingChapterId = id; document.getElementById('chapter-modal-title').textContent = '编辑章节'; document.getElementById('chapter-title').value = ch.title || ''; document.getElementById('chapter-order').value = ch.sort_order || 0; document.getElementById('chapter-modal').classList.remove('hidden'); }
+      catch (e) { alert('加载章节失败：' + e.message); }
+    }
+    function closeChapterModal() { document.getElementById('chapter-modal').classList.add('hidden'); editingChapterId = null; }
+    async function saveChapter() {
+      const title = document.getElementById('chapter-title').value.trim(); const order = parseInt(document.getElementById('chapter-order').value) || 0;
+      if (!title) { alert('请输入章节标题'); return; }
+      const btn = document.getElementById('chapter-save-btn'); btn.disabled = true; btn.textContent = '保存中...';
+      try {
+        if (editingChapterId) { const { error } = await sb.from('chapters').update({ title, sort_order: order }).eq('id', editingChapterId); if (error) throw error; }
+        else { const { error } = await sb.from('chapters').insert({ class_id: classId, title, sort_order: order }); if (error) throw error; }
+        closeChapterModal(); loadChapters();
+      } catch (e) { alert('保存章节失败：' + e.message); }
+      finally { btn.disabled = false; btn.textContent = '保存'; }
+    }
+    async function deleteChapter(id) {
+      if (!confirm('确定要删除这个章节吗？章节下的所有资源也会被删除。')) return;
+      try { await sb.from('resources').delete().eq('chapter_id', id); const { error } = await sb.from('chapters').delete().eq('id', id); if (error) throw error; loadChapters(); }
+      catch (e) { alert('删除章节失败：' + e.message); }
     }
 
-    function formatDate(dateStr) {
-      if (!dateStr) return '-';
-      return new Date(dateStr).toLocaleDateString('zh-CN');
+    function openResourceModal(chId) { currentChapterId = chId; selectedPdfFile = null; document.getElementById('resource-modal-title').textContent = '添加资源'; document.getElementById('resource-title').value = ''; document.getElementById('resource-order').value = '1'; document.getElementById('pdf-file').value = ''; document.getElementById('pdf-file-name').textContent = '点击选择 PDF 文件'; document.getElementById('video-url').value = ''; document.getElementById('video-code').value = ''; switchResourceType('pdf'); document.getElementById('resource-modal').classList.remove('hidden'); }
+    function closeResourceModal() { document.getElementById('resource-modal').classList.add('hidden'); currentChapterId = null; selectedPdfFile = null; }
+    function switchResourceType(type) {
+      const pl = document.getElementById('type-pdf-label'), vl = document.getElementById('type-video-label'), pa = document.getElementById('pdf-upload-area'), va = document.getElementById('video-link-area');
+      if (type === 'pdf') { pl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition'; vl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition'; pa.classList.remove('hidden'); va.classList.add('hidden'); }
+      else { vl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition'; pl.className = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition'; va.classList.remove('hidden'); pa.classList.add('hidden'); }
     }
+    function onPdfSelected(e) { const f = e.target.files[0]; if (!f) return; if (f.size > 10*1024*1024) { alert('文件大小不能超过 10MB'); e.target.value = ''; return; } selectedPdfFile = f; document.getElementById('pdf-file-name').textContent = '✅ ' + f.name + ' (' + (f.size/1024).toFixed(1) + ' KB)'; }
+    async function saveResource() {
+      const title = document.getElementById('resource-title').value.trim(); const type = document.querySelector('input[name="resource-type"]:checked').value; const order = parseInt(document.getElementById('resource-order').value) || 0;
+      if (!title) { alert('请输入资源标题'); return; }
+      const btn = document.getElementById('resource-save-btn'); btn.disabled = true; btn.textContent = '保存中...';
+      try {
+        let fileUrl = '', code = '';
+        if (type === 'pdf') {
+          if (!selectedPdfFile) { alert('请选择 PDF 文件'); btn.disabled = false; btn.textContent = '保存'; return; }
+          const path = `class-${classId}/chapter-${currentChapterId}/${Date.now()}-${selectedPdfFile.name}`;
+          const { data: ud, error: ue } = await sb.storage.from('resources').upload(path, selectedPdfFile);
+          if (ue) throw ue;
+          const { data: urlData } = sb.storage.from('resources').getPublicUrl(path);
+          fileUrl = urlData.publicUrl;
+        } else {
+          fileUrl = document.getElementById('video-url').value.trim(); code = document.getElementById('video-code').value.trim();
+          if (!fileUrl) { alert('请输入网盘链接'); btn.disabled = false; btn.textContent = '保存'; return; }
+        }
+        const { error } = await sb.from('resources').insert({ chapter_id: currentChapterId, type, title, file_url: fileUrl, extraction_code: code, sort_order: order });
+        if (error) throw error;
+        closeResourceModal(); loadChapters();
+      } catch (e) { alert('保存资源失败：' + e.message); }
+      finally { btn.disabled = false; btn.textContent = '保存'; }
+    }
+    async function deleteResource(id) { if (!confirm('确定要删除这个资源吗？')) return; try { const { error } = await sb.from('resources').delete().eq('id', id); if (error) throw error; loadChapters(); } catch (e) { alert('删除资源失败：' + e.message); } }
+    function copyVideoLink(url, code) { const t = code ? `链接：${url}\n提取码：${code}` : url; navigator.clipboard.writeText(t).then(() => alert('链接和提取码已复制到剪贴板')).catch(() => alert('复制失败，请手动复制：' + url + (code ? ' 提取码：' + code : ''))); }
+    function escapeHtml(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
+    function formatDate(s) { if (!s) return '-'; return new Date(s).toLocaleDateString('zh-CN'); }
   </script>
 </body>
 </html>
