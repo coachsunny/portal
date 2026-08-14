@@ -82,13 +82,41 @@
         return;
       }
 
-      // 登录成功，按角色跳转
-      messageEl.textContent = '登录成功，正在跳转...';
+      // 登录成功，获取用户角色并跳转
+      messageEl.textContent = '登录成功，正在加载用户信息...';
       messageEl.className = 'mt-4 text-sm text-center text-green-600';
-      
-      setTimeout(() => {
-        redirectByRole();
-      }, 500);
+
+      try {
+        // 查询用户角色
+        const { data: profile, error: profileError } = await sb
+          .from('profiles')
+          .select('name, role')
+          .eq('id', data.user.id)
+          .single();
+
+        if (profileError || !profile) {
+          throw new Error('未找到用户资料（profiles表中缺少对应记录），请联系管理员');
+        }
+
+        messageEl.textContent = `欢迎 ${profile.name}，正在跳转...`;
+
+        // 按角色跳转
+        setTimeout(() => {
+          if (profile.role === 'teacher') {
+            window.location.href = 'admin-dashboard.html';
+          } else {
+            window.location.href = 'student-dashboard.html';
+          }
+        }, 500);
+      } catch (e) {
+        console.error('登录后加载用户信息失败:', e);
+        messageEl.textContent = '登录异常：' + e.message;
+        messageEl.className = 'mt-4 text-sm text-center text-red-500';
+        btn.disabled = false;
+        btn.textContent = '登录';
+        // 登出，避免卡在已登录但无角色的状态
+        await sb.auth.signOut();
+      }
     }
 
     // 支持回车登录
