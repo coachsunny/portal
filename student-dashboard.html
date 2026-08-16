@@ -602,13 +602,16 @@
           .limit(60);
         if (error) throw error;
 
-        const dateSet = new Set((logs || []).map(l => l.created_at.slice(0, 10)));
+        const dateSet = new Set((logs || []).map(l => {
+          const d = new Date(l.created_at);
+          return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }));
         let streak = 0;
         const today = new Date();
         for (let i = 0; i < 60; i++) {
           const d = new Date(today);
           d.setDate(today.getDate() - i);
-          const dateStr = d.toISOString().slice(0, 10);
+          const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
           if (dateSet.has(dateStr)) {
             streak++;
           } else {

@@ -195,14 +195,17 @@
     }
 
     function calculateStats() {
-      // 连续打卡天数
-      const dateSet = new Set(studyLogs.map(l => l.created_at.slice(0, 10)));
+      // 连续打卡天数（用本地日期）
+      const dateSet = new Set(studyLogs.map(l => {
+        const d = new Date(l.created_at);
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      }));
       let streak = 0;
       const today = new Date();
       for (let i = 0; i < 365; i++) {
         const d = new Date(today);
         d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
         if (dateSet.has(ds)) streak++;
         else if (i > 0) break; // 今天没打卡不算中断
       }
@@ -363,12 +366,13 @@
         panel.innerHTML = '<p class="text-center text-gray-400 py-8">暂无打卡记录</p>';
         return;
       }
-      // 按日期分组
+      // 按日期分组（本地日期）
       const byDate = {};
       studyLogs.forEach(l => {
-        const d = l.created_at.slice(0, 10);
-        if (!byDate[d]) byDate[d] = [];
-        byDate[d].push(l);
+        const d = new Date(l.created_at);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        if (!byDate[dateStr]) byDate[dateStr] = [];
+        byDate[dateStr].push(l);
       });
       const dates = Object.keys(byDate).sort().reverse();
       panel.innerHTML = `<div class="grid grid-cols-7 gap-2 mb-4">

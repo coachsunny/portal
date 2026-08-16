@@ -211,7 +211,8 @@ async function markQuestionsAsRead(userId) {
  * 学习打卡：同一天只记一次，所有学员页面加载时自动调用
  */
 async function checkIn(userId) {
-  const today = new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const lastDate = localStorage.getItem('last_checkin_' + userId);
   if (lastDate === today) return;
   try {
