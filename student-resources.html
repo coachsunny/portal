@@ -83,6 +83,23 @@
     </div>
   </div>
 
+  <!-- 提交确认弹窗 -->
+  <div id="submit-confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+      <div class="p-6 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">确认提交答案？</h3>
+      </div>
+      <div class="p-6">
+        <p class="text-sm text-gray-600">提交后老师将进行批改，确定要提交吗？</p>
+        <p id="submit-confirm-warning" class="hidden text-sm text-amber-600 bg-amber-50 rounded-lg p-3 mt-3">⚠️ 你将覆盖之前已提交的答案。</p>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeSubmitConfirm()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">再看看</button>
+        <button onclick="confirmSubmitQuiz()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">确认提交</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 心得编辑弹窗 -->
   <div id="reflection-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col">
@@ -475,9 +492,23 @@
       currentQuizId = null;
     }
 
-    async function submitQuizAnswer() {
+    function submitQuizAnswer() {
       const answer = document.getElementById('quiz-answer-input').value.trim();
       if (!answer) { alert('请输入答案'); return; }
+      // 显示确认弹窗
+      const existing = submissionMap[currentQuizId];
+      const warning = document.getElementById('submit-confirm-warning');
+      if (existing) { warning.classList.remove('hidden'); } else { warning.classList.add('hidden'); }
+      document.getElementById('submit-confirm-modal').classList.remove('hidden');
+    }
+
+    function closeSubmitConfirm() {
+      document.getElementById('submit-confirm-modal').classList.add('hidden');
+    }
+
+    async function confirmSubmitQuiz() {
+      closeSubmitConfirm();
+      const answer = document.getElementById('quiz-answer-input').value.trim();
       const btn = document.getElementById('quiz-submit-btn');
       btn.disabled = true; btn.textContent = '提交中...';
       try {
