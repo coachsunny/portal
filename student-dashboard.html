@@ -142,6 +142,20 @@
       </div>
     </div>
 
+    <!-- 连续学习打卡 -->
+    <div id="streak-card" class="bg-gradient-to-r from-orange-500 to-red-500 rounded-xl shadow-sm p-5 mb-8 text-white hidden">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center">
+          <span class="text-3xl mr-3">🔥</span>
+          <div>
+            <p class="text-sm opacity-90">连续学习</p>
+            <p class="text-2xl font-bold"><span id="streak-days">0</span> 天</p>
+          </div>
+        </div>
+        <p class="text-sm opacity-90 text-right max-w-[50%]" id="streak-msg">坚持就是胜利，继续加油！</p>
+      </div>
+    </div>
+
     <!-- 我的班级 -->
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-8">
       <div class="flex items-center justify-between mb-4">
@@ -211,6 +225,7 @@
         const myClasses = (memberships || []).map(m => m.classes).filter(c => c);
         document.getElementById('stat-classes').textContent = myClasses.length;
         loadDashboardAnnouncements(myClasses.map(c => c.id));
+        loadStreak(userId);
 
         // 加载我的愿景（取最近更新的一条）
         loadMyVision(userId, myClasses);
@@ -544,6 +559,47 @@
         }).join('');
         card.classList.remove('hidden');
       } catch (e) { console.error('加载公告失败:', e); }
+    }
+
+    // 计算并显示连续学习天数
+    async function loadStreak(userId) {
+      try {
+        const { data: logs, error } = await sb
+          .from('study_logs')
+          .select('created_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(60);
+        if (error) throw error;
+
+        const dateSet = new Set((logs || []).map(l => l.created_at.slice(0, 10)));
+        let streak = 0;
+        const today = new Date();
+        for (let i = 0; i < 60; i++) {
+          const d = new Date(today);
+          d.setDate(today.getDate() - i);
+          const dateStr = d.toISOString().slice(0, 10);
+          if (dateSet.has(dateStr)) {
+            streak++;
+          } else {
+            if (i === 0) continue;
+            break;
+          }
+        }
+
+        if (streak > 0) {
+          document.getElementById('streak-days').textContent = streak;
+          const msg = streak >= 30 ? '太厉害了，已经坚持一个月！' :
+                      streak >= 14 ? '两周达成，习惯正在养成！' :
+                      streak >= 7 ? '一周了，继续保持！' :
+                      streak >= 3 ? '好的开始，再接再厉！' :
+                      '坚持就是胜利，继续加油！';
+          document.getElementById('streak-msg').textContent = msg;
+          document.getElementById('streak-card').classList.remove('hidden');
+        }
+      } catch (e) {
+        console.error('加载连续天数失败:', e);
+      }
     }
 
     function escapeHtml(text) {
