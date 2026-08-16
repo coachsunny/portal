@@ -304,6 +304,9 @@
         reflectionsByChapter = {};
         (reflections || []).forEach(r => { reflectionsByChapter[r.chapter_id] = r; });
 
+        // 加载资源已读记录
+        await loadServerReads();
+
       } catch (e) {
         console.error('加载数据失败:', e);
         alert('加载数据失败：' + e.message);
@@ -451,17 +454,21 @@
         </div>`;
     }
 
-    // 资源已读标记（localStorage）
+    // 资源已读标记（localStorage + 数据库）
+    let serverReadIds = new Set(); // 从数据库加载的已读记录
+
     function getReadKey() {
       return 'read_resources_' + (currentSession ? currentSession.user.id : 'unknown');
     }
     function isResourceRead(resourceId) {
+      // 同时检查 localStorage 和数据库记录
+      if (serverReadIds.has(resourceId)) return true;
       try {
         const read = JSON.parse(localStorage.getItem(getReadKey()) || '[]');
         return read.includes(resourceId);
       } catch (e) { return false; }
     }
-    function markResourceRead(resourceId) {
+    async function markResourceRead(resourceId) {
       try {
         const read = JSON.parse(localStorage.getItem(getReadKey()) || '[]');
         if (!read.includes(resourceId)) {
@@ -469,6 +476,16 @@
           localStorage.setItem(getReadKey(), JSON.stringify(read));
         }
       } catch (e) {}
+      // 写入数据库
+      try {
+        await sb.from('resource_reads').upsert({
+          user_id: currentSession.user.id,
+          resource_id: resourceId,
+          class_id: currentClassId,
+          read_at: new Date().toISOString()
+        }, { onConflict: 'user_id,resource_id' });
+        serverReadIds.add(resourceId);
+      } catch (e) { console.error('记录已读失败:', e); }
       // 立即更新当前卡片样式
       const card = document.querySelector(`[data-resource-id="${resourceId}"]`);
       if (card) {
@@ -483,6 +500,20 @@
           titleWrap.appendChild(tag);
         }
       }
+    }
+
+    // 从数据库加载已读记录
+    async function loadServerReads() {
+      if (!currentSession || !currentClassId) return;
+      try {
+        const { data, error } = await sb
+          .from('resource_reads')
+          .select('resource_id')
+          .eq('user_id', currentSession.user.id)
+          .eq('class_id', currentClassId);
+        if (error) throw error;
+        serverReadIds = new Set((data || []).map(r => r.resource_id));
+      } catch (e) { console.error('加载已读记录失败:', e); }
     }
 
     function renderQuizCard(q, submission) {

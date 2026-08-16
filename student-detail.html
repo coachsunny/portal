@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学员学习详情 - 自牧平施教练班</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div id="navbar-container"></div>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- 返回链接 -->
+    <a href="#" id="back-link" class="inline-flex items-center text-gray-500 hover:text-gray-700 mb-4 text-sm">
+      <span class="mr-1">←</span> 返回班级详情
+    </a>
+
+    <!-- 学员基本信息 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+      <div class="flex items-center gap-4">
+        <div class="w-16 h-16 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-2xl font-bold" id="student-avatar">?</div>
+        <div class="flex-1">
+          <h1 class="text-2xl font-bold text-gray-800" id="student-name">加载中...</h1>
+          <p class="text-gray-500 mt-1" id="student-email"></p>
+          <p class="text-sm text-gray-400 mt-1" id="student-class"></p>
+        </div>
+        <div class="text-right">
+          <p class="text-sm text-gray-400">加入时间</p>
+          <p class="text-gray-600 font-medium" id="join-date">-</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
+        <p class="text-3xl font-bold text-orange-500" id="streak-days">0</p>
+        <p class="text-xs text-gray-500 mt-1">连续打卡</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
+        <p class="text-3xl font-bold text-blue-500" id="total-checkins">0</p>
+        <p class="text-xs text-gray-500 mt-1">累计打卡</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
+        <p class="text-3xl font-bold text-green-500" id="quiz-rate">0%</p>
+        <p class="text-xs text-gray-500 mt-1">测验完成率</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
+        <p class="text-3xl font-bold text-purple-500" id="resource-rate">0%</p>
+        <p class="text-xs text-gray-500 mt-1">资源阅读率</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
+        <p class="text-3xl font-bold text-pink-500" id="reflection-count">0</p>
+        <p class="text-xs text-gray-500 mt-1">心得撰写</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
+        <p class="text-3xl font-bold text-amber-500" id="question-count">0</p>
+        <p class="text-xs text-gray-500 mt-1">提问次数</p>
+      </div>
+    </div>
+
+    <!-- 详细数据标签页 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="flex border-b border-gray-100">
+        <button onclick="switchDetailTab('quizzes')" id="dtab-quizzes" class="px-6 py-3 text-sm font-medium text-blue-600 border-b-2 border-blue-600">测验记录</button>
+        <button onclick="switchDetailTab('resources')" id="dtab-resources" class="px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-700">资源阅读</button>
+        <button onclick="switchDetailTab('reflections')" id="dtab-reflections" class="px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-700">学习心得</button>
+        <button onclick="switchDetailTab('questions')" id="dtab-questions" class="px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-700">提问记录</button>
+        <button onclick="switchDetailTab('checkins')" id="dtab-checkins" class="px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-700">打卡记录</button>
+      </div>
+
+      <div id="dpanel-quizzes" class="p-6"></div>
+      <div id="dpanel-resources" class="p-6 hidden"></div>
+      <div id="dpanel-reflections" class="p-6 hidden"></div>
+      <div id="dpanel-questions" class="p-6 hidden"></div>
+      <div id="dpanel-checkins" class="p-6 hidden"></div>
+    </div>
+  </main>
+
+  <script src="js/supabase-config.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let currentSession = null;
+    let studentId = null;
+    let classId = null;
+    let classData = null;
+    let chaptersData = [];
+    let quizzesByChapter = {};
+    let resourcesByChapter = {};
+    let submissions = [];
+    let resourceReads = [];
+    let reflections = [];
+    let questions = [];
+    let studyLogs = [];
+
+    // 初始化
+    (async function init() {
+      currentSession = await requireTeacher();
+      if (!currentSession) return;
+      renderNavbar(currentSession, 'classes');
+
+      // 从URL获取参数
+      const params = new URLSearchParams(window.location.search);
+      studentId = params.get('user_id');
+      classId = params.get('class_id');
+
+      if (!studentId || !classId) {
+        alert('缺少参数');
+        window.location.href = 'classes.html';
+        return;
+      }
+
+      document.getElementById('back-link').href = 'class-detail.html?id=' + classId;
+
+      await loadAllData();
+    })();
+
+    async function loadAllData() {
+      try {
+        // 加载班级信息
+        const { data: cls, error: ce } = await sb.from('classes').select('*').eq('id', classId).single();
+        if (ce) throw ce;
+        classData = cls;
+        document.getElementById('student-class').textContent = '班级：' + cls.name;
+
+        // 加载学员信息
+        const { data: profile, error: pe } = await sb.from('profiles').select('*').eq('id', studentId).single();
+        if (pe) throw pe;
+        document.getElementById('student-name').textContent = profile.name || '未命名';
+        document.getElementById('student-email').textContent = profile.email || '';
+        document.getElementById('student-avatar').textContent = (profile.name || '?').charAt(0).toUpperCase();
+        document.getElementById('join-date').textContent = profile.created_at ? new Date(profile.created_at).toLocaleDateString('zh-CN') : '-';
+
+        // 加载章节
+        const { data: chapters, error: che } = await sb.from('chapters').select('*').eq('class_id', classId).order('sort_order', { ascending: true });
+        if (che) throw che;
+        chaptersData = chapters || [];
+        const chapterIds = chaptersData.map(c => c.id);
+
+        // 并行加载各项数据
+        const [quizRes, resRes, subRes, readRes, refRes, qRes, logRes] = await Promise.all([
+          // 章节测验关联
+          chapterIds.length ? sb.from('chapter_quizzes').select('*, quizzes(*)').in('chapter_id', chapterIds) : { data: [] },
+          // 章节资源关联
+          chapterIds.length ? sb.from('chapter_resources').select('chapter_id, sort_order, resources(id, type, title, description)').in('chapter_id', chapterIds) : { data: [] },
+          // 学员答题记录
+          sb.from('quiz_submissions').select('*').eq('user_id', studentId).eq('class_id', classId),
+          // 学员资源阅读记录
+          sb.from('resource_reads').select('*').eq('user_id', studentId).eq('class_id', classId),
+          // 学员心得
+          sb.from('chapter_reflections').select('*').eq('user_id', studentId).eq('class_id', classId),
+          // 学员提问
+          sb.from('questions').select('*').eq('user_id', studentId).eq('class_id', classId).order('created_at', { ascending: false }),
+          // 学习打卡
+          sb.from('study_logs').select('*').eq('user_id', studentId).eq('class_id', classId).order('created_at', { ascending: false })
+        ]);
+
+        // 处理测验
+        quizzesByChapter = {};
+        (quizRes.data || []).forEach(cq => {
+          if (cq.quizzes) {
+            if (!quizzesByChapter[cq.chapter_id]) quizzesByChapter[cq.chapter_id] = [];
+            quizzesByChapter[cq.chapter_id].push(cq.quizzes);
+          }
+        });
+
+        // 处理资源
+        resourcesByChapter = {};
+        (resRes.data || []).forEach(cr => {
+          if (!resourcesByChapter[cr.chapter_id]) resourcesByChapter[cr.chapter_id] = [];
+          if (cr.resources) resourcesByChapter[cr.chapter_id].push(cr.resources);
+        });
+
+        submissions = subRes.data || [];
+        resourceReads = readRes.data || [];
+        reflections = refRes.data || [];
+        questions = qRes.data || [];
+        studyLogs = logRes.data || [];
+
+        // 计算统计
+        calculateStats();
+
+        // 渲染各标签页
+        renderQuizzes();
+        renderResources();
+        renderReflections();
+        renderQuestions();
+        renderCheckins();
+
+      } catch (e) {
+        console.error('加载数据失败:', e);
+        alert('加载数据失败：' + e.message);
+      }
+    }
+
+    function calculateStats() {
+      // 连续打卡天数
+      const dateSet = new Set(studyLogs.map(l => l.created_at.slice(0, 10)));
+      let streak = 0;
+      const today = new Date();
+      for (let i = 0; i < 365; i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        if (dateSet.has(ds)) streak++;
+        else if (i > 0) break; // 今天没打卡不算中断
+      }
+      document.getElementById('streak-days').textContent = streak;
+      document.getElementById('total-checkins').textContent = dateSet.size;
+
+      // 测验完成率
+      const allQuizIds = new Set();
+      Object.values(quizzesByChapter).forEach(arr => arr.forEach(q => allQuizIds.add(q.id)));
+      const submittedIds = new Set(submissions.map(s => s.quiz_id));
+      const quizRate = allQuizIds.size ? Math.round(submittedIds.size / allQuizIds.size * 100) : 0;
+      document.getElementById('quiz-rate').textContent = quizRate + '%';
+
+      // 资源阅读率
+      const allResIds = new Set();
+      Object.values(resourcesByChapter).forEach(arr => arr.forEach(r => allResIds.add(r.id)));
+      const readIds = new Set(resourceReads.map(r => r.resource_id));
+      const resRate = allResIds.size ? Math.round(readIds.size / allResIds.size * 100) : 0;
+      document.getElementById('resource-rate').textContent = resRate + '%';
+
+      // 心得数
+      document.getElementById('reflection-count').textContent = reflections.length;
+
+      // 提问数
+      document.getElementById('question-count').textContent = questions.length;
+    }
+
+    function switchDetailTab(tab) {
+      ['quizzes', 'resources', 'reflections', 'questions', 'checkins'].forEach(t => {
+        const btn = document.getElementById('dtab-' + t);
+        const panel = document.getElementById('dpanel-' + t);
+        if (t === tab) {
+          btn.className = 'px-6 py-3 text-sm font-medium text-blue-600 border-b-2 border-blue-600';
+          panel.classList.remove('hidden');
+        } else {
+          btn.className = 'px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-700';
+          panel.classList.add('hidden');
+        }
+      });
+    }
+
+    function renderQuizzes() {
+      const panel = document.getElementById('dpanel-quizzes');
+      const subMap = {};
+      submissions.forEach(s => { subMap[s.quiz_id] = s; });
+
+      let html = '';
+      let hasContent = false;
+      chaptersData.forEach(ch => {
+        const quizzes = quizzesByChapter[ch.id] || [];
+        if (quizzes.length === 0) return;
+        hasContent = true;
+        html += `<div class="mb-6">
+          <h3 class="text-sm font-semibold text-gray-700 mb-3">${escapeHtml(ch.title)}</h3>
+          <div class="space-y-2">`;
+        quizzes.forEach(q => {
+          const sub = subMap[q.id];
+          const status = sub ? (sub.score === 1 ? '<span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded">合格</span>' : sub.score === 0 ? '<span class="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded">不合格</span>' : '<span class="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded">待评分</span>') : '<span class="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded">未作答</span>';
+          const date = sub ? new Date(sub.submitted_at).toLocaleDateString('zh-CN') : '-';
+          html += `<div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <span class="text-sm text-gray-700">${escapeHtml(q.question_text || '测验题 #' + q.id)}</span>
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-gray-400">${date}</span>
+              ${status}
+            </div>
+          </div>`;
+        });
+        html += '</div></div>';
+      });
+
+      if (!hasContent) {
+        html = '<p class="text-center text-gray-400 py-8">暂无测验</p>';
+      }
+      panel.innerHTML = html;
+    }
+
+    function renderResources() {
+      const panel = document.getElementById('dpanel-resources');
+      const readMap = {};
+      resourceReads.forEach(r => { readMap[r.resource_id] = r; });
+
+      let html = '';
+      let hasContent = false;
+      chaptersData.forEach(ch => {
+        const resources = resourcesByChapter[ch.id] || [];
+        if (resources.length === 0) return;
+        hasContent = true;
+        html += `<div class="mb-6">
+          <h3 class="text-sm font-semibold text-gray-700 mb-3">${escapeHtml(ch.title)}</h3>
+          <div class="space-y-2">`;
+        resources.forEach(r => {
+          const read = readMap[r.id];
+          const icon = r.type === 'pdf' ? '📄' : '🎥';
+          const status = read ? '<span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded">已读</span>' : '<span class="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded">未读</span>';
+          const date = read ? new Date(read.read_at).toLocaleDateString('zh-CN') : '-';
+          html += `<div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div class="flex items-center gap-2">
+              <span>${icon}</span>
+              <span class="text-sm text-gray-700">${escapeHtml(r.title)}</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-gray-400">${date}</span>
+              ${status}
+            </div>
+          </div>`;
+        });
+        html += '</div></div>';
+      });
+
+      if (!hasContent) {
+        html = '<p class="text-center text-gray-400 py-8">暂无学习资源</p>';
+      }
+      panel.innerHTML = html;
+    }
+
+    function renderReflections() {
+      const panel = document.getElementById('dpanel-reflections');
+      if (reflections.length === 0) {
+        panel.innerHTML = '<p class="text-center text-gray-400 py-8">暂无学习心得</p>';
+        return;
+      }
+      const chMap = {};
+      chaptersData.forEach(c => { chMap[c.id] = c; });
+      panel.innerHTML = reflections.map(r => {
+        const ch = chMap[r.chapter_id];
+        return `<div class="mb-4 p-4 bg-gray-50 rounded-lg">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-sm font-medium text-gray-700">${ch ? escapeHtml(ch.title) : '未知章节'}</span>
+            <span class="text-xs text-gray-400">${new Date(r.created_at).toLocaleDateString('zh-CN')}</span>
+          </div>
+          <p class="text-sm text-gray-600 whitespace-pre-wrap">${escapeHtml(r.content || '')}</p>
+        </div>`;
+      }).join('');
+    }
+
+    function renderQuestions() {
+      const panel = document.getElementById('dpanel-questions');
+      if (questions.length === 0) {
+        panel.innerHTML = '<p class="text-center text-gray-400 py-8">暂无提问记录</p>';
+        return;
+      }
+      panel.innerHTML = questions.map(q => {
+        const status = q.answer ? '<span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded">已回复</span>' : '<span class="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded">待回复</span>';
+        return `<div class="mb-4 p-4 bg-gray-50 rounded-lg">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-xs text-gray-400">${new Date(q.created_at).toLocaleDateString('zh-CN')}</span>
+            ${status}
+          </div>
+          <p class="text-sm text-gray-700 mb-2"><strong>提问：</strong>${escapeHtml(q.question || '')}</p>
+          ${q.answer ? `<p class="text-sm text-gray-600"><strong>回复：</strong>${escapeHtml(q.answer)}</p>` : ''}
+        </div>`;
+      }).join('');
+    }
+
+    function renderCheckins() {
+      const panel = document.getElementById('dpanel-checkins');
+      if (studyLogs.length === 0) {
+        panel.innerHTML = '<p class="text-center text-gray-400 py-8">暂无打卡记录</p>';
+        return;
+      }
+      // 按日期分组
+      const byDate = {};
+      studyLogs.forEach(l => {
+        const d = l.created_at.slice(0, 10);
+        if (!byDate[d]) byDate[d] = [];
+        byDate[d].push(l);
+      });
+      const dates = Object.keys(byDate).sort().reverse();
+      panel.innerHTML = `<div class="grid grid-cols-7 gap-2 mb-4">
+        ${dates.slice(0, 35).map(d => {
+          const count = byDate[d].length;
+          const intensity = Math.min(count, 3);
+          const colors = ['bg-gray-100', 'bg-green-200', 'bg-green-400', 'bg-green-600'];
+          return `<div class="aspect-square ${colors[intensity]} rounded flex items-center justify-center text-xs text-gray-600" title="${d}: ${count}次">
+            ${new Date(d).getDate()}
+          </div>`;
+        }).join('')}
+      </div>
+      <p class="text-xs text-gray-400 text-center">最近35天打卡热力图，颜色越深表示当天打卡次数越多</p>
+      <div class="mt-6 space-y-1 max-h-64 overflow-y-auto">
+        ${dates.map(d => `<div class="flex justify-between text-sm py-1 border-b border-gray-50">
+          <span class="text-gray-600">${d}</span>
+          <span class="text-gray-400">${byDate[d].length} 次</span>
+        </div>`).join('')}
+      </div>`;
+    }
+
+    function escapeHtml(s) {
+      if (!s) return '';
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
