@@ -36,6 +36,7 @@
       <button onclick="switchTab('chapters')" id="tab-chapters" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">📚 章节与资源</button>
       <button onclick="switchTab('quizzes')" id="tab-quizzes" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">📝 测验管理</button>
       <button onclick="switchTab('questions')" id="tab-questions" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">💬 学员提问</button>
+      <button onclick="switchTab('announcements')" id="tab-announcements" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">📢 班级公告</button>
       <button onclick="switchTab('growth')" id="tab-growth" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">🌱 成长档案</button>
     </div>
 
@@ -120,6 +121,22 @@
       <div id="empty-growth" class="hidden text-center py-12 bg-white rounded-xl border border-gray-100">
         <p class="text-4xl mb-3">🌱</p>
         <p class="text-gray-500">班级还没有学员</p>
+      </div>
+    </div>
+
+    <!-- 班级公告面板 -->
+    <div id="panel-announcements" class="hidden">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-800">班级公告</h2>
+          <p class="text-sm text-gray-500 mt-1">发布通知、作业提醒等重要信息，到期自动隐藏</p>
+        </div>
+        <button onclick="openAnnouncementModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition">+ 发布公告</button>
+      </div>
+      <div id="announcements-list" class="space-y-3"></div>
+      <div id="empty-announcements" class="hidden text-center py-12 bg-white rounded-xl border border-gray-100">
+        <p class="text-4xl mb-3">📢</p>
+        <p class="text-gray-500">还没有发布公告</p>
       </div>
     </div>
   </main>
@@ -460,6 +477,45 @@
     </div>
   </div>
 
+  <!-- 公告编辑弹窗 -->
+  <div id="announcement-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
+      <div class="p-6 border-b">
+        <h3 class="text-lg font-semibold text-gray-800" id="announcement-modal-title">发布公告</h3>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">公告标题 <span class="text-red-500">*</span></label>
+          <input type="text" id="announcement-title" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="例如：本周作业通知">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">公告内容 <span class="text-red-500">*</span></label>
+          <textarea id="announcement-content" rows="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="输入公告详细内容..."></textarea>
+        </div>
+        <div class="flex items-center justify-between">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">有效期</label>
+            <select id="announcement-expiry" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              <option value="7">7天</option>
+              <option value="10" selected>10天</option>
+              <option value="14">14天</option>
+              <option value="30">30天</option>
+              <option value="0">永久有效</option>
+            </select>
+          </div>
+          <div class="flex items-center mt-6">
+            <input type="checkbox" id="announcement-pinned" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
+            <label for="announcement-pinned" class="ml-2 text-sm text-gray-700">置顶显示</label>
+          </div>
+        </div>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeAnnouncementModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="saveAnnouncement()" id="announcement-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">发布</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 评分弹窗 -->
   <div id="grade-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
@@ -517,7 +573,7 @@
 
     function switchTab(tab) {
       currentTab = tab;
-      ['students','chapters','quizzes','questions','growth'].forEach(t => {
+      ['students','chapters','quizzes','questions','announcements','growth'].forEach(t => {
         const btn = document.getElementById('tab-' + t), panel = document.getElementById('panel-' + t);
         if (t === tab) { btn.className = 'px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-700'; panel.classList.remove('hidden'); }
         else { btn.className = 'px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50'; panel.classList.add('hidden'); }
@@ -525,6 +581,7 @@
       if (tab === 'chapters') loadChapters();
       if (tab === 'quizzes') loadQuizzes();
       if (tab === 'questions') loadQuestions();
+      if (tab === 'announcements') loadAnnouncements();
       if (tab === 'growth') loadGrowthProfiles();
     }
 
@@ -1603,6 +1660,143 @@
           </div>`;
         }).join('');
       } catch (e) { console.error('加载成长档案失败:', e); alert('加载成长档案失败：' + e.message); }
+    }
+
+    // ========== 班级公告管理 ==========
+    let editingAnnouncementId = null;
+
+    async function loadAnnouncements() {
+      try {
+        const { data, error } = await sb
+          .from('announcements')
+          .select('*')
+          .eq('class_id', classId)
+          .order('is_pinned', { ascending: false })
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+
+        const list = document.getElementById('announcements-list');
+        const empty = document.getElementById('empty-announcements');
+
+        if (!data || data.length === 0) {
+          list.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+        empty.classList.add('hidden');
+
+        const now = new Date();
+        list.innerHTML = data.map(a => {
+          const isExpired = a.expires_at && new Date(a.expires_at) < now;
+          return `<div class="bg-white rounded-xl shadow-sm border ${isExpired ? 'border-gray-200 opacity-60' : 'border-gray-100'} p-5">
+            <div class="flex items-start justify-between">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  ${a.is_pinned ? '<span class="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full">📌 置顶</span>' : ''}
+                  ${isExpired ? '<span class="px-2 py-0.5 text-xs bg-gray-100 text-gray-500 rounded-full">已过期</span>' : ''}
+                  <h3 class="font-semibold text-gray-800">${escapeHtml(a.title)}</h3>
+                </div>
+                <p class="text-sm text-gray-600 whitespace-pre-wrap mt-2">${escapeHtml(a.content)}</p>
+                <p class="text-xs text-gray-400 mt-3">发布于 ${formatDate(a.created_at)}${a.expires_at ? ' · 有效期至 ' + formatDate(a.expires_at) : ' · 永久有效'}</p>
+              </div>
+              <div class="flex items-center gap-1 ml-4 flex-shrink-0">
+                <button onclick="toggleAnnouncementPin('${a.id}', ${!a.is_pinned})" class="p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition" title="${a.is_pinned ? '取消置顶' : '置顶'}">${a.is_pinned ? '📌' : '📍'}</button>
+                <button onclick="openAnnouncementModal('${a.id}')" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="编辑">✏️</button>
+                <button onclick="deleteAnnouncement('${a.id}')" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="删除">🗑️</button>
+              </div>
+            </div>
+          </div>`;
+        }).join('');
+      } catch (e) { console.error('加载公告失败:', e); alert('加载公告失败：' + e.message); }
+    }
+
+    function openAnnouncementModal(id) {
+      editingAnnouncementId = id || null;
+      document.getElementById('announcement-modal-title').textContent = id ? '编辑公告' : '发布公告';
+      document.getElementById('announcement-save-btn').textContent = id ? '保存修改' : '发布';
+
+      if (id) {
+        // 编辑模式：加载现有数据
+        sb.from('announcements').select('*').eq('id', id).single().then(({ data, error }) => {
+          if (error) { alert('加载公告失败：' + error.message); return; }
+          document.getElementById('announcement-title').value = data.title;
+          document.getElementById('announcement-content').value = data.content;
+          document.getElementById('announcement-pinned').checked = data.is_pinned;
+          // 设置有效期下拉
+          const expirySelect = document.getElementById('announcement-expiry');
+          if (!data.expires_at) { expirySelect.value = '0'; }
+          else {
+            const days = Math.round((new Date(data.expires_at) - new Date(data.created_at)) / (1000 * 60 * 60 * 24));
+            expirySelect.value = ['7','10','14','30'].includes(String(days)) ? days : '10';
+          }
+        });
+      } else {
+        document.getElementById('announcement-title').value = '';
+        document.getElementById('announcement-content').value = '';
+        document.getElementById('announcement-pinned').checked = false;
+        document.getElementById('announcement-expiry').value = '10';
+      }
+      document.getElementById('announcement-modal').classList.remove('hidden');
+    }
+
+    function closeAnnouncementModal() {
+      document.getElementById('announcement-modal').classList.add('hidden');
+      editingAnnouncementId = null;
+    }
+
+    async function saveAnnouncement() {
+      const title = document.getElementById('announcement-title').value.trim();
+      const content = document.getElementById('announcement-content').value.trim();
+      const expiryDays = parseInt(document.getElementById('announcement-expiry').value);
+      const isPinned = document.getElementById('announcement-pinned').checked;
+      const btn = document.getElementById('announcement-save-btn');
+
+      if (!title || !content) { alert('请填写标题和内容'); return; }
+
+      btn.disabled = true;
+      btn.textContent = '保存中...';
+
+      try {
+        const expiresAt = expiryDays > 0 ? new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000).toISOString() : null;
+
+        if (editingAnnouncementId) {
+          const { error } = await sb.from('announcements').update({
+            title, content, is_pinned: isPinned, expires_at: expiresAt, updated_at: new Date().toISOString()
+          }).eq('id', editingAnnouncementId);
+          if (error) throw error;
+        } else {
+          const { error } = await sb.from('announcements').insert({
+            class_id: classId, teacher_id: currentSession.user.id,
+            title, content, is_pinned: isPinned, expires_at: expiresAt
+          });
+          if (error) throw error;
+        }
+
+        closeAnnouncementModal();
+        loadAnnouncements();
+      } catch (e) {
+        alert('保存失败：' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = editingAnnouncementId ? '保存修改' : '发布';
+      }
+    }
+
+    async function toggleAnnouncementPin(id, isPinned) {
+      try {
+        const { error } = await sb.from('announcements').update({ is_pinned: isPinned }).eq('id', id);
+        if (error) throw error;
+        loadAnnouncements();
+      } catch (e) { alert('操作失败：' + e.message); }
+    }
+
+    async function deleteAnnouncement(id) {
+      if (!confirm('确定删除这条公告吗？')) return;
+      try {
+        const { error } = await sb.from('announcements').delete().eq('id', id);
+        if (error) throw error;
+        loadAnnouncements();
+      } catch (e) { alert('删除失败：' + e.message); }
     }
 
     function escapeHtml(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }

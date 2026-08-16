@@ -17,6 +17,15 @@
       </select>
     </div>
 
+    <!-- 班级公告 -->
+    <div id="announcement-section" class="hidden mb-6">
+      <div class="bg-white rounded-xl shadow-sm border border-amber-200 p-5">
+        <h2 class="text-base font-semibold text-gray-800 flex items-center mb-3">📢 班级公告</h2>
+        <div id="announcement-list" class="space-y-3"></div>
+        <div id="announcement-empty" class="hidden text-sm text-gray-400 text-center py-2">暂无公告</div>
+      </div>
+    </div>
+
     <!-- 标签切换 -->
     <div class="flex space-x-1 mb-6 bg-white rounded-xl p-1 border border-gray-100 w-fit">
       <button onclick="switchTab('resources')" id="tab-resources" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-700">📚 学习资源</button>
@@ -145,6 +154,7 @@
         select.value = currentClassId;
         await loadAllData();
         switchTab(currentTab);
+        loadClassAnnouncements();
       } catch (e) {
         console.error('加载班级失败:', e);
         alert('加载班级失败：' + e.message);
@@ -155,6 +165,7 @@
       currentClassId = document.getElementById('class-select').value;
       if (currentClassId) {
         loadAllData().then(() => switchTab(currentTab));
+        loadClassAnnouncements();
       }
     }
 
@@ -497,6 +508,50 @@
       const d = document.createElement('div');
       d.textContent = text;
       return d.innerHTML;
+    }
+
+    // 加载班级公告
+    async function loadClassAnnouncements() {
+      if (!currentClassId) return;
+      try {
+        const now = new Date().toISOString();
+        const { data, error } = await sb
+          .from('announcements')
+          .select('*')
+          .eq('class_id', currentClassId)
+          .or(`expires_at.is.null,expires_at.gte.${now}`)
+          .order('is_pinned', { ascending: false })
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+
+        const section = document.getElementById('announcement-section');
+        const list = document.getElementById('announcement-list');
+        const empty = document.getElementById('announcement-empty');
+
+        if (!data || data.length === 0) {
+          section.classList.remove('hidden');
+          list.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+
+        empty.classList.add('hidden');
+        section.classList.remove('hidden');
+        const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+
+        list.innerHTML = data.map(a => {
+          const isNew = new Date(a.created_at) > threeDaysAgo;
+          return `<div class="border-l-4 border-amber-400 pl-3 py-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              ${a.is_pinned ? '<span class="text-xs px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-medium">📌 置顶</span>' : ''}
+              ${isNew ? '<span class="text-xs px-1.5 py-0.5 bg-green-100 text-green-600 rounded font-bold">NEW</span>' : ''}
+              <span class="font-medium text-gray-800">${escapeHtml(a.title)}</span>
+              <span class="text-xs text-gray-400 ml-auto">${formatDate(a.created_at)}</span>
+            </div>
+            <p class="text-sm text-gray-600 mt-1 whitespace-pre-wrap">${escapeHtml(a.content)}</p>
+          </div>`;
+        }).join('');
+      } catch (e) { console.error('加载公告失败:', e); }
     }
 
     function formatDate(s) {

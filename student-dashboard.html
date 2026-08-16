@@ -18,6 +18,15 @@
       <p class="text-gray-500 mt-1">欢迎开始今天的学习</p>
     </div>
 
+    <!-- 班级公告 -->
+    <div id="announcement-card" class="bg-white rounded-xl shadow-sm border border-amber-200 p-5 mb-6 hidden">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-base font-semibold text-gray-800 flex items-center">📢 班级公告</h2>
+        <a href="student-resources.html" class="text-sm text-blue-600 hover:text-blue-700">查看全部 →</a>
+      </div>
+      <div id="announcement-list" class="space-y-3"></div>
+    </div>
+
     <!-- 新手引导任务卡片 -->
     <div id="onboarding-card" class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl shadow-sm p-6 border border-indigo-100 mb-8 hidden">
       <div class="flex items-center justify-between mb-4">
@@ -197,6 +206,7 @@
 
         const myClasses = (memberships || []).map(m => m.classes).filter(c => c);
         document.getElementById('stat-classes').textContent = myClasses.length;
+        loadDashboardAnnouncements(myClasses.map(c => c.id));
 
         // 加载我的愿景（取最近更新的一条）
         loadMyVision(userId, myClasses);
@@ -494,6 +504,42 @@
         titleEl.className = 'font-medium text-gray-400 line-through task-title';
         if (btnEl) btnEl.remove();
       }
+    }
+
+    // 加载仪表板公告（最新3条未过期）
+    async function loadDashboardAnnouncements(classIds) {
+      if (!classIds || classIds.length === 0) return;
+      try {
+        const now = new Date().toISOString();
+        const { data, error } = await sb
+          .from('announcements')
+          .select('*, classes(name)')
+          .in('class_id', classIds)
+          .or(`expires_at.is.null,expires_at.gte.${now}`)
+          .order('is_pinned', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(3);
+        if (error) throw error;
+        if (!data || data.length === 0) return;
+
+        const card = document.getElementById('announcement-card');
+        const list = document.getElementById('announcement-list');
+        const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+
+        list.innerHTML = data.map(a => {
+          const isNew = new Date(a.created_at) > threeDaysAgo;
+          return `<div class="border-l-4 border-amber-400 pl-3 py-1">
+            <div class="flex items-center gap-2">
+              ${a.is_pinned ? '<span class="text-xs px-1.5 py-0.5 bg-red-100 text-red-600 rounded">置顶</span>' : ''}
+              ${isNew ? '<span class="text-xs px-1.5 py-0.5 bg-green-100 text-green-600 rounded font-bold">NEW</span>' : ''}
+              <span class="font-medium text-gray-800 text-sm">${escapeHtml(a.title)}</span>
+              <span class="text-xs text-gray-400 ml-auto">${a.classes ? a.classes.name : ''} · ${new Date(a.created_at).toLocaleDateString('zh-CN')}</span>
+            </div>
+            <p class="text-sm text-gray-600 mt-1 whitespace-pre-wrap line-clamp-2">${escapeHtml(a.content)}</p>
+          </div>`;
+        }).join('');
+        card.classList.remove('hidden');
+      } catch (e) { console.error('加载公告失败:', e); }
     }
 
     function escapeHtml(text) {
