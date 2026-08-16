@@ -40,6 +40,13 @@
 
     <!-- 学习资源面板 -->
     <div id="panel-resources">
+      <div id="resource-search-box" class="hidden mb-4">
+        <div class="relative">
+          <input type="text" id="resource-search-input" oninput="onResourceSearch()" placeholder="🔍 搜索资源标题或关键词..." class="w-full px-4 py-3 pl-10 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+        </div>
+        <p id="search-result-count" class="text-xs text-gray-400 mt-2 hidden"></p>
+      </div>
       <div id="resources-container">
         <div class="text-center py-12 text-gray-400">
           <p class="text-4xl mb-3">📚</p>
@@ -306,18 +313,52 @@
     function renderResources() {
       const container = document.getElementById('resources-container');
       const empty = document.getElementById('empty-resources');
+      const searchBox = document.getElementById('resource-search-box');
+      const resultCount = document.getElementById('search-result-count');
 
-      const chaptersWithResources = chaptersData.filter(ch => (resourcesByChapter[ch.id] || []).length > 0);
+      // 有班级选择时显示搜索框
+      if (currentClassId) {
+        searchBox.classList.remove('hidden');
+      } else {
+        searchBox.classList.add('hidden');
+      }
 
-      if (chaptersWithResources.length === 0) {
-        container.innerHTML = '';
-        empty.classList.remove('hidden');
+      const keyword = (document.getElementById('resource-search-input')?.value || '').trim().toLowerCase();
+      const hasSearch = keyword.length > 0;
+
+      // 筛选章节和资源
+      let filteredChapters = chaptersData.filter(ch => (resourcesByChapter[ch.id] || []).length > 0);
+      let totalMatched = 0;
+
+      if (hasSearch) {
+        filteredChapters = filteredChapters.map(ch => {
+          const matched = (resourcesByChapter[ch.id] || []).filter(r =>
+            (r.title || '').toLowerCase().includes(keyword) ||
+            (r.description || '').toLowerCase().includes(keyword)
+          );
+          totalMatched += matched.length;
+          return { ...ch, _matchedResources: matched };
+        }).filter(ch => ch._matchedResources.length > 0);
+
+        // 显示搜索结果统计
+        resultCount.textContent = `找到 ${totalMatched} 个匹配资源`;
+        resultCount.classList.remove('hidden');
+      } else {
+        resultCount.classList.add('hidden');
+      }
+
+      if (filteredChapters.length === 0) {
+        container.innerHTML = hasSearch
+          ? `<div class="text-center py-12 bg-white rounded-xl border border-gray-100"><p class="text-4xl mb-3">🔍</p><p class="text-gray-500">未找到包含「${escapeHtml(keyword)}」的资源</p></div>`
+          : '';
+        empty.classList.toggle('hidden', hasSearch);
+        if (hasSearch) empty.classList.add('hidden');
         return;
       }
       empty.classList.add('hidden');
 
-      container.innerHTML = chaptersWithResources.map((ch, idx) => {
-        const resources = resourcesByChapter[ch.id] || [];
+      container.innerHTML = filteredChapters.map((ch, idx) => {
+        const resources = hasSearch ? ch._matchedResources : (resourcesByChapter[ch.id] || []);
         const reflection = reflectionsByChapter[ch.id];
         const hasReflection = reflection && reflection.content && reflection.content.trim();
         return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
@@ -351,6 +392,10 @@
           </div>
         </div>`;
       }).join('');
+    }
+
+    function onResourceSearch() {
+      renderResources();
     }
 
     function renderQuizzes() {
