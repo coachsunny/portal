@@ -110,6 +110,8 @@
     window.addEventListener('load', async () => {
       currentSession = await requireStudent();
       if (!currentSession) return;
+      // 标记新手引导任务：已浏览学习资源
+      localStorage.setItem('visited_resources', 'true');
       // 读取URL参数决定默认标签
       const params = new URLSearchParams(window.location.search);
       if (params.get('tab') === 'quizzes') {

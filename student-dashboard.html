@@ -18,6 +18,55 @@
       <p class="text-gray-500 mt-1">欢迎开始今天的学习</p>
     </div>
 
+    <!-- 新手引导任务卡片 -->
+    <div id="onboarding-card" class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl shadow-sm p-6 border border-indigo-100 mb-8 hidden">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center">
+          <span class="text-2xl mr-3">🚀</span>
+          <div>
+            <h2 class="text-base font-semibold text-gray-800">开始你的学习之旅</h2>
+            <p class="text-sm text-gray-500 mt-0.5">完成以下3步，快速上手</p>
+          </div>
+        </div>
+        <span id="onboarding-progress" class="text-sm font-medium text-indigo-600 bg-white px-3 py-1 rounded-full border border-indigo-200">0 / 3</span>
+      </div>
+      <div class="space-y-3" id="onboarding-tasks">
+        <!-- 任务1：填写自我愿景 -->
+        <div id="task-vision" class="flex items-center justify-between bg-white rounded-lg p-4 border border-gray-100">
+          <div class="flex items-center min-w-0">
+            <div class="task-icon w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center mr-3 flex-shrink-0 text-gray-400 font-bold text-sm">1</div>
+            <div class="min-w-0">
+              <p class="font-medium text-gray-800 task-title">填写自我愿景</p>
+              <p class="text-xs text-gray-500 mt-0.5">设定你的学习目标和方向</p>
+            </div>
+          </div>
+          <a href="student-vision.html" class="task-btn text-sm text-indigo-600 hover:text-indigo-700 font-medium flex-shrink-0 ml-3">去完成 →</a>
+        </div>
+        <!-- 任务2：完成性向评估 -->
+        <div id="task-assessment" class="flex items-center justify-between bg-white rounded-lg p-4 border border-gray-100">
+          <div class="flex items-center min-w-0">
+            <div class="task-icon w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center mr-3 flex-shrink-0 text-gray-400 font-bold text-sm">2</div>
+            <div class="min-w-0">
+              <p class="font-medium text-gray-800 task-title">完成性向评估</p>
+              <p class="text-xs text-gray-500 mt-0.5">了解你的性格和学习风格</p>
+            </div>
+          </div>
+          <a href="personality-assessment.html" class="task-btn text-sm text-indigo-600 hover:text-indigo-700 font-medium flex-shrink-0 ml-3">去完成 →</a>
+        </div>
+        <!-- 任务3：浏览学习资源 -->
+        <div id="task-resources" class="flex items-center justify-between bg-white rounded-lg p-4 border border-gray-100">
+          <div class="flex items-center min-w-0">
+            <div class="task-icon w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center mr-3 flex-shrink-0 text-gray-400 font-bold text-sm">3</div>
+            <div class="min-w-0">
+              <p class="font-medium text-gray-800 task-title">浏览学习资源</p>
+              <p class="text-xs text-gray-500 mt-0.5">进入课程，开始第一节课</p>
+            </div>
+          </div>
+          <a href="student-resources.html" class="task-btn text-sm text-indigo-600 hover:text-indigo-700 font-medium flex-shrink-0 ml-3">去完成 →</a>
+        </div>
+      </div>
+    </div>
+
     <!-- 我的愿景 -->
     <div id="vision-card" class="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl shadow-sm p-6 border border-amber-100 mb-8 hidden">
       <div class="flex items-start justify-between">
@@ -120,6 +169,7 @@
       renderNavbar(currentSession, 'dashboard');
       document.getElementById('welcome-title').textContent = `${currentSession.name} 同学，您好`;
       loadMyData();
+      checkOnboardingStatus();
     });
 
     async function loadMyData() {
@@ -366,6 +416,72 @@
         document.getElementById('vision-class-tag').textContent = classMap[vision.class_id] || '';
       } catch (e) {
         console.error('加载愿景失败:', e);
+      }
+    }
+
+    async function checkOnboardingStatus() {
+      try {
+        // 如果已标记完成，直接隐藏
+        if (localStorage.getItem('onboarding_complete') === 'true') {
+          return;
+        }
+
+        const userId = currentSession.user.id;
+        const card = document.getElementById('onboarding-card');
+
+        // 并行查询愿景和性向评估
+        const [visionRes, assessmentRes] = await Promise.all([
+          sb.from('student_visions').select('id').eq('user_id', userId).limit(1),
+          sb.from('personality_assessments').select('id').eq('user_id', userId).limit(1)
+        ]);
+
+        const visionDone = (visionRes.data || []).length > 0;
+        const assessmentDone = (assessmentRes.data || []).length > 0;
+        const resourcesDone = localStorage.getItem('visited_resources') === 'true';
+
+        // 更新任务UI
+        updateTaskUI('task-vision', visionDone);
+        updateTaskUI('task-assessment', assessmentDone);
+        updateTaskUI('task-resources', resourcesDone);
+
+        // 更新进度
+        const doneCount = [visionDone, assessmentDone, resourcesDone].filter(Boolean).length;
+        document.getElementById('onboarding-progress').textContent = `${doneCount} / 3`;
+
+        // 显示卡片
+        card.classList.remove('hidden');
+
+        // 全部完成，自动消失
+        if (doneCount === 3) {
+          setTimeout(() => {
+            card.style.transition = 'opacity 0.5s, transform 0.5s';
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(-10px)';
+            setTimeout(() => {
+              card.classList.add('hidden');
+              card.style.opacity = '';
+              card.style.transform = '';
+            }, 500);
+          }, 1500);
+          localStorage.setItem('onboarding_complete', 'true');
+        }
+      } catch (error) {
+        console.error('新手引导检查失败:', error);
+      }
+    }
+
+    function updateTaskUI(taskId, done) {
+      const taskEl = document.getElementById(taskId);
+      if (!taskEl) return;
+      const iconEl = taskEl.querySelector('.task-icon');
+      const titleEl = taskEl.querySelector('.task-title');
+      const btnEl = taskEl.querySelector('.task-btn');
+
+      if (done) {
+        iconEl.className = 'task-icon w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mr-3 flex-shrink-0 text-green-600 font-bold text-sm';
+        iconEl.textContent = '✓';
+        titleEl.className = 'font-medium text-gray-400 line-through task-title';
+        if (btnEl) btnEl.remove();
       }
     }
 
