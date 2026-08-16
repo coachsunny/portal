@@ -19,48 +19,59 @@
     </div>
 
     <!-- 统计卡片 -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm text-gray-500">班级数量</p>
-            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-classes">-</p>
+            <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-classes">-</p>
           </div>
-          <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-            <span class="text-2xl">📚</span>
+          <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+            <span class="text-xl">📚</span>
           </div>
         </div>
       </div>
-      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm text-gray-500">学员总数</p>
-            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-students">-</p>
+            <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-students">-</p>
           </div>
-          <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-            <span class="text-2xl">👥</span>
+          <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+            <span class="text-xl">👥</span>
           </div>
         </div>
       </div>
-      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm text-gray-500">学习资源</p>
-            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-resources">-</p>
+            <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-resources">-</p>
           </div>
-          <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-            <span class="text-2xl">📄</span>
+          <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+            <span class="text-xl">📄</span>
           </div>
         </div>
       </div>
-      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500">题库题目</p>
+            <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-quizzes">-</p>
+          </div>
+          <div class="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+            <span class="text-xl">📝</span>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 cursor-pointer hover:shadow-md transition" onclick="window.location.href='classes.html?tab=questions'">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm text-gray-500">待回复提问</p>
-            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-questions">-</p>
+            <p class="text-2xl font-bold text-orange-600 mt-1" id="stat-questions">-</p>
           </div>
-          <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-            <span class="text-2xl">💬</span>
+          <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+            <span class="text-xl">💬</span>
           </div>
         </div>
       </div>
@@ -74,28 +85,48 @@
           <span class="text-3xl mb-2">➕</span>
           <span class="text-sm text-gray-700">创建班级</span>
         </a>
-        <a href="classes.html" class="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition">
-          <span class="text-3xl mb-2">👤</span>
-          <span class="text-sm text-gray-700">添加学员</span>
+        <a href="resources.html" class="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-purple-50 hover:border-purple-300 transition">
+          <span class="text-3xl mb-2">📦</span>
+          <span class="text-sm text-gray-700">资源管理</span>
         </a>
-        <a href="classes.html?tab=resources" class="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition">
-          <span class="text-3xl mb-2">📤</span>
-          <span class="text-sm text-gray-700">上传资源</span>
-        </a>
-        <a href="classes.html?tab=quizzes" class="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition">
+        <a href="quizzes.html" class="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition">
           <span class="text-3xl mb-2">📝</span>
-          <span class="text-sm text-gray-700">创建测验</span>
+          <span class="text-sm text-gray-700">题库管理</span>
+        </a>
+        <a href="classes.html?tab=questions" class="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-orange-50 hover:border-orange-300 transition">
+          <span class="text-3xl mb-2">💬</span>
+          <span class="text-sm text-gray-700">学员提问</span>
         </a>
       </div>
     </div>
 
-    <!-- 最近动态 -->
-    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-      <h2 class="text-lg font-semibold text-gray-800 mb-4">最近动态</h2>
-      <div class="text-center py-12 text-gray-400">
-        <p class="text-4xl mb-2">📋</p>
-        <p>暂无动态记录</p>
-        <p class="text-sm mt-1">后续开发将显示学员提交、提问等动态</p>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- 最近提问 -->
+      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-gray-800">最近学员提问</h2>
+          <a href="classes.html?tab=questions" class="text-sm text-blue-600 hover:text-blue-700">查看全部 →</a>
+        </div>
+        <div id="recent-questions">
+          <div class="text-center py-8 text-gray-400">
+            <p class="text-3xl mb-2">💬</p>
+            <p class="text-sm">暂无提问</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 班级列表 -->
+      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-gray-800">我的班级</h2>
+          <a href="classes.html" class="text-sm text-blue-600 hover:text-blue-700">管理班级 →</a>
+        </div>
+        <div id="class-list">
+          <div class="text-center py-8 text-gray-400">
+            <p class="text-3xl mb-2">📚</p>
+            <p class="text-sm">暂无班级</p>
+          </div>
+        </div>
       </div>
     </div>
   </main>
@@ -107,51 +138,118 @@
 
     // 页面初始化
     window.addEventListener('load', async () => {
-      // 检查老师权限
       currentSession = await requireTeacher();
       if (!currentSession) return;
-
-      // 渲染导航栏
       renderNavbar(currentSession, 'dashboard');
-
-      // 更新欢迎语
       document.getElementById('welcome-title').textContent = `${currentSession.name} 老师，您好`;
-
-      // 加载统计数据
       loadStats();
+      loadRecentQuestions();
+      loadClasses();
     });
 
     // 加载统计数据
     async function loadStats() {
       try {
-        // 班级数量
-        const { count: classCount } = await sb
-          .from('classes')
-          .select('*', { count: 'exact', head: true });
-        document.getElementById('stat-classes').textContent = classCount || 0;
-
-        // 学员数量（profiles 中 role=student）
-        const { count: studentCount } = await sb
-          .from('profiles')
-          .select('*', { count: 'exact', head: true })
-          .eq('role', 'student');
-        document.getElementById('stat-students').textContent = studentCount || 0;
-
-        // 资源数量
-        const { count: resourceCount } = await sb
-          .from('resources')
-          .select('*', { count: 'exact', head: true });
-        document.getElementById('stat-resources').textContent = resourceCount || 0;
-
-        // 待回复提问数量
-        const { count: questionCount } = await sb
-          .from('questions')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'open');
-        document.getElementById('stat-questions').textContent = questionCount || 0;
+        const [classRes, studentRes, resourceRes, quizRes, questionRes] = await Promise.all([
+          sb.from('classes').select('*', { count: 'exact', head: true }),
+          sb.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
+          sb.from('resources').select('*', { count: 'exact', head: true }),
+          sb.from('quizzes').select('*', { count: 'exact', head: true }),
+          sb.from('questions').select('*', { count: 'exact', head: true }).eq('status', 'open')
+        ]);
+        document.getElementById('stat-classes').textContent = classRes.count || 0;
+        document.getElementById('stat-students').textContent = studentRes.count || 0;
+        document.getElementById('stat-resources').textContent = resourceRes.count || 0;
+        document.getElementById('stat-quizzes').textContent = quizRes.count || 0;
+        document.getElementById('stat-questions').textContent = questionRes.count || 0;
       } catch (error) {
         console.error('加载统计数据失败:', error);
       }
+    }
+
+    // 加载最近提问
+    async function loadRecentQuestions() {
+      try {
+        const { data: questions, error } = await sb
+          .from('questions')
+          .select('id, content, status, created_at, user_id, class_id, profiles(name)')
+          .order('created_at', { ascending: false })
+          .limit(5);
+        if (error) throw error;
+
+        const container = document.getElementById('recent-questions');
+        if (!questions || questions.length === 0) return;
+
+        container.innerHTML = questions.map(q => `
+          <div class="flex items-start justify-between p-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center mb-1">
+                <span class="text-sm font-medium text-gray-800">${escapeHtml(q.profiles?.name || '学员')}</span>
+                <span class="ml-2 px-2 py-0.5 text-xs rounded-full ${q.status === 'open' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}">${q.status === 'open' ? '待回复' : '已回复'}</span>
+              </div>
+              <p class="text-sm text-gray-600 truncate">${escapeHtml(q.content)}</p>
+              <p class="text-xs text-gray-400 mt-1">${formatDate(q.created_at)}</p>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) { console.error('加载最近提问失败:', e); }
+    }
+
+    // 加载班级列表
+    async function loadClasses() {
+      try {
+        const { data: classes, error } = await sb
+          .from('classes')
+          .select('id, name, description, status, created_at')
+          .order('created_at', { ascending: false })
+          .limit(6);
+        if (error) throw error;
+
+        const container = document.getElementById('class-list');
+        if (!classes || classes.length === 0) return;
+
+        // 统计每个班级的学员数
+        const classIds = classes.map(c => c.id);
+        const { data: members } = await sb
+          .from('class_members')
+          .select('class_id')
+          .in('class_id', classIds);
+        const memberCount = {};
+        (members || []).forEach(m => { memberCount[m.class_id] = (memberCount[m.class_id] || 0) + 1; });
+
+        container.innerHTML = classes.map(c => `
+          <a href="class-detail.html?id=${c.id}" class="flex items-center justify-between p-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition">
+            <div class="flex items-center min-w-0">
+              <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+                <span class="text-lg">📚</span>
+              </div>
+              <div class="min-w-0">
+                <h3 class="font-medium text-gray-800 truncate">${escapeHtml(c.name)}</h3>
+                <p class="text-xs text-gray-500">${memberCount[c.id] || 0} 名学员</p>
+              </div>
+            </div>
+            <span class="px-2 py-1 text-xs rounded-full flex-shrink-0 ml-2 ${c.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">${c.status === 'active' ? '进行中' : '已结束'}</span>
+          </a>
+        `).join('');
+      } catch (e) { console.error('加载班级列表失败:', e); }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diff = now - d;
+      if (diff < 60000) return '刚刚';
+      if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+      if (diff < 604800000) return Math.floor(diff / 86400000) + '天前';
+      return `${d.getMonth() + 1}月${d.getDate()}日`;
     }
   </script>
 </body>

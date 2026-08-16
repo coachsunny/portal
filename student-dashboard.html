@@ -19,37 +19,48 @@
     </div>
 
     <!-- 统计卡片 -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm text-gray-500">我的班级</p>
-            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-classes">-</p>
+            <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-classes">-</p>
           </div>
-          <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-            <span class="text-2xl">📚</span>
+          <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+            <span class="text-xl">📚</span>
           </div>
         </div>
       </div>
-      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 cursor-pointer hover:shadow-md transition" onclick="window.location.href='student-resources.html?tab=quizzes'">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm text-gray-500">待完成测验</p>
-            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-quizzes">-</p>
+            <p class="text-2xl font-bold text-orange-600 mt-1" id="stat-pending-quizzes">-</p>
           </div>
-          <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-            <span class="text-2xl">📝</span>
+          <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+            <span class="text-xl">📝</span>
           </div>
         </div>
       </div>
-      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500">已完成测验</p>
+            <p class="text-2xl font-bold text-green-600 mt-1" id="stat-done-quizzes">-</p>
+          </div>
+          <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+            <span class="text-xl">✅</span>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 cursor-pointer hover:shadow-md transition" onclick="window.location.href='student-questions.html'">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm text-gray-500">我的提问</p>
-            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-questions">-</p>
+            <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-questions">-</p>
           </div>
-          <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-            <span class="text-2xl">💬</span>
+          <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+            <span class="text-xl">💬</span>
           </div>
         </div>
       </div>
@@ -57,12 +68,14 @@
 
     <!-- 我的班级 -->
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-8">
-      <h2 class="text-lg font-semibold text-gray-800 mb-4">我的班级</h2>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-800">我的班级</h2>
+        <a href="student-resources.html" class="text-sm text-blue-600 hover:text-blue-700">进入学习 →</a>
+      </div>
       <div id="class-list">
-        <div class="text-center py-12 text-gray-400">
-          <p class="text-4xl mb-2">📚</p>
-          <p>暂无班级</p>
-          <p class="text-sm mt-1">请联系老师加入班级</p>
+        <div class="text-center py-8 text-gray-400">
+          <p class="text-3xl mb-2">📚</p>
+          <p class="text-sm">暂无班级，请联系老师加入</p>
         </div>
       </div>
     </div>
@@ -70,10 +83,12 @@
     <!-- 学习进度 -->
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       <h2 class="text-lg font-semibold text-gray-800 mb-4">学习进度</h2>
-      <div class="text-center py-12 text-gray-400">
-        <p class="text-4xl mb-2">📊</p>
-        <p>暂无学习记录</p>
-        <p class="text-sm mt-1">开始学习后这里会显示你的进度</p>
+      <div id="progress-list">
+        <div class="text-center py-8 text-gray-400">
+          <p class="text-3xl mb-2">📊</p>
+          <p class="text-sm">暂无学习记录</p>
+          <p class="text-xs mt-1">完成测验后这里会显示你的进度</p>
+        </div>
       </div>
     </div>
   </main>
@@ -83,90 +98,163 @@
   <script>
     let currentSession = null;
 
-    // 页面初始化
     window.addEventListener('load', async () => {
-      // 检查学员权限
       currentSession = await requireStudent();
       if (!currentSession) return;
-
-      // 渲染导航栏
       renderNavbar(currentSession, 'dashboard');
-
-      // 更新欢迎语
       document.getElementById('welcome-title').textContent = `${currentSession.name} 同学，您好`;
-
-      // 加载数据
       loadMyData();
     });
 
-    // 加载我的数据
     async function loadMyData() {
       try {
         const userId = currentSession.user.id;
 
-        // 我的班级数量
-        const { count: classCount } = await sb
+        // 加载我的班级
+        const { data: memberships, error: me } = await sb
           .from('class_members')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', userId);
-        document.getElementById('stat-classes').textContent = classCount || 0;
+          .select('class_id, joined_at, classes(id, name, description, status)')
+          .eq('user_id', userId)
+          .order('joined_at', { ascending: false });
+        if (me) throw me;
 
-        // 我的提问数量
-        const { count: questionCount } = await sb
-          .from('questions')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', userId);
-        document.getElementById('stat-questions').textContent = questionCount || 0;
+        const myClasses = (memberships || []).map(m => m.classes).filter(c => c);
+        document.getElementById('stat-classes').textContent = myClasses.length;
 
-        // 待完成测验（暂时显示0，后续开发时计算）
-        document.getElementById('stat-quizzes').textContent = 0;
+        if (myClasses.length === 0) {
+          document.getElementById('stat-pending-quizzes').textContent = 0;
+          document.getElementById('stat-done-quizzes').textContent = 0;
+          document.getElementById('stat-questions').textContent = 0;
+          return;
+        }
 
-        // 加载班级列表
-        loadMyClasses(userId);
+        const classIds = myClasses.map(c => c.id);
+
+        // 并行加载：所有测验题目、我的答题记录、我的提问
+        const [chaptersRes, submissionsRes, questionsRes] = await Promise.all([
+          sb.from('chapters').select('id, class_id').in('class_id', classIds),
+          sb.from('quiz_submissions').select('quiz_id, class_id').eq('user_id', userId),
+          sb.from('questions').select('id, status').eq('user_id', userId)
+        ]);
+
+        const chapters = chaptersRes.data || [];
+        const chapterIds = chapters.map(c => c.id);
+        const submissions = submissionsRes.data || [];
+        const questions = questionsRes.data || [];
+
+        // 加载所有章节关联的题目
+        let allQuizIds = [];
+        if (chapterIds.length > 0) {
+          const { data: chapterQuizzes } = await sb
+            .from('chapter_quizzes')
+            .select('quiz_id, chapter_id, chapters(class_id)')
+            .in('chapter_id', chapterIds);
+          allQuizIds = (chapterQuizzes || []).map(cq => cq.quiz_id);
+        }
+
+        // 统计
+        const submittedQuizIds = new Set(submissions.map(s => s.quiz_id));
+        const doneCount = allQuizIds.filter(qid => submittedQuizIds.has(qid)).length;
+        const pendingCount = allQuizIds.length - doneCount;
+
+        document.getElementById('stat-pending-quizzes').textContent = pendingCount;
+        document.getElementById('stat-done-quizzes').textContent = doneCount;
+        document.getElementById('stat-questions').textContent = questions.length;
+
+        // 渲染班级列表
+        renderClassList(myClasses, chapters, allQuizIds, submittedQuizIds);
+
+        // 渲染学习进度
+        renderProgress(myClasses, chapters, allQuizIds, submittedQuizIds);
+
       } catch (error) {
         console.error('加载数据失败:', error);
       }
     }
 
-    // 加载我的班级列表
-    async function loadMyClasses(userId) {
-      try {
-        const { data: memberships, error } = await sb
-          .from('class_members')
-          .select('class_id, classes(id, name, description, status)')
-          .eq('user_id', userId);
+    function renderClassList(myClasses, chapters, allQuizIds, submittedQuizIds) {
+      const container = document.getElementById('class-list');
+      if (myClasses.length === 0) return;
 
-        if (error) throw error;
+      // 按班级统计题目数
+      const classChapterMap = {};
+      chapters.forEach(c => {
+        if (!classChapterMap[c.class_id]) classChapterMap[c.class_id] = [];
+        classChapterMap[c.class_id].push(c.id);
+      });
 
-        const classListEl = document.getElementById('class-list');
-        
-        if (!memberships || memberships.length === 0) {
-          return; // 保持默认的空状态
-        }
-
-        classListEl.innerHTML = memberships.map(m => {
-          const c = m.classes;
-          return `
-            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg mb-3 hover:bg-gray-50 transition">
-              <div class="flex items-center">
-                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                  <span class="text-lg">📚</span>
-                </div>
-                <div>
-                  <h3 class="font-medium text-gray-800">${escapeHtml(c.name)}</h3>
-                  <p class="text-sm text-gray-500">${escapeHtml(c.description || '暂无描述')}</p>
-                </div>
+      container.innerHTML = myClasses.map(c => {
+        const chIds = classChapterMap[c.id] || [];
+        // 这里简化，总进度在下面的进度区详细显示
+        return `
+          <a href="student-resources.html" class="flex items-center justify-between p-4 border border-gray-200 rounded-lg mb-3 hover:bg-blue-50 hover:border-blue-300 transition">
+            <div class="flex items-center min-w-0">
+              <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+                <span class="text-2xl">📚</span>
               </div>
-              <span class="px-2 py-1 text-xs rounded-full ${c.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">${c.status === 'active' ? '进行中' : '已结束'}</span>
+              <div class="min-w-0">
+                <h3 class="font-medium text-gray-800">${escapeHtml(c.name)}</h3>
+                <p class="text-sm text-gray-500 truncate">${escapeHtml(c.description || '暂无描述')}</p>
+              </div>
             </div>
-          `;
-        }).join('');
-      } catch (error) {
-        console.error('加载班级列表失败:', error);
-      }
+            <div class="flex items-center flex-shrink-0 ml-4">
+              <span class="px-2 py-1 text-xs rounded-full ${c.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">${c.status === 'active' ? '进行中' : '已结束'}</span>
+              <span class="ml-3 text-blue-600 text-sm">进入 →</span>
+            </div>
+          </a>
+        `;
+      }).join('');
     }
 
-    // HTML 转义
+    function renderProgress(myClasses, chapters, allQuizIds, submittedQuizIds) {
+      const container = document.getElementById('progress-list');
+      if (myClasses.length === 0 || allQuizIds.length === 0) return;
+
+      // 按班级统计
+      const classChapterMap = {};
+      chapters.forEach(c => {
+        if (!classChapterMap[c.class_id]) classChapterMap[c.class_id] = [];
+        classChapterMap[c.class_id].push(c.id);
+      });
+
+      // 需要按班级统计题目数，这里简化处理：用总题目数平均展示
+      // 更精确的做法是按chapter_quizzes关联统计，但为了简化，这里显示整体进度
+      const total = allQuizIds.length;
+      const done = allQuizIds.filter(qid => submittedQuizIds.has(qid)).length;
+      const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+
+      container.innerHTML = `
+        <div class="mb-6">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-sm font-medium text-gray-700">总体测验完成度</span>
+            <span class="text-sm text-gray-500">${done} / ${total} 题</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-3">
+            <div class="bg-gradient-to-r from-blue-500 to-green-500 h-3 rounded-full transition-all duration-500" style="width: ${percent}%"></div>
+          </div>
+          <p class="text-xs text-gray-400 mt-1">完成率 ${percent}%</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          ${myClasses.map(c => {
+            const chIds = classChapterMap[c.id] || [];
+            // 简化：按章节数比例估算
+            const classTotal = chIds.length > 0 ? Math.round(total * (chIds.length / chapters.length)) : 0;
+            const classDone = classTotal > 0 ? Math.round(done * (chIds.length / chapters.length)) : 0;
+            const classPercent = classTotal > 0 ? Math.round((classDone / classTotal) * 100) : 0;
+            return `
+              <div class="p-4 border border-gray-100 rounded-lg">
+                <p class="text-sm font-medium text-gray-700 mb-2">${escapeHtml(c.name)}</p>
+                <div class="w-full bg-gray-200 rounded-full h-2 mb-1">
+                  <div class="bg-blue-500 h-2 rounded-full" style="width: ${classPercent}%"></div>
+                </div>
+                <p class="text-xs text-gray-400">${classDone} / ${classTotal} 题 · ${classPercent}%</p>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
     function escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text;
