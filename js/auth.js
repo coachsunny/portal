@@ -115,6 +115,7 @@ function renderNavbar(session, currentPage) {
     { id: 'questions', label: '我的提问', href: 'student-questions.html', hasBadge: true },
     { id: 'assessment', label: '性向评估', href: 'personality-assessment.html' },
     { id: 'vision', label: '自我愿景', href: 'student-vision.html' },
+    { id: 'profile', label: '个人中心', href: 'student-profile.html' },
     { id: 'guide', label: '📖 使用手册', href: 'student-guide.html', external: true }
   ];
 
