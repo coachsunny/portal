@@ -502,7 +502,7 @@
       }
     }
 
-    // 从数据库加载已读记录
+    // 从数据库加载已读记录，并同步localStorage历史记录
     async function loadServerReads() {
       if (!currentSession || !currentClassId) return;
       try {
@@ -513,6 +513,24 @@
           .eq('class_id', currentClassId);
         if (error) throw error;
         serverReadIds = new Set((data || []).map(r => r.resource_id));
+
+        // 同步localStorage中的历史已读记录到数据库
+        try {
+          const localReads = JSON.parse(localStorage.getItem(getReadKey()) || '[]');
+          const missing = localReads.filter(id => !serverReadIds.has(id));
+          if (missing.length > 0) {
+            const records = missing.map(id => ({
+              user_id: currentSession.user.id,
+              resource_id: id,
+              class_id: currentClassId,
+              read_at: new Date().toISOString()
+            }));
+            const { error: insErr } = await sb.from('resource_reads').insert(records);
+            if (!insErr) {
+              missing.forEach(id => serverReadIds.add(id));
+            }
+          }
+        } catch (syncErr) { console.error('同步已读记录失败:', syncErr); }
       } catch (e) { console.error('加载已读记录失败:', e); }
     }
 
