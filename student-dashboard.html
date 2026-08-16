@@ -555,7 +555,7 @@
 
         list.innerHTML = data.map(a => {
           const isUnread = !readIds.has(a.id);
-          return `<div class="border-l-4 ${isUnread ? 'border-blue-400' : 'border-gray-200'} pl-3 py-1 cursor-pointer hover:bg-gray-50 rounded-r transition" onclick="markDashboardAnnouncementRead(${a.id}, this)">
+          return `<div class="border-l-4 ${isUnread ? 'border-blue-400' : 'border-gray-200'} pl-3 py-1 cursor-pointer hover:bg-gray-50 rounded-r transition" onclick="markDashboardAnnouncementRead('${a.id}', this)">
             <div class="flex items-center gap-2">
               ${a.is_pinned ? '<span class="text-xs px-1.5 py-0.5 bg-red-100 text-red-600 rounded">置顶</span>' : ''}
               ${isUnread ? '<span class="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded font-bold">未读</span>' : ''}
