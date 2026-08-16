@@ -678,21 +678,51 @@
 
         empty.classList.add('hidden');
         section.classList.remove('hidden');
-        const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+
+        // 查询当前用户已读记录
+        const announcementIds = data.map(a => a.id);
+        const { data: readRecords } = await sb
+          .from('announcement_reads')
+          .select('announcement_id')
+          .eq('user_id', currentSession.user.id)
+          .in('announcement_id', announcementIds);
+        const readIds = new Set((readRecords || []).map(r => r.announcement_id));
 
         list.innerHTML = data.map(a => {
-          const isNew = new Date(a.created_at) > threeDaysAgo;
-          return `<div class="border-l-4 border-amber-400 pl-3 py-2">
+          const isUnread = !readIds.has(a.id);
+          return `<div class="border-l-4 ${isUnread ? 'border-blue-400' : 'border-gray-200'} pl-3 py-2 cursor-pointer hover:bg-gray-50 rounded-r transition" onclick="markClassAnnouncementRead(${a.id}, this)">
             <div class="flex items-center gap-2 flex-wrap">
               ${a.is_pinned ? '<span class="text-xs px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-medium">📌 置顶</span>' : ''}
-              ${isNew ? '<span class="text-xs px-1.5 py-0.5 bg-green-100 text-green-600 rounded font-bold">NEW</span>' : ''}
-              <span class="font-medium text-gray-800">${escapeHtml(a.title)}</span>
+              ${isUnread ? '<span class="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded font-bold">未读</span>' : ''}
+              <span class="font-medium ${isUnread ? 'text-gray-800' : 'text-gray-500'}">${escapeHtml(a.title)}</span>
               <span class="text-xs text-gray-400 ml-auto">${formatDate(a.created_at)}</span>
             </div>
-            <p class="text-sm text-gray-600 mt-1 whitespace-pre-wrap">${escapeHtml(a.content)}</p>
+            <p class="text-sm ${isUnread ? 'text-gray-600' : 'text-gray-400'} mt-1 whitespace-pre-wrap">${escapeHtml(a.content)}</p>
           </div>`;
         }).join('');
       } catch (e) { console.error('加载公告失败:', e); }
+    }
+
+    // 标记学习资源页公告为已读
+    async function markClassAnnouncementRead(announcementId, element) {
+      try {
+        await sb.from('announcement_reads').upsert({
+          user_id: currentSession.user.id,
+          announcement_id: announcementId,
+          read_at: new Date().toISOString()
+        }, { onConflict: 'user_id,announcement_id' });
+        // 更新UI
+        if (element) {
+          element.classList.remove('border-blue-400');
+          element.classList.add('border-gray-200');
+          const tag = element.querySelector('.bg-blue-100');
+          if (tag) tag.remove();
+          const title = element.querySelector('.font-medium');
+          if (title) { title.classList.remove('text-gray-800'); title.classList.add('text-gray-500'); }
+          const content = element.querySelector('p');
+          if (content) { content.classList.remove('text-gray-600'); content.classList.add('text-gray-400'); }
+        }
+      } catch (e) { console.error('标记已读失败:', e); }
     }
 
     function formatDate(s) {
