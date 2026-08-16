@@ -143,7 +143,7 @@
     </div>
 
     <!-- 连续学习打卡 -->
-    <div id="streak-card" class="bg-gradient-to-r from-orange-500 to-red-500 rounded-xl shadow-sm p-5 mb-8 text-white hidden">
+    <div id="streak-card" class="bg-gradient-to-r from-orange-500 to-red-500 rounded-xl shadow-sm p-5 mb-8 text-white">
       <div class="flex items-center justify-between">
         <div class="flex items-center">
           <span class="text-3xl mr-3">🔥</span>
@@ -152,7 +152,7 @@
             <p class="text-2xl font-bold"><span id="streak-days">0</span> 天</p>
           </div>
         </div>
-        <p class="text-sm opacity-90 text-right max-w-[50%]" id="streak-msg">坚持就是胜利，继续加油！</p>
+        <p class="text-sm opacity-90 text-right max-w-[50%]" id="streak-msg">加载中...</p>
       </div>
     </div>
 
@@ -593,9 +593,11 @@
                       streak >= 14 ? '两周达成，习惯正在养成！' :
                       streak >= 7 ? '一周了，继续保持！' :
                       streak >= 3 ? '好的开始，再接再厉！' :
-                      '坚持就是胜利，继续加油！';
+                      '第一天打卡，继续加油！';
           document.getElementById('streak-msg').textContent = msg;
-          document.getElementById('streak-card').classList.remove('hidden');
+        } else {
+          document.getElementById('streak-days').textContent = 0;
+          document.getElementById('streak-msg').textContent = '今天还没打卡，去学习吧！';
         }
       } catch (e) {
         console.error('加载连续天数失败:', e);
