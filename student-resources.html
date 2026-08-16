@@ -361,20 +361,44 @@
 
     function renderResourceCard(r) {
       const isPdf = r.type === 'pdf';
+      const read = isResourceRead(r.id);
       return `
-        <div class="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition">
+        <div class="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition ${read ? 'opacity-70' : ''}">
           <div class="flex items-center flex-1 min-w-0">
             <span class="text-2xl mr-4 flex-shrink-0">${isPdf ? '📄' : '🎬'}</span>
             <div class="min-w-0">
-              <p class="font-medium text-gray-800 truncate">${escapeHtml(r.title)}</p>
+              <div class="flex items-center">
+                <p class="font-medium ${read ? 'text-gray-400' : 'text-gray-800'} truncate">${escapeHtml(r.title)}</p>
+                ${read ? '<span class="ml-2 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full flex-shrink-0">✓ 已读</span>' : ''}
+              </div>
               ${r.description ? `<p class="text-xs text-gray-400 truncate mt-1">${escapeHtml(r.description)}</p>` : `<p class="text-xs text-gray-400 mt-1">${isPdf ? 'PDF 文档' : '视频课程 · 百度网盘'}</p>`}
             </div>
           </div>
           <div class="flex-shrink-0 ml-4">
-            ${isPdf && r.file_url ? `<a href="${r.file_url}" target="_blank" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition inline-flex items-center"><span class="mr-1">👁️</span> 查看</a>` : ''}
-            ${!isPdf && r.file_url ? `<button onclick="copyVideoLink('${r.file_url}', '${r.extraction_code || ''}')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition inline-flex items-center"><span class="mr-1">📋</span> 复制链接</button>` : ''}
+            ${isPdf && r.file_url ? `<a href="${r.file_url}" target="_blank" onclick="markResourceRead(${r.id})" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition inline-flex items-center"><span class="mr-1">👁️</span> 查看</a>` : ''}
+            ${!isPdf && r.file_url ? `<button onclick="markResourceRead(${r.id}); copyVideoLink('${r.file_url}', '${r.extraction_code || ''}')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition inline-flex items-center"><span class="mr-1">📋</span> 复制链接</button>` : ''}
           </div>
         </div>`;
+    }
+
+    // 资源已读标记（localStorage）
+    function getReadKey() {
+      return 'read_resources_' + (currentSession ? currentSession.user.id : 'unknown');
+    }
+    function isResourceRead(resourceId) {
+      try {
+        const read = JSON.parse(localStorage.getItem(getReadKey()) || '[]');
+        return read.includes(resourceId);
+      } catch (e) { return false; }
+    }
+    function markResourceRead(resourceId) {
+      try {
+        const read = JSON.parse(localStorage.getItem(getReadKey()) || '[]');
+        if (!read.includes(resourceId)) {
+          read.push(resourceId);
+          localStorage.setItem(getReadKey(), JSON.stringify(read));
+        }
+      } catch (e) {}
     }
 
     function renderQuizCard(q, submission) {
