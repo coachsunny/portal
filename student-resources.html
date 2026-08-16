@@ -108,6 +108,14 @@
         <p class="text-sm text-gray-500 mt-1">记录你对本章内容的理解、感悟或收获</p>
       </div>
       <div class="p-6 overflow-y-auto flex-1">
+        <div class="mb-3">
+          <p class="text-xs text-gray-400 mb-2">💡 不知道写什么？点击下方提示开始：</p>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="insertReflectionPrompt('这一章最打动我的是，')" class="text-xs px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full hover:bg-amber-100 transition">这一章最打动我的是…</button>
+            <button onclick="insertReflectionPrompt('让我联想到自己的经历，')" class="text-xs px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full hover:bg-amber-100 transition">让我联想到自己的经历…</button>
+            <button onclick="insertReflectionPrompt('我打算这样应用，')" class="text-xs px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full hover:bg-amber-100 transition">我打算这样应用…</button>
+          </div>
+        </div>
         <textarea id="reflection-content" rows="8" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500" placeholder="写下你的学习心得..."></textarea>
       </div>
       <div class="p-6 border-t flex justify-end space-x-3">
@@ -538,6 +546,14 @@
     }
 
     // 心得相关函数
+    function insertReflectionPrompt(text) {
+      const ta = document.getElementById('reflection-content');
+      const current = ta.value.trim();
+      ta.value = current ? current + '\n\n' + text : text;
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);
+    }
+
     function openReflectionModal(chapterId) {
       currentReflectionChapterId = chapterId;
       const ch = chaptersData.find(c => c.id === chapterId);
