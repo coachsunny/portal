@@ -363,13 +363,13 @@
       const isPdf = r.type === 'pdf';
       const read = isResourceRead(r.id);
       return `
-        <div class="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition ${read ? 'opacity-70' : ''}">
+        <div data-resource-id="${r.id}" class="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition ${read ? 'opacity-70' : ''}">
           <div class="flex items-center flex-1 min-w-0">
             <span class="text-2xl mr-4 flex-shrink-0">${isPdf ? '📄' : '🎬'}</span>
             <div class="min-w-0">
               <div class="flex items-center">
-                <p class="font-medium ${read ? 'text-gray-400' : 'text-gray-800'} truncate">${escapeHtml(r.title)}</p>
-                ${read ? '<span class="ml-2 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full flex-shrink-0">✓ 已读</span>' : ''}
+                <p class="font-medium resource-title ${read ? 'text-gray-400' : 'text-gray-800'} truncate">${escapeHtml(r.title)}</p>
+                ${read ? '<span class="read-tag ml-2 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full flex-shrink-0">✓ 已读</span>' : ''}
               </div>
               ${r.description ? `<p class="text-xs text-gray-400 truncate mt-1">${escapeHtml(r.description)}</p>` : `<p class="text-xs text-gray-400 mt-1">${isPdf ? 'PDF 文档' : '视频课程 · 百度网盘'}</p>`}
             </div>
@@ -399,6 +399,20 @@
           localStorage.setItem(getReadKey(), JSON.stringify(read));
         }
       } catch (e) {}
+      // 立即更新当前卡片样式
+      const card = document.querySelector(`[data-resource-id="${resourceId}"]`);
+      if (card) {
+        card.classList.add('opacity-70');
+        const title = card.querySelector('.resource-title');
+        if (title) { title.classList.remove('text-gray-800'); title.classList.add('text-gray-400'); }
+        const titleWrap = card.querySelector('.resource-title').parentElement;
+        if (titleWrap && !titleWrap.querySelector('.read-tag')) {
+          const tag = document.createElement('span');
+          tag.className = 'read-tag ml-2 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full flex-shrink-0';
+          tag.textContent = '✓ 已读';
+          titleWrap.appendChild(tag);
+        }
+      }
     }
 
     function renderQuizCard(q, submission) {
