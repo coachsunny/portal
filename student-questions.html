@@ -105,6 +105,9 @@
 
     async function loadQuestions() {
       if (!currentClassId) return;
+      // 显示加载状态
+      document.getElementById('question-list').innerHTML = '<div class="flex flex-col items-center justify-center py-16 bg-white rounded-xl border border-gray-100"><div class="w-10 h-10 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div><p class="text-sm text-gray-400 mt-3">加载中...</p></div>';
+      document.getElementById('empty-questions').classList.add('hidden');
       try {
         const { data: questions, error } = await sb
           .from('questions')
