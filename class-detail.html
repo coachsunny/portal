@@ -1290,6 +1290,23 @@
           .eq('class_id', classId);
         if (ve) throw ve;
 
+        // 批量加载章节心得
+        const { data: reflections, error: rfe } = await sb
+          .from('chapter_reflections')
+          .select('*')
+          .in('user_id', userIds)
+          .eq('class_id', classId)
+          .order('updated_at', { ascending: false });
+        if (rfe) throw rfe;
+
+        // 加载班级章节列表
+        const { data: chapters, error: che } = await sb
+          .from('chapters')
+          .select('id, title, sort_order')
+          .eq('class_id', classId)
+          .order('sort_order', { ascending: true });
+        if (che) throw che;
+
         // 按用户分组，取最新的评估
         const assessmentMap = {};
         (assessments || []).forEach(a => {
@@ -1301,11 +1318,21 @@
         const visionMap = {};
         (visions || []).forEach(v => { visionMap[v.user_id] = v; });
 
+        // 按用户分组心得
+        const reflectionMap = {};
+        (reflections || []).forEach(r => {
+          if (!reflectionMap[r.user_id]) reflectionMap[r.user_id] = [];
+          reflectionMap[r.user_id].push(r);
+        });
+
         container.innerHTML = members.map(m => {
           const profile = m.profiles;
           const assessment = assessmentMap[m.user_id];
           const vision = visionMap[m.user_id];
+          const userReflections = reflectionMap[m.user_id] || [];
           const typeInfo = assessment ? personalityTypeNames[assessment.personality_type] : null;
+          const chapterMap = {};
+          (chapters || []).forEach(ch => { chapterMap[ch.id] = ch.title; });
 
           return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div class="p-4 bg-gray-50 border-b flex items-center justify-between">
@@ -1340,6 +1367,21 @@
                     <p class="text-xs text-gray-400">更新时间：${formatDate(vision.updated_at)}</p>
                   </div>
                 ` : '<p class="text-sm text-gray-400">学员尚未填写自我愿景</p>'}
+              </div>
+              <!-- 章节心得 -->
+              <div>
+                <h4 class="text-sm font-medium text-gray-700 mb-2">📝 章节心得 <span class="text-xs text-gray-400 font-normal">(${userReflections.length}/${chapters.length} 章)</span></h4>
+                ${userReflections.length > 0 ? `
+                  <div class="space-y-2">
+                    ${userReflections.map(r => `
+                      <div class="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                        <p class="text-xs font-medium text-amber-700 mb-1">${escapeHtml(chapterMap[r.chapter_id] || '未知章节')}</p>
+                        <p class="text-sm text-gray-700 whitespace-pre-wrap">${escapeHtml(r.content)}</p>
+                        <p class="text-xs text-gray-400 mt-1">更新：${formatDate(r.updated_at)}</p>
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : '<p class="text-sm text-gray-400">学员尚未撰写章节心得</p>'}
               </div>
             </div>
           </div>`;

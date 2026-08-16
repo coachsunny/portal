@@ -149,26 +149,30 @@
 
         const classIds = myClasses.map(c => c.id);
 
-        // 并行加载：所有测验题目、我的答题记录、我的提问
-        const [chaptersRes, submissionsRes, questionsRes] = await Promise.all([
+        // 并行加载：所有测验题目、我的答题记录、我的提问、我的心得
+        const [chaptersRes, submissionsRes, questionsRes, reflectionsRes] = await Promise.all([
           sb.from('chapters').select('id, class_id').in('class_id', classIds),
           sb.from('quiz_submissions').select('quiz_id, class_id').eq('user_id', userId),
-          sb.from('questions').select('id, status').eq('user_id', userId)
+          sb.from('questions').select('id, status').eq('user_id', userId),
+          sb.from('chapter_reflections').select('chapter_id, class_id').eq('user_id', userId)
         ]);
 
         const chapters = chaptersRes.data || [];
         const chapterIds = chapters.map(c => c.id);
         const submissions = submissionsRes.data || [];
         const questions = questionsRes.data || [];
+        const reflections = reflectionsRes.data || [];
 
         // 加载所有章节关联的题目
+        let chapterQuizzes = [];
         let allQuizIds = [];
         if (chapterIds.length > 0) {
-          const { data: chapterQuizzes } = await sb
+          const { data: cqData } = await sb
             .from('chapter_quizzes')
             .select('quiz_id, chapter_id, chapters(class_id)')
             .in('chapter_id', chapterIds);
-          allQuizIds = (chapterQuizzes || []).map(cq => cq.quiz_id);
+          chapterQuizzes = cqData || [];
+          allQuizIds = chapterQuizzes.map(cq => cq.quiz_id);
         }
 
         // 统计
@@ -184,7 +188,7 @@
         renderClassList(myClasses, chapters, allQuizIds, submittedQuizIds);
 
         // 渲染学习进度
-        renderProgress(myClasses, chapters, allQuizIds, submittedQuizIds);
+        renderProgress(myClasses, chapters, chapterQuizzes, submittedQuizIds, reflections);
 
       } catch (error) {
         console.error('加载数据失败:', error);
@@ -225,51 +229,112 @@
       }).join('');
     }
 
-    function renderProgress(myClasses, chapters, allQuizIds, submittedQuizIds) {
+    function renderProgress(myClasses, chapters, chapterQuizzes, submittedQuizIds, reflections) {
       const container = document.getElementById('progress-list');
-      if (myClasses.length === 0 || allQuizIds.length === 0) return;
+      if (myClasses.length === 0) return;
 
-      // 按班级统计
+      // 按班级统计章节数
       const classChapterMap = {};
       chapters.forEach(c => {
         if (!classChapterMap[c.class_id]) classChapterMap[c.class_id] = [];
         classChapterMap[c.class_id].push(c.id);
       });
 
-      // 需要按班级统计题目数，这里简化处理：用总题目数平均展示
-      // 更精确的做法是按chapter_quizzes关联统计，但为了简化，这里显示整体进度
-      const total = allQuizIds.length;
-      const done = allQuizIds.filter(qid => submittedQuizIds.has(qid)).length;
-      const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+      // 按班级统计题目数
+      const classQuizMap = {};
+      chapterQuizzes.forEach(cq => {
+        const cid = cq.chapters?.class_id;
+        if (!cid) return;
+        if (!classQuizMap[cid]) classQuizMap[cid] = new Set();
+        classQuizMap[cid].add(cq.quiz_id);
+      });
+
+      // 按班级统计已完成题目
+      const classDoneQuizMap = {};
+      chapterQuizzes.forEach(cq => {
+        const cid = cq.chapters?.class_id;
+        if (!cid || !submittedQuizIds.has(cq.quiz_id)) return;
+        if (!classDoneQuizMap[cid]) classDoneQuizMap[cid] = new Set();
+        classDoneQuizMap[cid].add(cq.quiz_id);
+      });
+
+      // 按班级统计心得
+      const classReflectionMap = {};
+      (reflections || []).forEach(r => {
+        if (!classReflectionMap[r.class_id]) classReflectionMap[r.class_id] = new Set();
+        classReflectionMap[r.class_id].add(r.chapter_id);
+      });
+
+      // 总体统计
+      const totalQuizzes = chapterQuizzes.length;
+      const doneQuizzes = chapterQuizzes.filter(cq => submittedQuizIds.has(cq.quiz_id)).length;
+      const totalChapters = chapters.length;
+      const doneReflections = (reflections || []).length;
+      const quizPercent = totalQuizzes > 0 ? Math.round((doneQuizzes / totalQuizzes) * 100) : 0;
+      const reflectionPercent = totalChapters > 0 ? Math.round((doneReflections / totalChapters) * 100) : 0;
 
       container.innerHTML = `
-        <div class="mb-6">
-          <div class="flex justify-between items-center mb-2">
-            <span class="text-sm font-medium text-gray-700">总体测验完成度</span>
-            <span class="text-sm text-gray-500">${done} / ${total} 题</span>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-sm font-medium text-gray-700">📝 测验完成度</span>
+              <span class="text-sm text-gray-500">${doneQuizzes} / ${totalQuizzes} 题</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-3">
+              <div class="bg-gradient-to-r from-blue-500 to-green-500 h-3 rounded-full transition-all duration-500" style="width: ${quizPercent}%"></div>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">完成率 ${quizPercent}%</p>
           </div>
-          <div class="w-full bg-gray-200 rounded-full h-3">
-            <div class="bg-gradient-to-r from-blue-500 to-green-500 h-3 rounded-full transition-all duration-500" style="width: ${percent}%"></div>
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-sm font-medium text-gray-700">📝 心得完成度</span>
+              <span class="text-sm text-gray-500">${doneReflections} / ${totalChapters} 章</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-3">
+              <div class="bg-gradient-to-r from-amber-400 to-orange-500 h-3 rounded-full transition-all duration-500" style="width: ${reflectionPercent}%"></div>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">完成率 ${reflectionPercent}%</p>
           </div>
-          <p class="text-xs text-gray-400 mt-1">完成率 ${percent}%</p>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          ${myClasses.map(c => {
-            const chIds = classChapterMap[c.id] || [];
-            // 简化：按章节数比例估算
-            const classTotal = chIds.length > 0 ? Math.round(total * (chIds.length / chapters.length)) : 0;
-            const classDone = classTotal > 0 ? Math.round(done * (chIds.length / chapters.length)) : 0;
-            const classPercent = classTotal > 0 ? Math.round((classDone / classTotal) * 100) : 0;
-            return `
-              <div class="p-4 border border-gray-100 rounded-lg">
-                <p class="text-sm font-medium text-gray-700 mb-2">${escapeHtml(c.name)}</p>
-                <div class="w-full bg-gray-200 rounded-full h-2 mb-1">
-                  <div class="bg-blue-500 h-2 rounded-full" style="width: ${classPercent}%"></div>
+        <div class="border-t border-gray-100 pt-4">
+          <p class="text-sm font-medium text-gray-700 mb-3">各班级进度</p>
+          <div class="space-y-3">
+            ${myClasses.map(c => {
+              const chIds = classChapterMap[c.id] || [];
+              const quizSet = classQuizMap[c.id] || new Set();
+              const doneSet = classDoneQuizMap[c.id] || new Set();
+              const reflSet = classReflectionMap[c.id] || new Set();
+              const qTotal = quizSet.size;
+              const qDone = doneSet.size;
+              const qPct = qTotal > 0 ? Math.round((qDone / qTotal) * 100) : 0;
+              const rTotal = chIds.length;
+              const rDone = [...reflSet].filter(id => chIds.includes(id)).length;
+              const rPct = rTotal > 0 ? Math.round((rDone / rTotal) * 100) : 0;
+              return `
+                <div class="p-3 border border-gray-100 rounded-lg">
+                  <p class="text-sm font-medium text-gray-700 mb-2">${escapeHtml(c.name)}</p>
+                  <div class="flex items-center gap-3">
+                    <div class="flex-1">
+                      <div class="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>测验</span><span>${qDone}/${qTotal}</span>
+                      </div>
+                      <div class="w-full bg-gray-200 rounded-full h-1.5">
+                        <div class="bg-blue-500 h-1.5 rounded-full" style="width: ${qPct}%"></div>
+                      </div>
+                    </div>
+                    <div class="flex-1">
+                      <div class="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>心得</span><span>${rDone}/${rTotal}</span>
+                      </div>
+                      <div class="w-full bg-gray-200 rounded-full h-1.5">
+                        <div class="bg-amber-500 h-1.5 rounded-full" style="width: ${rPct}%"></div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <p class="text-xs text-gray-400">${classDone} / ${classTotal} 题 · ${classPercent}%</p>
-              </div>
-            `;
-          }).join('')}
+              `;
+            }).join('')}
+          </div>
         </div>
       `;
     }

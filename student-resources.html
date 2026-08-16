@@ -74,6 +74,23 @@
     </div>
   </div>
 
+  <!-- 心得编辑弹窗 -->
+  <div id="reflection-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col">
+      <div class="p-6 border-b">
+        <h3 class="text-lg font-semibold text-gray-800" id="reflection-modal-title">学习心得</h3>
+        <p class="text-sm text-gray-500 mt-1">记录你对本章内容的理解、感悟或收获</p>
+      </div>
+      <div class="p-6 overflow-y-auto flex-1">
+        <textarea id="reflection-content" rows="8" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500" placeholder="写下你的学习心得..."></textarea>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeReflectionModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="saveReflection()" id="reflection-save-btn" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition">保存心得</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/supabase-client.js"></script>
   <script src="js/auth.js"></script>
   <script>
@@ -87,6 +104,8 @@
     let quizzesByChapter = {};
     let allQuizzes = {};
     let submissionMap = {};
+    let reflectionsByChapter = {};
+    let currentReflectionChapterId = null;
 
     window.addEventListener('load', async () => {
       currentSession = await requireStudent();
@@ -219,6 +238,16 @@
         submissionMap = {};
         (submissions || []).forEach(s => { submissionMap[s.quiz_id] = s; });
 
+        // 加载我的章节心得
+        const { data: reflections, error: rfe } = await sb
+          .from('chapter_reflections')
+          .select('*')
+          .eq('user_id', currentSession.user.id)
+          .eq('class_id', currentClassId);
+        if (rfe) throw rfe;
+        reflectionsByChapter = {};
+        (reflections || []).forEach(r => { reflectionsByChapter[r.chapter_id] = r; });
+
       } catch (e) {
         console.error('加载数据失败:', e);
         alert('加载数据失败：' + e.message);
@@ -240,6 +269,8 @@
 
       container.innerHTML = chaptersWithResources.map((ch, idx) => {
         const resources = resourcesByChapter[ch.id] || [];
+        const reflection = reflectionsByChapter[ch.id];
+        const hasReflection = reflection && reflection.content && reflection.content.trim();
         return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
           <div class="p-4 bg-gray-50 border-b">
             <div class="flex items-center">
@@ -250,6 +281,24 @@
           </div>
           <div class="p-4 space-y-3">
             ${resources.map(r => renderResourceCard(r)).join('')}
+          </div>
+          <div class="px-4 pb-4">
+            <div class="border-t border-gray-100 pt-3">
+              ${hasReflection ? `
+                <div class="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium text-amber-800">📝 我的学习心得</span>
+                    <button onclick="openReflectionModal(${ch.id})" class="text-xs text-amber-600 hover:text-amber-700">编辑</button>
+                  </div>
+                  <p class="text-sm text-gray-700 whitespace-pre-wrap">${escapeHtml(reflection.content)}</p>
+                  <p class="text-xs text-gray-400 mt-2">最后更新：${formatDate(reflection.updated_at)}</p>
+                </div>
+              ` : `
+                <button onclick="openReflectionModal(${ch.id})" class="w-full py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 transition">
+                  ✍️ 写下本章学习心得
+                </button>
+              `}
+            </div>
           </div>
         </div>`;
       }).join('');
@@ -393,6 +442,53 @@
       }).catch(() => {
         alert('复制失败，请手动复制：\n' + copyUrl);
       });
+    }
+
+    // 心得相关函数
+    function openReflectionModal(chapterId) {
+      currentReflectionChapterId = chapterId;
+      const ch = chaptersData.find(c => c.id === chapterId);
+      document.getElementById('reflection-modal-title').textContent = ch ? `学习心得 - ${ch.title}` : '学习心得';
+      const existing = reflectionsByChapter[chapterId];
+      document.getElementById('reflection-content').value = existing ? existing.content : '';
+      document.getElementById('reflection-modal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('reflection-content').focus(), 100);
+    }
+
+    function closeReflectionModal() {
+      document.getElementById('reflection-modal').classList.add('hidden');
+      currentReflectionChapterId = null;
+    }
+
+    async function saveReflection() {
+      const content = document.getElementById('reflection-content').value.trim();
+      if (!content) { alert('请输入心得内容'); return; }
+      const btn = document.getElementById('reflection-save-btn');
+      btn.disabled = true; btn.textContent = '保存中...';
+      try {
+        const existing = reflectionsByChapter[currentReflectionChapterId];
+        if (existing) {
+          const { error } = await sb.from('chapter_reflections')
+            .update({ content })
+            .eq('id', existing.id);
+          if (error) throw error;
+        } else {
+          const { error } = await sb.from('chapter_reflections').insert({
+            user_id: currentSession.user.id,
+            class_id: currentClassId,
+            chapter_id: currentReflectionChapterId,
+            content
+          });
+          if (error) throw error;
+        }
+        closeReflectionModal();
+        await loadAllData();
+        renderResources();
+      } catch (e) {
+        alert('保存失败：' + e.message);
+      } finally {
+        btn.disabled = false; btn.textContent = '保存心得';
+      }
     }
 
     function escapeHtml(text) {
