@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学员学习状态 - 自牧平施教练班</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div id="navbar-container"></div>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- 页面标题 -->
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800">学员学习状态</h1>
+        <p class="text-gray-500 text-sm mt-1">查看所有学员的学习进度和活跃度</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <select id="class-filter" class="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          <option value="">全部班级</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 统计概览 -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <p class="text-2xl font-bold text-gray-800" id="total-students">0</p>
+        <p class="text-xs text-gray-500 mt-1">学员总数</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <p class="text-2xl font-bold text-orange-500" id="avg-streak">0</p>
+        <p class="text-xs text-gray-500 mt-1">平均连续打卡</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <p class="text-2xl font-bold text-green-500" id="avg-quiz">0%</p>
+        <p class="text-xs text-gray-500 mt-1">平均测验完成率</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <p class="text-2xl font-bold text-purple-500" id="avg-resource">0%</p>
+        <p class="text-xs text-gray-500 mt-1">平均资源阅读率</p>
+      </div>
+    </div>
+
+    <!-- 学员列表 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-50 border-b border-gray-100">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学员</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">班级</th>
+              <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">连续打卡</th>
+              <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">累计打卡</th>
+              <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">测验完成率</th>
+              <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">资源阅读率</th>
+              <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">心得</th>
+              <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">提问</th>
+              <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+            </tr>
+          </thead>
+          <tbody id="student-table-body" class="divide-y divide-gray-100">
+            <tr><td colspan="9" class="px-6 py-12 text-center text-gray-400">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let currentSession = null;
+    let allClasses = [];
+    let allStudents = [];
+
+    (async function init() {
+      currentSession = await requireTeacher();
+      if (!currentSession) return;
+      renderNavbar(currentSession, 'student-stats');
+
+      await loadClasses();
+      await loadAllData();
+
+      document.getElementById('class-filter').addEventListener('change', function() {
+        renderTable();
+      });
+    })();
+
+    async function loadClasses() {
+      try {
+        const { data, error } = await sb.from('classes').select('id, name').order('created_at', { ascending: false });
+        if (error) throw error;
+        allClasses = data || [];
+        const select = document.getElementById('class-filter');
+        allClasses.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.id;
+          opt.textContent = c.name;
+          select.appendChild(opt);
+        });
+      } catch (e) {
+        console.error('加载班级失败:', e);
+      }
+    }
+
+    async function loadAllData() {
+      try {
+        // 加载所有班级成员
+        const { data: members, error: me } = await sb
+          .from('class_members')
+          .select('user_id, class_id, joined_at, profiles(id, name)')
+          .order('joined_at', { ascending: true });
+        if (me) throw me;
+
+        if (!members || members.length === 0) {
+          document.getElementById('student-table-body').innerHTML = '<tr><td colspan="9" class="px-6 py-12 text-center text-gray-400">暂无学员</td></tr>';
+          return;
+        }
+
+        // 去重学员（一人多班只显示一次，但记录所有班级）
+        const studentMap = {};
+        members.forEach(m => {
+          if (!studentMap[m.user_id]) {
+            studentMap[m.user_id] = {
+              user_id: m.user_id,
+              name: m.profiles ? m.profiles.name : '未知',
+              classes: [],
+              classIds: []
+            };
+          }
+          const cls = allClasses.find(c => c.id == m.class_id);
+          studentMap[m.user_id].classes.push(cls ? cls.name : '未知班级');
+          studentMap[m.user_id].classIds.push(m.class_id);
+        });
+        allStudents = Object.values(studentMap);
+        const userIds = allStudents.map(s => s.user_id);
+
+        // 批量查询所有统计数据
+        const [logsRes, quizRes, resReadRes, refRes, qRes] = await Promise.all([
+          sb.from('study_logs').select('user_id, created_at').in('user_id', userIds),
+          sb.from('quiz_submissions').select('user_id, quiz_id, class_id').in('user_id', userIds),
+          sb.from('resource_reads').select('user_id, resource_id, class_id').in('user_id', userIds),
+          sb.from('chapter_reflections').select('user_id, class_id').in('user_id', userIds),
+          sb.from('questions').select('user_id, class_id').in('user_id', userIds)
+        ]);
+
+        // 按用户分组统计
+        const logsByUser = {};
+        (logsRes.data || []).forEach(l => {
+          if (!logsByUser[l.user_id]) logsByUser[l.user_id] = [];
+          logsByUser[l.user_id].push(l);
+        });
+
+        const quizByUser = {};
+        (quizRes.data || []).forEach(q => {
+          if (!quizByUser[q.user_id]) quizByUser[q.user_id] = new Set();
+          quizByUser[q.user_id].add(q.quiz_id);
+        });
+
+        const resReadByUser = {};
+        (resReadRes.data || []).forEach(r => {
+          if (!resReadByUser[r.user_id]) resReadByUser[r.user_id] = new Set();
+          resReadByUser[r.user_id].add(r.resource_id);
+        });
+
+        const refByUser = {};
+        (refRes.data || []).forEach(r => {
+          refByUser[r.user_id] = (refByUser[r.user_id] || 0) + 1;
+        });
+
+        const qByUser = {};
+        (qRes.data || []).forEach(q => {
+          qByUser[q.user_id] = (qByUser[q.user_id] || 0) + 1;
+        });
+
+        // 计算每个学员的统计
+        allStudents.forEach(s => {
+          // 连续打卡天数
+          const logs = logsByUser[s.user_id] || [];
+          const dateSet = new Set(logs.map(l => l.created_at.slice(0, 10)));
+          let streak = 0;
+          const today = new Date();
+          for (let i = 0; i < 365; i++) {
+            const d = new Date(today);
+            d.setDate(d.getDate() - i);
+            const ds = d.toISOString().slice(0, 10);
+            if (dateSet.has(ds)) streak++;
+            else if (i > 0) break;
+          }
+          s.streak = streak;
+          s.totalCheckins = dateSet.size;
+
+          // 测验完成数
+          s.quizCount = (quizByUser[s.user_id] || new Set()).size;
+
+          // 资源阅读数
+          s.resourceCount = (resReadByUser[s.user_id] || new Set()).size;
+
+          // 心得数
+          s.reflectionCount = refByUser[s.user_id] || 0;
+
+          // 提问数
+          s.questionCount = qByUser[s.user_id] || 0;
+        });
+
+        // 更新概览统计
+        document.getElementById('total-students').textContent = allStudents.length;
+        const avgStreak = allStudents.length ? Math.round(allStudents.reduce((sum, s) => sum + s.streak, 0) / allStudents.length) : 0;
+        document.getElementById('avg-streak').textContent = avgStreak;
+
+        renderTable();
+      } catch (e) {
+        console.error('加载数据失败:', e);
+        document.getElementById('student-table-body').innerHTML = '<tr><td colspan="9" class="px-6 py-12 text-center text-red-400">加载失败：' + e.message + '</td></tr>';
+      }
+    }
+
+    function renderTable() {
+      const filterClassId = document.getElementById('class-filter').value;
+      let filtered = allStudents;
+
+      if (filterClassId) {
+        filtered = allStudents.filter(s => s.classIds.includes(parseInt(filterClassId)) || s.classIds.includes(filterClassId));
+      }
+
+      if (filtered.length === 0) {
+        document.getElementById('student-table-body').innerHTML = '<tr><td colspan="9" class="px-6 py-12 text-center text-gray-400">该班级暂无学员</td></tr>';
+        return;
+      }
+
+      // 按连续打卡降序排列
+      filtered.sort((a, b) => b.streak - a.streak);
+
+      const tbody = document.getElementById('student-table-body');
+      tbody.innerHTML = filtered.map(s => {
+        const streakColor = s.streak >= 7 ? 'text-orange-500 font-bold' : s.streak >= 3 ? 'text-orange-400' : 'text-gray-600';
+        return `<tr class="hover:bg-gray-50 transition">
+          <td class="px-6 py-4">
+            <div class="flex items-center">
+              <div class="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-medium text-sm mr-3">${s.name.charAt(0)}</div>
+              <span class="text-sm font-medium text-gray-800">${escapeHtml(s.name)}</span>
+            </div>
+          </td>
+          <td class="px-6 py-4 text-sm text-gray-500">${s.classes.map(escapeHtml).join('、')}</td>
+          <td class="px-6 py-4 text-center text-sm ${streakColor}">${s.streak} 天</td>
+          <td class="px-6 py-4 text-center text-sm text-gray-600">${s.totalCheckins} 天</td>
+          <td class="px-6 py-4 text-center text-sm text-gray-600">${s.quizCount} 份</td>
+          <td class="px-6 py-4 text-center text-sm text-gray-600">${s.resourceCount} 个</td>
+          <td class="px-6 py-4 text-center text-sm text-gray-600">${s.reflectionCount} 篇</td>
+          <td class="px-6 py-4 text-center text-sm text-gray-600">${s.questionCount} 次</td>
+          <td class="px-6 py-4 text-center">
+            <a href="student-detail.html?user_id=${s.user_id}&class_id=${s.classIds[0]}" class="text-blue-500 hover:text-blue-700 text-sm font-medium">详情</a>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    function escapeHtml(s) {
+      if (!s) return '';
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
