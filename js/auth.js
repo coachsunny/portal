@@ -114,7 +114,8 @@ function renderNavbar(session, currentPage) {
     { id: 'quizzes', label: '我的测验', href: 'student-resources.html?tab=quizzes' },
     { id: 'questions', label: '我的提问', href: 'student-questions.html' },
     { id: 'assessment', label: '性向评估', href: 'personality-assessment.html' },
-    { id: 'vision', label: '自我愿景', href: 'student-vision.html' }
+    { id: 'vision', label: '自我愿景', href: 'student-vision.html' },
+    { id: 'guide', label: '📖 使用手册', href: 'student-guide.html', external: true }
   ];
 
   const navHtml = `
@@ -127,7 +128,7 @@ function renderNavbar(session, currentPage) {
           </div>
           <div class="flex items-center space-x-1">
             ${navItems.map(item => `
-              <a href="${item.href}" class="px-3 py-2 rounded-md text-sm font-medium ${currentPage === item.id ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}">${item.label}</a>
+              <a href="${item.href}" ${item.external ? 'target="_blank"' : ''} class="px-3 py-2 rounded-md text-sm font-medium ${currentPage === item.id ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}">${item.label}</a>
             `).join('')}
             <div class="flex items-center ml-4 pl-4 border-l">
               <span class="text-sm text-gray-600 mr-3">${session.name}</span>
