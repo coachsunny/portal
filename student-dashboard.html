@@ -13,9 +13,25 @@
   <!-- 主内容区 -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- 欢迎区 -->
-    <div class="mb-8">
+    <div class="mb-6">
       <h1 class="text-2xl font-bold text-gray-800" id="welcome-title">同学您好</h1>
       <p class="text-gray-500 mt-1">欢迎开始今天的学习</p>
+    </div>
+
+    <!-- 我的愿景 -->
+    <div id="vision-card" class="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl shadow-sm p-6 border border-amber-100 mb-8 hidden">
+      <div class="flex items-start justify-between">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center mb-2">
+            <span class="text-lg mr-2">🌟</span>
+            <h2 class="text-base font-semibold text-gray-800">我的愿景</h2>
+            <span id="vision-class-tag" class="ml-2 px-2 py-0.5 text-xs bg-white text-amber-700 rounded-full border border-amber-200"></span>
+          </div>
+          <p id="vision-content" class="text-gray-700 leading-relaxed"></p>
+          <p id="vision-others" class="text-sm text-gray-500 mt-2 italic"></p>
+        </div>
+        <a href="student-vision.html" class="text-sm text-amber-600 hover:text-amber-700 flex-shrink-0 ml-4">编辑 →</a>
+      </div>
     </div>
 
     <!-- 统计卡片 -->
@@ -120,6 +136,9 @@
 
         const myClasses = (memberships || []).map(m => m.classes).filter(c => c);
         document.getElementById('stat-classes').textContent = myClasses.length;
+
+        // 加载我的愿景（取最近更新的一条）
+        loadMyVision(userId, myClasses);
 
         if (myClasses.length === 0) {
           document.getElementById('stat-pending-quizzes').textContent = 0;
@@ -253,6 +272,36 @@
           }).join('')}
         </div>
       `;
+    }
+
+    // 加载并展示我的愿景
+    async function loadMyVision(userId, myClasses) {
+      try {
+        if (myClasses.length === 0) return;
+        const classIds = myClasses.map(c => c.id);
+        const { data: visions, error } = await sb
+          .from('student_visions')
+          .select('id, self_description, others_change, class_id, updated_at')
+          .eq('user_id', userId)
+          .in('class_id', classIds)
+          .order('updated_at', { ascending: false })
+          .limit(1);
+        if (error) throw error;
+        if (!visions || visions.length === 0) return;
+
+        const vision = visions[0];
+        if (!vision.self_description && !vision.others_change) return;
+
+        const classMap = {};
+        myClasses.forEach(c => { classMap[c.id] = c.name; });
+
+        document.getElementById('vision-card').classList.remove('hidden');
+        document.getElementById('vision-content').textContent = vision.self_description || '（未填写）';
+        document.getElementById('vision-others').textContent = vision.others_change ? `别人会看到：${vision.others_change}` : '';
+        document.getElementById('vision-class-tag').textContent = classMap[vision.class_id] || '';
+      } catch (e) {
+        console.error('加载愿景失败:', e);
+      }
     }
 
     function escapeHtml(text) {
