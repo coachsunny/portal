@@ -84,7 +84,9 @@
         }
 
         select.innerHTML = myClasses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
-        currentClassId = myClasses[0].id;
+        // 优先读取上次选择的班级，没有则默认第一个
+        const savedClassId = localStorage.getItem('selected_class_' + currentSession.user.id);
+        currentClassId = (savedClassId && myClasses.some(c => c.id == savedClassId)) ? savedClassId : myClasses[0].id;
         select.value = currentClassId;
         await loadQuestions();
       } catch (e) {
@@ -95,7 +97,10 @@
 
     function onClassChange() {
       currentClassId = document.getElementById('class-select').value;
-      if (currentClassId) loadQuestions();
+      if (currentClassId) {
+        localStorage.setItem('selected_class_' + currentSession.user.id, currentClassId);
+        loadQuestions();
+      }
     }
 
     async function loadQuestions() {
