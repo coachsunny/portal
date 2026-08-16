@@ -214,10 +214,11 @@ async function checkIn(userId) {
   const lastDate = localStorage.getItem('last_checkin_' + userId);
   if (lastDate === today) return;
   try {
-    await sb.from('study_logs').insert({
-      user_id: userId,
-      activity_type: 'browse'
-    });
+    // 从localStorage读取当前选中的班级
+    const classId = localStorage.getItem('selected_class_' + userId);
+    const record = { user_id: userId, activity_type: 'browse' };
+    if (classId) record.class_id = parseInt(classId);
+    await sb.from('study_logs').insert(record);
     localStorage.setItem('last_checkin_' + userId, today);
   } catch (e) {
     console.error('打卡失败:', e);
