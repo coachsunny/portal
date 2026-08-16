@@ -53,8 +53,11 @@
         <a href="#vision" class="flex items-center py-2 px-3 rounded-lg hover:bg-gray-50 text-gray-700">
           <span class="mr-2">7️⃣</span> 自我愿景
         </a>
+        <a href="#profile" class="flex items-center py-2 px-3 rounded-lg hover:bg-gray-50 text-gray-700">
+          <span class="mr-2">8️⃣</span> 个人中心
+        </a>
         <a href="#faq" class="flex items-center py-2 px-3 rounded-lg hover:bg-gray-50 text-gray-700">
-          <span class="mr-2">8️⃣</span> 常见问题
+          <span class="mr-2">9️⃣</span> 常见问题
         </a>
       </div>
     </div>
@@ -93,6 +96,21 @@
       <p class="text-sm text-gray-600 mb-4">登录后首先看到的页面，是你学习状态的总览。</p>
 
       <div class="space-y-4">
+        <div class="border-l-4 border-orange-400 pl-4">
+          <h4 class="font-medium text-gray-800 text-sm mb-1">🔥 连续学习打卡</h4>
+          <p class="text-sm text-gray-600">系统自动记录你每天的学习活动，展示连续学习天数。每天登录学习即可累计，坚持学习会有鼓励语提示。今天还没打卡时会提醒你去学习。</p>
+        </div>
+
+        <div class="border-l-4 border-indigo-400 pl-4">
+          <h4 class="font-medium text-gray-800 text-sm mb-1">🎯 新手引导任务</h4>
+          <p class="text-sm text-gray-600">首次登录时，页面顶部会显示3个入门任务：填写自我愿景、完成性向评估、浏览学习资源。全部完成后任务卡片自动消失，帮助你快速上手。</p>
+        </div>
+
+        <div class="border-l-4 border-rose-400 pl-4">
+          <h4 class="font-medium text-gray-800 text-sm mb-1">📢 班级公告</h4>
+          <p class="text-sm text-gray-600">页面顶部展示老师发布的最新班级公告（最多3条），包括课程通知、活动安排等。发布3天内的公告会标「NEW」，置顶公告永远排在最前。</p>
+        </div>
+
         <div class="border-l-4 border-amber-400 pl-4">
           <h4 class="font-medium text-gray-800 text-sm mb-1">🌟 我的愿景</h4>
           <p class="text-sm text-gray-600">展示你填写的自我愿景（我想成为怎样的人），时刻提醒自己学习的目标。点击「编辑」可跳转修改。</p>
@@ -135,7 +153,12 @@
       <div class="space-y-4 text-sm text-gray-700">
         <div>
           <h4 class="font-medium text-gray-800 mb-2">📂 选择班级</h4>
-          <p class="text-gray-600">进入页面后，先在顶部下拉菜单中选择要学习的班级。不同班级有不同的章节和资源。</p>
+          <p class="text-gray-600">进入页面后，先在顶部下拉菜单中选择要学习的班级。不同班级有不同的章节和资源。系统会自动记住你上次选择的班级，下次进入时直接显示。</p>
+        </div>
+
+        <div>
+          <h4 class="font-medium text-gray-800 mb-2">🔍 搜索资源</h4>
+          <p class="text-gray-600">选择班级后，页面顶部会出现搜索框。输入关键词可以快速筛选匹配的资源（按标题和描述搜索），只显示包含关键词的章节和资源，方便快速定位。清空搜索框即可恢复完整列表。</p>
         </div>
 
         <div>
@@ -143,6 +166,9 @@
           <p class="text-gray-600">每个章节是一张卡片，包含该章节的所有学习资料（PDF文档、视频链接等）。点击资源即可查看或下载。</p>
           <div class="bg-gray-50 rounded-lg p-3 mt-2">
             <p class="text-xs text-gray-500">视频资源通常是百度网盘链接，点击后会自动复制提取码，粘贴即可打开。</p>
+          </div>
+          <div class="bg-green-50 border border-green-100 rounded-lg p-3 mt-2">
+            <p class="text-xs text-green-700"><strong>✓ 已读标记：</strong>点击查看过的资源会自动标记为已读，标题变灰并显示绿色「✓ 已读」标签，方便你区分哪些还没看。</p>
           </div>
         </div>
 
@@ -152,6 +178,7 @@
           <ol class="list-decimal list-inside space-y-1 text-amber-700 text-sm">
             <li>在章节卡片底部找到「✍️ 写下本章学习心得」按钮</li>
             <li>点击后弹出编辑框，写下你的感悟、收获或疑问</li>
+            <li>不知道写什么时，可以点击编辑框上方的提示标签（如「这一章最打动我的是…」），自动填入引导语</li>
             <li>点击「保存心得」即可提交</li>
             <li>已写的心得会显示在章节卡片中，随时可以点击「编辑」修改</li>
           </ol>
@@ -175,7 +202,8 @@
             <li>选择班级后，按章节查看测验题目</li>
             <li>每道题显示作答状态（未答/已答）</li>
             <li>点击题目进入答题弹窗，在文本框中输入你的答案</li>
-            <li>点击「提交答案」完成作答</li>
+            <li>点击「提交答案」后会弹出确认框，确认后才真正提交</li>
+            <li>如果是更新已有答案，确认框会提示你将覆盖之前的答案</li>
             <li>提交后可随时重新打开修改答案</li>
           </ol>
         </div>
@@ -206,6 +234,9 @@
         <div>
           <h4 class="font-medium text-gray-800 mb-2">📨 查看回复</h4>
           <p class="text-gray-600">老师回复后，问题状态会从「待回复」变为「已回复」。点击问题即可展开查看老师的回答。</p>
+          <div class="bg-red-50 border border-red-100 rounded-lg p-2 mt-2">
+            <p class="text-xs text-red-700"><strong>🔴 未读提醒：</strong>导航栏「我的提问」右上角会显示红色数字徽章，表示有几条新回复还没看。进入提问页面后会自动标记为已读。</p>
+          </div>
         </div>
 
         <div class="bg-blue-50 border border-blue-100 rounded-lg p-3">
@@ -286,10 +317,39 @@
       </div>
     </section>
 
-    <!-- 8. 常见问题 -->
-    <section id="faq" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8 scroll-mt-20">
+    <!-- 8. 个人中心 -->
+    <section id="profile" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6 scroll-mt-20">
       <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
         <span class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm mr-3">8</span>
+        个人中心
+      </h2>
+      <p class="text-sm text-gray-600 mb-4">点击导航栏的「👤 个人中心」进入，在这里管理你的个人信息和账号安全。</p>
+
+      <div class="space-y-4 text-sm text-gray-700">
+        <div>
+          <h4 class="font-medium text-gray-800 mb-2">📝 修改姓名</h4>
+          <p class="text-gray-600">在「基本信息」区域点击「编辑」，输入新的姓名后保存。修改后导航栏和各处显示的姓名会同步更新。</p>
+        </div>
+
+        <div>
+          <h4 class="font-medium text-gray-800 mb-2">🔐 修改密码</h4>
+          <ol class="list-decimal list-inside space-y-1 text-gray-600">
+            <li>在「修改密码」区域输入当前密码进行验证</li>
+            <li>输入新密码（至少6位），并再次确认</li>
+            <li>新密码不能与旧密码相同</li>
+            <li>点击「确认修改」完成密码更新</li>
+          </ol>
+          <div class="bg-yellow-50 border border-yellow-100 rounded-lg p-2 mt-2">
+            <p class="text-xs text-yellow-700">修改密码前必须验证旧密码，防止他人冒用已登录的账号改密。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. 常见问题 -->
+    <section id="faq" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8 scroll-mt-20">
+      <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+        <span class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm mr-3">9</span>
         常见问题
       </h2>
       <div class="space-y-4 text-sm">
@@ -316,6 +376,22 @@
         <div>
           <h4 class="font-medium text-gray-800 mb-1">Q：可以用手机访问吗？</h4>
           <p class="text-gray-600">A：可以。网站支持手机浏览器访问，界面会自动适配屏幕大小。建议在WiFi环境下观看视频资源。</p>
+        </div>
+        <div>
+          <h4 class="font-medium text-gray-800 mb-1">Q：切换班级后下次还要重新选吗？</h4>
+          <p class="text-gray-600">A：不用。系统会自动记住你上次选择的班级，下次进入学习资源或提问页面时会直接显示上次的班级。</p>
+        </div>
+        <div>
+          <h4 class="font-medium text-gray-800 mb-1">Q：资源标记已读后能取消吗？</h4>
+          <p class="text-gray-600">A：已读标记保存在本地浏览器中，清除浏览器缓存或换设备登录后会重置。目前不支持手动取消单条已读标记。</p>
+        </div>
+        <div>
+          <h4 class="font-medium text-gray-800 mb-1">Q：忘记密码怎么办？</h4>
+          <p class="text-gray-600">A：请联系老师重置密码。老师可以在后台为你生成新的初始密码。登录后建议及时到「个人中心」修改为自己容易记住的密码。</p>
+        </div>
+        <div>
+          <h4 class="font-medium text-gray-800 mb-1">Q：连续学习天数中断了怎么办？</h4>
+          <p class="text-gray-600">A：连续天数从今天往前计算，只要有一天没登录学习就会中断。中断后会重新开始累计，今天没打卡不算中断哦。坚持每天学一点就好！</p>
         </div>
       </div>
     </section>
