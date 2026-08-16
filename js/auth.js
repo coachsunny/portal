@@ -112,7 +112,7 @@ function renderNavbar(session, currentPage) {
     { id: 'dashboard', label: '首页', href: PAGES.student },
     { id: 'resources', label: '学习资源', href: 'student-resources.html' },
     { id: 'quizzes', label: '我的测验', href: 'student-resources.html?tab=quizzes' },
-    { id: 'questions', label: '我的提问', href: 'student-questions.html' },
+    { id: 'questions', label: '我的提问', href: 'student-questions.html', hasBadge: true },
     { id: 'assessment', label: '性向评估', href: 'personality-assessment.html' },
     { id: 'vision', label: '自我愿景', href: 'student-vision.html' },
     { id: 'guide', label: '📖 使用手册', href: 'student-guide.html', external: true }
@@ -128,7 +128,10 @@ function renderNavbar(session, currentPage) {
           </div>
           <div class="flex items-center space-x-1">
             ${navItems.map(item => `
-              <a href="${item.href}" ${item.external ? 'target="_blank"' : ''} class="px-3 py-2 rounded-md text-sm font-medium ${currentPage === item.id ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}">${item.label}</a>
+              <a href="${item.href}" ${item.external ? 'target="_blank"' : ''} class="relative px-3 py-2 rounded-md text-sm font-medium ${currentPage === item.id ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}">
+                ${item.label}
+                ${item.hasBadge ? '<span id="nav-unread-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-xs rounded-full flex items-center justify-center px-1 font-bold"></span>' : ''}
+              </a>
             `).join('')}
             <div class="flex items-center ml-4 pl-4 border-l">
               <span class="text-sm text-gray-600 mr-3">${session.name}</span>
@@ -141,4 +144,61 @@ function renderNavbar(session, currentPage) {
   `;
   
   document.body.insertAdjacentHTML('afterbegin', navHtml);
+}
+
+/**
+ * 查询学员未读的老师回复数量
+ * @param {string} userId - 学员用户ID
+ * @returns {Promise<number>} 未读数量
+ */
+async function loadUnreadCount(userId) {
+  try {
+    const { data, error } = await sb
+      .from('questions')
+      .select('id', { count: 'exact' })
+      .eq('user_id', userId)
+      .eq('status', 'answered')
+      .is('student_read_at', null);
+    if (error) throw error;
+    const count = data ? data.length : 0;
+    updateUnreadBadge(count);
+    return count;
+  } catch (e) {
+    console.error('查询未读消息失败:', e);
+    return 0;
+  }
+}
+
+/**
+ * 更新导航栏未读红点
+ * @param {number} count - 未读数量
+ */
+function updateUnreadBadge(count) {
+  const badge = document.getElementById('nav-unread-badge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count > 99 ? '99+' : count;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+/**
+ * 将学员所有已回复的提问标记为已读
+ * @param {string} userId - 学员用户ID
+ */
+async function markQuestionsAsRead(userId) {
+  try {
+    const { error } = await sb
+      .from('questions')
+      .update({ student_read_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('status', 'answered')
+      .is('student_read_at', null);
+    if (error) throw error;
+    updateUnreadBadge(0);
+  } catch (e) {
+    console.error('标记已读失败:', e);
+  }
 }

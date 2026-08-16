@@ -60,6 +60,8 @@
       currentSession = await requireStudent();
       if (!currentSession) return;
       renderNavbar(currentSession, 'questions');
+      // 先显示未读红点，加载完问题后再标记已读
+      loadUnreadCount(currentSession.user.id);
       await loadMyClasses();
     });
 
@@ -136,6 +138,8 @@
             </div>
           </div>`;
         }).join('');
+        // 学员进入页面查看后，自动将所有已回复的提问标记为已读
+        markQuestionsAsRead(currentSession.user.id);
       } catch (e) {
         console.error('加载提问失败:', e);
         alert('加载提问失败：' + e.message);
