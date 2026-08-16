@@ -69,6 +69,8 @@ async function requireStudent() {
     window.location.href = PAGES.admin;
     return null;
   }
+  // 学员打卡（异步，不阻塞页面加载）
+  checkIn(session.user.id);
   return session;
 }
 
@@ -201,5 +203,23 @@ async function markQuestionsAsRead(userId) {
     updateUnreadBadge(0);
   } catch (e) {
     console.error('标记已读失败:', e);
+  }
+}
+
+/**
+ * 学习打卡：同一天只记一次，所有学员页面加载时自动调用
+ */
+async function checkIn(userId) {
+  const today = new Date().toISOString().slice(0, 10);
+  const lastDate = localStorage.getItem('last_checkin_' + userId);
+  if (lastDate === today) return;
+  try {
+    await sb.from('study_logs').insert({
+      user_id: userId,
+      activity_type: 'browse'
+    });
+    localStorage.setItem('last_checkin_' + userId, today);
+  } catch (e) {
+    console.error('打卡失败:', e);
   }
 }

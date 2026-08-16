@@ -272,28 +272,9 @@
         reflectionsByChapter = {};
         (reflections || []).forEach(r => { reflectionsByChapter[r.chapter_id] = r; });
 
-        // 学习打卡
-        checkIn('browse');
       } catch (e) {
         console.error('加载数据失败:', e);
         alert('加载数据失败：' + e.message);
-      }
-    }
-
-    // 学习打卡：同一天只记一次
-    async function checkIn(activityType = 'browse') {
-      const today = new Date().toISOString().slice(0, 10);
-      const lastDate = localStorage.getItem('last_checkin_' + currentSession.user.id);
-      if (lastDate === today) return; // 今天已打卡
-      try {
-        await sb.from('study_logs').insert({
-          user_id: currentSession.user.id,
-          class_id: currentClassId ? parseInt(currentClassId) : null,
-          activity_type: activityType
-        });
-        localStorage.setItem('last_checkin_' + currentSession.user.id, today);
-      } catch (e) {
-        console.error('打卡失败:', e);
       }
     }
 
