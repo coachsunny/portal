@@ -156,6 +156,21 @@
       </div>
     </div>
 
+    <!-- 期末评价 -->
+    <div id="evaluation-card" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8 hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-800">📝 期末评价</h2>
+        <span id="eval-badge" class="px-3 py-1 rounded-full text-sm font-medium"></span>
+      </div>
+      <div class="bg-gray-50 rounded-lg p-4 mb-4">
+        <p class="text-sm text-gray-400 mb-2">老师评语</p>
+        <p class="text-gray-700 leading-relaxed" id="eval-comment">-</p>
+      </div>
+      <button onclick="downloadArchive()" class="w-full py-3 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition flex items-center justify-center gap-2">
+        <span>📥</span> 下载我的学习档案
+      </button>
+    </div>
+
     <!-- 我的班级 -->
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-8">
       <div class="flex items-center justify-between mb-4">
@@ -226,6 +241,11 @@
         document.getElementById('stat-classes').textContent = myClasses.length;
         loadDashboardAnnouncements(myClasses.map(c => c.id));
         loadStreak(userId);
+
+        // 加载期末评价（取最新班级的评价）
+        if (myClasses.length > 0) {
+          loadEvaluation(userId, myClasses[0].id);
+        }
 
         // 加载我的愿景（取最近更新的一条）
         loadMyVision(userId, myClasses);
@@ -635,6 +655,43 @@
       } catch (e) {
         console.error('加载连续天数失败:', e);
       }
+    }
+
+    async function loadEvaluation(userId, classId) {
+      try {
+        const { data, error } = await sb
+          .from('student_evaluations')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('class_id', classId)
+          .maybeSingle();
+        if (error) throw error;
+        if (data && data.is_passed !== null) {
+          document.getElementById('evaluation-card').classList.remove('hidden');
+          document.getElementById('eval-comment').textContent = data.teacher_comment || '暂无评语';
+          const badge = document.getElementById('eval-badge');
+          if (data.is_passed) {
+            badge.textContent = '✅ 及格';
+            badge.className = 'px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700';
+          } else {
+            badge.textContent = '❌ 不及格';
+            badge.className = 'px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-700';
+          }
+          // 保存当前班级ID供下载使用
+          window.currentEvalClassId = classId;
+        }
+      } catch (e) {
+        console.error('加载评价失败:', e);
+      }
+    }
+
+    function downloadArchive() {
+      const classId = window.currentEvalClassId;
+      if (!classId) {
+        alert('无法获取班级信息');
+        return;
+      }
+      window.open(`student-archive.html?class_id=${classId}`, '_blank');
     }
 
     function escapeHtml(text) {

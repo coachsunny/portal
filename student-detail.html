@@ -60,6 +60,36 @@
       </div>
     </div>
 
+    <!-- 期末评价 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-800">📝 期末评价</h2>
+        <span id="eval-status" class="text-sm text-gray-400">未评定</span>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">成绩判定</label>
+          <div class="flex gap-4">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="is-passed" value="true" class="w-4 h-4 text-green-600">
+              <span class="text-sm text-gray-700">✅ 及格</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="is-passed" value="false" class="w-4 h-4 text-red-600">
+              <span class="text-sm text-gray-700">❌ 不及格</span>
+            </label>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">老师评语</label>
+          <textarea id="teacher-comment" rows="4" class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="请输入对学员的期末评语..."></textarea>
+        </div>
+        <div class="flex justify-end">
+          <button onclick="saveEvaluation()" class="px-6 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition">保存评价</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 详细数据标签页 -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div class="flex border-b border-gray-100">
@@ -187,6 +217,9 @@
         renderReflections();
         renderQuestions();
         renderCheckins();
+
+        // 加载期末评价
+        loadEvaluation();
 
       } catch (e) {
         console.error('加载数据失败:', e);
@@ -394,6 +427,67 @@
           <span class="text-gray-400">${byDate[d].length} 次</span>
         </div>`).join('')}
       </div>`;
+    }
+
+    async function loadEvaluation() {
+      try {
+        const { data, error } = await sb
+          .from('student_evaluations')
+          .select('*')
+          .eq('user_id', studentId)
+          .eq('class_id', classId)
+          .maybeSingle();
+        if (error) throw error;
+        if (data) {
+          document.getElementById('teacher-comment').value = data.teacher_comment || '';
+          if (data.is_passed === true) {
+            document.querySelector('input[name="is-passed"][value="true"]').checked = true;
+            document.getElementById('eval-status').textContent = '已评定：及格';
+            document.getElementById('eval-status').className = 'text-sm text-green-600 font-medium';
+          } else if (data.is_passed === false) {
+            document.querySelector('input[name="is-passed"][value="false"]').checked = true;
+            document.getElementById('eval-status').textContent = '已评定：不及格';
+            document.getElementById('eval-status').className = 'text-sm text-red-600 font-medium';
+          }
+        }
+      } catch (e) {
+        console.error('加载评价失败:', e);
+      }
+    }
+
+    async function saveEvaluation() {
+      const comment = document.getElementById('teacher-comment').value.trim();
+      const passedRadio = document.querySelector('input[name="is-passed"]:checked');
+      
+      if (!passedRadio) {
+        alert('请选择成绩判定（及格/不及格）');
+        return;
+      }
+      if (!comment) {
+        alert('请输入评语');
+        return;
+      }
+
+      const isPassed = passedRadio.value === 'true';
+      try {
+        const { error } = await sb
+          .from('student_evaluations')
+          .upsert({
+            user_id: studentId,
+            class_id: classId,
+            teacher_comment: comment,
+            is_passed: isPassed,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id,class_id' });
+        if (error) throw error;
+
+        document.getElementById('eval-status').textContent = isPassed ? '已评定：及格' : '已评定：不及格';
+        document.getElementById('eval-status').className = isPassed ? 'text-sm text-green-600 font-medium' : 'text-sm text-red-600 font-medium';
+        alert('评价保存成功');
+      } catch (e) {
+        console.error('保存评价失败:', e);
+        alert('保存失败：' + e.message);
+      }
     }
 
     function escapeHtml(s) {
