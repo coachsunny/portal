@@ -56,8 +56,11 @@
         <a href="#profile" class="flex items-center py-2 px-3 rounded-lg hover:bg-gray-50 text-gray-700">
           <span class="mr-2">8️⃣</span> 个人中心
         </a>
+        <a href="#evaluation" class="flex items-center py-2 px-3 rounded-lg hover:bg-gray-50 text-gray-700">
+          <span class="mr-2">9️⃣</span> 期末评价与学习档案
+        </a>
         <a href="#faq" class="flex items-center py-2 px-3 rounded-lg hover:bg-gray-50 text-gray-700">
-          <span class="mr-2">9️⃣</span> 常见问题
+          <span class="mr-2">🔟</span> 常见问题
         </a>
       </div>
     </div>
@@ -346,10 +349,58 @@
       </div>
     </section>
 
-    <!-- 9. 常见问题 -->
-    <section id="faq" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8 scroll-mt-20">
+    <!-- 9. 期末评价与学习档案 -->
+    <section id="evaluation" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6 scroll-mt-20">
       <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
         <span class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm mr-3">9</span>
+        期末评价与学习档案
+      </h2>
+      <p class="text-sm text-gray-600 mb-4">课程结束后，老师会为每位学员撰写期末评语并评定成绩。你可以在首页查看评价，并下载完整的学习档案留存。</p>
+
+      <div class="space-y-4 text-sm text-gray-700">
+        <div>
+          <h4 class="font-medium text-gray-800 mb-2">📝 查看期末评价</h4>
+          <p class="text-gray-600">老师提交评价后，首页仪表板会显示「期末评价」卡片，包含：</p>
+          <ul class="list-disc list-inside space-y-1 text-gray-600 mt-2 ml-2">
+            <li><strong>成绩判定</strong>：及格 / 不及格（带颜色标签）</li>
+            <li><strong>老师评语</strong>：老师对你整个学习过程的总结与建议</li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="font-medium text-gray-800 mb-2">📥 下载学习档案</h4>
+          <p class="text-gray-600 mb-2">在期末评价卡片中点击「下载我的学习档案」按钮，会打开一个可打印的档案页面，包含：</p>
+          <div class="grid grid-cols-2 gap-2 ml-2">
+            <div class="bg-gray-50 rounded p-2 text-xs text-gray-600">👤 学员基本信息</div>
+            <div class="bg-gray-50 rounded p-2 text-xs text-gray-600">📊 学习统计数据</div>
+            <div class="bg-gray-50 rounded p-2 text-xs text-gray-600">📝 期末评价与评语</div>
+            <div class="bg-gray-50 rounded p-2 text-xs text-gray-600">✍️ 所有章节心得</div>
+            <div class="bg-gray-50 rounded p-2 text-xs text-gray-600">📝 测验完成记录</div>
+            <div class="bg-gray-50 rounded p-2 text-xs text-gray-600">❓ 提问与回复记录</div>
+            <div class="bg-gray-50 rounded p-2 text-xs text-gray-600">🔥 打卡日期记录</div>
+          </div>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-100 rounded-lg p-3">
+          <h4 class="font-medium text-blue-800 mb-2">🖨️ 保存为PDF</h4>
+          <ol class="list-decimal list-inside space-y-1 text-blue-700 text-sm">
+            <li>档案页面打开后，点击右上角「打印 / 保存PDF」按钮</li>
+            <li>在打印设置中，目标打印机选择「另存为PDF」</li>
+            <li>点击保存，选择保存位置即可</li>
+          </ol>
+          <p class="text-xs text-blue-600 mt-2">也可以直接按 <kbd class="px-1.5 py-0.5 bg-blue-100 rounded">Ctrl + P</kbd> 调出打印窗口。</p>
+        </div>
+
+        <div class="bg-yellow-50 border border-yellow-100 rounded-lg p-3">
+          <p class="text-yellow-800"><strong>⚠️ 注意：</strong>必须等老师提交期末评价后，才能看到评价卡片和下载学习档案。如果还没看到，请耐心等待老师评定。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. 常见问题 -->
+    <section id="faq" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8 scroll-mt-20">
+      <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+        <span class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm mr-3">10</span>
         常见问题
       </h2>
       <div class="space-y-4 text-sm">
@@ -392,6 +443,18 @@
         <div>
           <h4 class="font-medium text-gray-800 mb-1">Q：连续学习天数中断了怎么办？</h4>
           <p class="text-gray-600">A：连续天数从今天往前计算，只要有一天没登录学习就会中断。中断后会重新开始累计，今天没打卡不算中断哦。坚持每天学一点就好！</p>
+        </div>
+        <div>
+          <h4 class="font-medium text-gray-800 mb-1">Q：什么时候能看到期末评价？</h4>
+          <p class="text-gray-600">A：需要老师在后台为你提交期末评语和成绩判定后，首页才会显示评价卡片。如果课程已结束但还没看到，请提醒老师进行评定。</p>
+        </div>
+        <div>
+          <h4 class="font-medium text-gray-800 mb-1">Q：学习档案可以多次下载吗？</h4>
+          <p class="text-gray-600">A：可以。只要老师已提交评价，你随时可以打开档案页面并保存为PDF。档案中的数据会实时更新，包括最新的心得和提问记录。</p>
+        </div>
+        <div>
+          <h4 class="font-medium text-gray-800 mb-1">Q：对成绩有异议怎么办？</h4>
+          <p class="text-gray-600">A：请直接联系你的教练老师沟通。老师可以在后台修改评价和成绩判定，修改后你刷新页面就能看到最新结果。</p>
         </div>
       </div>
     </section>
