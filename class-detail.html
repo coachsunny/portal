@@ -850,6 +850,10 @@
       resultEl.innerHTML = html;
       resultEl.classList.remove('hidden');
 
+      // 清空输入框，方便继续创建下一批
+      document.getElementById('batch-students-input').value = '';
+      updateBatchCount();
+
       btn.disabled = false;
       btn.textContent = '批量创建';
       loadStudents();
