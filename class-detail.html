@@ -420,6 +420,55 @@
     </div>
   </div>
 
+  <!-- 编辑资源弹窗 -->
+  <div id="lib-edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+      <div class="p-6 border-b"><h3 class="text-lg font-semibold text-gray-800">编辑资源</h3></div>
+      <div class="p-6 space-y-4">
+        <div class="bg-gray-50 rounded-lg p-3">
+          <p class="text-xs text-gray-500">资源类型</p>
+          <p class="text-sm font-medium text-gray-800 mt-1" id="edit-resource-type-label">📄 PDF文档</p>
+        </div>
+        <div><label class="block text-sm font-medium text-gray-700 mb-1">资源标题 *</label><input type="text" id="edit-resource-title" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="给资源起个名字"></div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">资源范围</label>
+          <div class="flex space-x-3">
+            <label class="flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition" id="edit-scope-global-label">
+              <input type="radio" name="edit-resource-scope" value="global" checked class="hidden" onchange="switchEditScope('global')">
+              <span class="text-center"><span class="text-xl block mb-1">🌐</span><span class="text-sm font-medium">全局共享</span><span class="text-xs text-gray-400 block mt-1">所有班级可用</span></span>
+            </label>
+            <label class="flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition" id="edit-scope-class-label">
+              <input type="radio" name="edit-resource-scope" value="class" class="hidden" onchange="switchEditScope('class')">
+              <span class="text-center"><span class="text-xl block mb-1">🏫</span><span class="text-sm font-medium">仅本班</span><span class="text-xs text-gray-400 block mt-1">只有本班级可见</span></span>
+            </label>
+          </div>
+        </div>
+        <div id="edit-pdf-area">
+          <label class="block text-sm font-medium text-gray-700 mb-1">PDF文件</label>
+          <div class="bg-gray-50 rounded-lg p-3 mb-2">
+            <p class="text-xs text-gray-500">当前文件</p>
+            <a href="#" id="edit-current-pdf-link" target="_blank" class="text-sm text-blue-600 hover:underline">查看当前PDF</a>
+          </div>
+          <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition cursor-pointer" onclick="document.getElementById('edit-pdf-file').click()">
+            <input type="file" id="edit-pdf-file" accept=".pdf" class="hidden" onchange="onEditPdfSelected(event)">
+            <p class="text-xl mb-1">🔄</p>
+            <p class="text-sm text-gray-600" id="edit-pdf-file-name">点击选择新PDF替换（选填）</p>
+            <p class="text-xs text-gray-400 mt-1">不选择则保留原文件</p>
+          </div>
+        </div>
+        <div id="edit-video-area" class="hidden space-y-3">
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">百度网盘链接 *</label><input type="text" id="edit-video-url" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="https://pan.baidu.com/s/..."></div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">提取码</label><input type="text" id="edit-video-code" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="4位提取码（选填）"></div>
+        </div>
+        <div><label class="block text-sm font-medium text-gray-700 mb-1">描述（选填）</label><textarea id="edit-resource-desc" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" placeholder="简要描述这个资源的内容"></textarea></div>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeLibEditModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="saveEditResource()" id="edit-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">保存修改</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 题目编辑弹窗 -->
   <div id="quiz-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
@@ -568,6 +617,7 @@
     let editingChapterId = null, currentChapterId = null, selectedPdfFile = null, currentTab = 'students';
     let allLibraryResources = [], selectedLibraryIds = new Set();
     let libSelectedPdfFile = null;
+    let editingResourceId = null, editSelectedPdfFile = null;
 
     window.addEventListener('load', async () => {
       currentSession = await requireTeacher();
@@ -1259,12 +1309,100 @@
     async function editLibraryResource(id) {
       const r = allLibraryResources.find(x => x.id === id);
       if (!r) return;
-      const newTitle = prompt('编辑资源标题：', r.title);
-      if (newTitle === null) return;
-      const newDesc = prompt('编辑资源描述（选填）：', r.description || '');
-      if (newDesc === null) return;
-      try { const { error } = await sb.from('resources').update({ title: newTitle.trim(), description: newDesc.trim() }).eq('id', id); if (error) throw error; loadManageLibrary(); if (currentTab === 'chapters') loadChapters(); }
-      catch (e) { alert('更新失败：' + e.message); }
+      editingResourceId = id;
+      editSelectedPdfFile = null;
+      // 填充表单
+      document.getElementById('edit-resource-title').value = r.title || '';
+      document.getElementById('edit-resource-desc').value = r.description || '';
+      document.getElementById('edit-resource-type-label').textContent = r.type === 'pdf' ? '📄 PDF文档' : '🎬 视频(网盘)';
+      // 资源范围
+      if (r.class_id) switchEditScope('class'); else switchEditScope('global');
+      // PDF或视频
+      if (r.type === 'pdf') {
+        document.getElementById('edit-pdf-area').classList.remove('hidden');
+        document.getElementById('edit-video-area').classList.add('hidden');
+        document.getElementById('edit-current-pdf-link').href = r.file_url || '#';
+        document.getElementById('edit-pdf-file-name').textContent = '点击选择新PDF替换（选填）';
+      } else {
+        document.getElementById('edit-pdf-area').classList.add('hidden');
+        document.getElementById('edit-video-area').classList.remove('hidden');
+        document.getElementById('edit-video-url').value = r.file_url || '';
+        document.getElementById('edit-video-code').value = r.extraction_code || '';
+      }
+      document.getElementById('lib-edit-modal').classList.remove('hidden');
+    }
+
+    function switchEditScope(scope) {
+      const globalLabel = document.getElementById('edit-scope-global-label');
+      const classLabel = document.getElementById('edit-scope-class-label');
+      const activeClass = 'flex-1 flex items-center justify-center p-3 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer transition';
+      const inactiveClass = 'flex-1 flex items-center justify-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer transition';
+      if (scope === 'global') {
+        globalLabel.className = activeClass; classLabel.className = inactiveClass;
+      } else {
+        globalLabel.className = inactiveClass; classLabel.className = activeClass;
+      }
+    }
+
+    function onEditPdfSelected(event) {
+      const file = event.target.files[0];
+      if (file) {
+        editSelectedPdfFile = file;
+        document.getElementById('edit-pdf-file-name').textContent = `已选择：${file.name} (${(file.size/1024).toFixed(1)}KB)`;
+      }
+    }
+
+    function closeLibEditModal() {
+      document.getElementById('lib-edit-modal').classList.add('hidden');
+      editingResourceId = null;
+      editSelectedPdfFile = null;
+    }
+
+    async function saveEditResource() {
+      if (!editingResourceId) return;
+      const title = document.getElementById('edit-resource-title').value.trim();
+      const desc = document.getElementById('edit-resource-desc').value.trim();
+      const scopeGlobal = document.querySelector('input[name="edit-resource-scope"]:checked').value === 'global';
+      const r = allLibraryResources.find(x => x.id === editingResourceId);
+      if (!r) return;
+      if (!title) { alert('请输入资源标题'); return; }
+
+      const btn = document.getElementById('edit-save-btn');
+      btn.disabled = true; btn.textContent = '保存中...';
+
+      try {
+        const updates = { title: title, description: desc, class_id: scopeGlobal ? null : parseInt(classId) };
+
+        // 视频类型：更新链接和提取码
+        if (r.type === 'video') {
+          const url = document.getElementById('edit-video-url').value.trim();
+          const code = document.getElementById('edit-video-code').value.trim();
+          if (!url) { alert('请输入视频链接'); btn.disabled = false; btn.textContent = '保存修改'; return; }
+          updates.file_url = url;
+          updates.extraction_code = code;
+        }
+
+        // PDF类型：如果选择了新文件，上传替换
+        if (r.type === 'pdf' && editSelectedPdfFile) {
+          if (editSelectedPdfFile.size > 10 * 1024 * 1024) { alert('文件不能超过10MB'); btn.disabled = false; btn.textContent = '保存修改'; return; }
+          const filePath = `resources/${Date.now()}_${editSelectedPdfFile.name}`;
+          const { error: uploadError } = await sb.storage.from('class-materials').upload(filePath, editSelectedPdfFile, { contentType: 'application/pdf' });
+          if (uploadError) throw uploadError;
+          const { data: urlData } = sb.storage.from('class-materials').getPublicUrl(filePath);
+          updates.file_url = urlData.publicUrl;
+        }
+
+        const { error } = await sb.from('resources').update(updates).eq('id', editingResourceId);
+        if (error) throw error;
+
+        closeLibEditModal();
+        loadManageLibrary();
+        if (currentTab === 'chapters') loadChapters();
+      } catch (e) {
+        alert('保存失败：' + e.message);
+      } finally {
+        btn.disabled = false; btn.textContent = '保存修改';
+      }
     }
 
     async function deleteLibraryResource(id) {
