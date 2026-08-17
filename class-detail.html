@@ -152,6 +152,7 @@
       <div class="flex border-b px-6">
         <button onclick="switchAddStudentTab('existing')" id="tab-existing" class="px-4 py-3 text-sm font-medium border-b-2 border-blue-600 text-blue-600">选择已有学员</button>
         <button onclick="switchAddStudentTab('new')" id="tab-new" class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">新建学员账号</button>
+        <button onclick="switchAddStudentTab('batch')" id="tab-batch" class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">批量添加</button>
       </div>
       <!-- 面板：已有学员 -->
       <div id="panel-existing" class="p-6 overflow-y-auto flex-1">
@@ -182,6 +183,20 @@
         </div>
         <div id="new-student-error" class="hidden text-sm text-red-500 bg-red-50 p-3 rounded-lg"></div>
       </div>
+      <!-- 面板：批量添加 -->
+      <div id="panel-batch" class="hidden p-6 overflow-y-auto flex-1 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">批量输入学员</label>
+          <p class="text-xs text-gray-400 mb-2">每行一个学员，格式：姓名,邮箱（用英文逗号分隔）</p>
+          <textarea id="batch-students-input" rows="8" oninput="updateBatchCount()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm" placeholder="张三,zhangsan@example.com&#10;李四,lisi@example.com&#10;王五,wangwu@example.com"></textarea>
+        </div>
+        <div class="flex items-center justify-between">
+          <button onclick="fillBatchExample()" class="text-xs text-blue-500 hover:text-blue-700">填入示例</button>
+          <span id="batch-count" class="text-xs text-gray-400">0 人</span>
+        </div>
+        <div id="batch-result" class="hidden space-y-2"></div>
+        <div id="batch-error" class="hidden text-sm text-red-500 bg-red-50 p-3 rounded-lg"></div>
+      </div>
       <!-- 底部按钮 -->
       <div class="p-6 border-t flex justify-between items-center">
         <div id="modal-hint" class="text-sm text-gray-400">勾选学员后点击「添加选中」</div>
@@ -189,6 +204,7 @@
           <button onclick="closeAddStudentModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
           <button onclick="addSelectedStudents()" id="add-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition disabled:opacity-50" disabled>添加选中</button>
           <button onclick="createNewStudent()" id="create-btn" class="hidden px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition">创建并加入班级</button>
+          <button onclick="batchCreateStudents()" id="batch-btn" class="hidden px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition">批量创建</button>
         </div>
       </div>
     </div>
@@ -421,7 +437,8 @@
       </div>
       <div class="p-6 border-t flex justify-end space-x-3">
         <button onclick="closeQuizModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
-        <button onclick="saveQuiz()" id="quiz-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">保存</button>
+        <button onclick="saveQuiz(true)" id="quiz-save-continue-btn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition hidden">保存并继续</button>
+        <button onclick="saveQuiz(false)" id="quiz-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">保存</button>
       </div>
     </div>
   </div>
@@ -658,28 +675,44 @@
     function switchAddStudentTab(tab) {
       const tabExisting = document.getElementById('tab-existing');
       const tabNew = document.getElementById('tab-new');
+      const tabBatch = document.getElementById('tab-batch');
       const panelExisting = document.getElementById('panel-existing');
       const panelNew = document.getElementById('panel-new');
+      const panelBatch = document.getElementById('panel-batch');
       const addBtn = document.getElementById('add-btn');
       const createBtn = document.getElementById('create-btn');
+      const batchBtn = document.getElementById('batch-btn');
       const hint = document.getElementById('modal-hint');
 
+      const activeClass = 'px-4 py-3 text-sm font-medium border-b-2 border-blue-600 text-blue-600';
+      const inactiveClass = 'px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700';
+
+      tabExisting.className = inactiveClass;
+      tabNew.className = inactiveClass;
+      tabBatch.className = inactiveClass;
+      panelExisting.classList.add('hidden');
+      panelNew.classList.add('hidden');
+      panelBatch.classList.add('hidden');
+      addBtn.classList.add('hidden');
+      createBtn.classList.add('hidden');
+      batchBtn.classList.add('hidden');
+
       if (tab === 'existing') {
-        tabExisting.className = 'px-4 py-3 text-sm font-medium border-b-2 border-blue-600 text-blue-600';
-        tabNew.className = 'px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700';
+        tabExisting.className = activeClass;
         panelExisting.classList.remove('hidden');
-        panelNew.classList.add('hidden');
         addBtn.classList.remove('hidden');
-        createBtn.classList.add('hidden');
         hint.textContent = '勾选学员后点击「添加选中」';
-      } else {
-        tabExisting.className = 'px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700';
-        tabNew.className = 'px-4 py-3 text-sm font-medium border-b-2 border-blue-600 text-blue-600';
-        panelExisting.classList.add('hidden');
+      } else if (tab === 'new') {
+        tabNew.className = activeClass;
         panelNew.classList.remove('hidden');
-        addBtn.classList.add('hidden');
         createBtn.classList.remove('hidden');
         hint.textContent = '填写信息后点击「创建并加入班级」';
+      } else {
+        tabBatch.className = activeClass;
+        panelBatch.classList.remove('hidden');
+        batchBtn.classList.remove('hidden');
+        hint.textContent = '每行输入姓名,邮箱，点击「批量创建」';
+        updateBatchCount();
       }
     }
 
@@ -720,6 +753,115 @@
 
     function closeCreateSuccessModal() {
       document.getElementById('create-success-modal').classList.add('hidden');
+    }
+
+    function updateBatchCount() {
+      const text = document.getElementById('batch-students-input').value.trim();
+      if (!text) { document.getElementById('batch-count').textContent = '0 人'; return; }
+      const lines = text.split('\n').filter(l => l.trim());
+      document.getElementById('batch-count').textContent = `${lines.length} 人`;
+    }
+
+    function fillBatchExample() {
+      document.getElementById('batch-students-input').value = '张三,zhangsan@example.com\n李四,lisi@example.com\n王五,wangwu@example.com';
+      updateBatchCount();
+    }
+
+    function genPwd() {
+      const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let pwd = '';
+      for (let i = 0; i < 8; i++) pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+      return pwd;
+    }
+
+    async function batchCreateStudents() {
+      const text = document.getElementById('batch-students-input').value.trim();
+      const errorEl = document.getElementById('batch-error');
+      const resultEl = document.getElementById('batch-result');
+      const btn = document.getElementById('batch-btn');
+
+      errorEl.classList.add('hidden');
+      resultEl.classList.add('hidden');
+
+      if (!text) { errorEl.textContent = '请输入学员信息'; errorEl.classList.remove('hidden'); return; }
+
+      const lines = text.split('\n').filter(l => l.trim());
+      const students = [];
+      for (const line of lines) {
+        const parts = line.split(',').map(s => s.trim());
+        if (parts.length < 2 || !parts[0] || !parts[1]) {
+          errorEl.textContent = `格式错误：「${line}」，应为：姓名,邮箱`;
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        students.push({ name: parts[0], email: parts[1] });
+      }
+
+      btn.disabled = true;
+      btn.textContent = `创建中... 0/${students.length}`;
+
+      const results = [];
+      for (let i = 0; i < students.length; i++) {
+        const s = students[i];
+        const password = genPwd();
+        try {
+          const { data: authData, error: authError } = await sb.auth.signUp({
+            email: s.email, password: password, options: { data: { name: s.name } }
+          });
+          if (authError) throw authError;
+          if (!authData.user) throw new Error('未返回用户信息');
+
+          await sb.from('profiles').insert({ id: authData.user.id, name: s.name, role: 'student', initial_password: password });
+          await sb.from('class_members').insert({ class_id: classId, user_id: authData.user.id });
+
+          results.push({ ...s, password, success: true });
+        } catch (e) {
+          results.push({ ...s, password, success: false, error: e.message || String(e) });
+        }
+        btn.textContent = `创建中... ${i + 1}/${students.length}`;
+      }
+
+      // 显示结果
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.filter(r => !r.success).length;
+      let html = `<div class="bg-gray-50 rounded-lg p-3 text-sm">
+        <span class="text-green-600 font-medium">成功 ${successCount} 人</span>
+        ${failCount > 0 ? `<span class="text-red-600 font-medium ml-3">失败 ${failCount} 人</span>` : ''}
+      </div>`;
+
+      if (successCount > 0) {
+        const accounts = results.filter(r => r.success).map(r => `${r.name}\t${r.email}\t${r.password}`).join('\n');
+        html += `<div class="bg-green-50 border border-green-100 rounded-lg p-3">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-sm font-medium text-green-800">账号密码（点击复制）</span>
+            <button onclick="copyBatchAccounts()" class="text-xs text-green-600 hover:text-green-800">📋 复制全部</button>
+          </div>
+          <textarea id="batch-accounts-text" readonly class="w-full h-32 px-2 py-1 bg-white border border-green-200 rounded text-xs font-mono">${results.filter(r => r.success).map(r => `${r.name} | ${r.email} | ${r.password}`).join('\n')}</textarea>
+        </div>`;
+      }
+
+      if (failCount > 0) {
+        html += `<div class="bg-red-50 border border-red-100 rounded-lg p-3">
+          <p class="text-sm font-medium text-red-800 mb-2">失败列表</p>
+          ${results.filter(r => !r.success).map(r => `<p class="text-xs text-red-600">${r.name} (${r.email}): ${r.error}</p>`).join('')}
+        </div>`;
+      }
+
+      resultEl.innerHTML = html;
+      resultEl.classList.remove('hidden');
+
+      btn.disabled = false;
+      btn.textContent = '批量创建';
+      loadStudents();
+    }
+
+    function copyBatchAccounts() {
+      const text = document.getElementById('batch-accounts-text').value;
+      navigator.clipboard.writeText(text).then(() => {
+        alert('已复制全部账号密码');
+      }).catch(() => {
+        alert('复制失败，请手动复制');
+      });
     }
 
     async function createNewStudent() {
@@ -1190,6 +1332,7 @@
       document.getElementById('quiz-modal-title').textContent = '新建题目';
       document.getElementById('quiz-question').value = '';
       document.getElementById('quiz-order').value = '0';
+      document.getElementById('quiz-save-continue-btn').classList.remove('hidden');
       // 加载章节列表
       const select = document.getElementById('quiz-chapter');
       const { data: chapters, error } = await sb.from('chapters').select('id, title').eq('class_id', classId).order('sort_order', { ascending: true });
@@ -1212,19 +1355,23 @@
         select.innerHTML = (chapters || []).map(c => `<option value="${c.id}" ${c.id === quiz.chapter_id ? 'selected' : ''}>${escapeHtml(c.title)}</option>`).join('');
         document.getElementById('quiz-question').value = quiz.question_text || '';
         document.getElementById('quiz-order').value = quiz.sort_order || 0;
+        document.getElementById('quiz-save-continue-btn').classList.add('hidden');
         document.getElementById('quiz-modal').classList.remove('hidden');
       } catch (e) { alert('加载题目失败：' + e.message); }
     }
 
     function closeQuizModal() { document.getElementById('quiz-modal').classList.add('hidden'); editingQuizId = null; }
 
-    async function saveQuiz() {
+    async function saveQuiz(continueAdding) {
       const question = document.getElementById('quiz-question').value.trim();
       const chapterId = parseInt(document.getElementById('quiz-chapter').value);
       const order = parseInt(document.getElementById('quiz-order').value) || 0;
       if (!question) { alert('请输入题目内容'); return; }
       if (!chapterId) { alert('请选择章节'); return; }
-      const btn = document.getElementById('quiz-save-btn'); btn.disabled = true; btn.textContent = '保存中...';
+      const btn = document.getElementById('quiz-save-btn');
+      const continueBtn = document.getElementById('quiz-save-continue-btn');
+      btn.disabled = true; continueBtn.disabled = true;
+      btn.textContent = '保存中...';
       try {
         if (editingQuizId) {
           const { error } = await sb.from('quizzes').update({ question_text: question, chapter_id: chapterId, sort_order: order }).eq('id', editingQuizId);
@@ -1233,9 +1380,20 @@
           const { error } = await sb.from('quizzes').insert({ chapter_id: chapterId, question_text: question, sort_order: order });
           if (error) throw error;
         }
-        closeQuizModal(); loadQuizzes();
+        loadQuizzes();
+        if (continueAdding) {
+          // 清空题目，保持章节，排序+1
+          document.getElementById('quiz-question').value = '';
+          document.getElementById('quiz-order').value = order + 1;
+          document.getElementById('quiz-question').focus();
+        } else {
+          closeQuizModal();
+        }
       } catch (e) { alert('保存题目失败：' + e.message); }
-      finally { btn.disabled = false; btn.textContent = '保存'; }
+      finally {
+        btn.disabled = false; continueBtn.disabled = false;
+        btn.textContent = '保存';
+      }
     }
 
     async function deleteQuiz(id) {
