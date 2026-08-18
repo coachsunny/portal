@@ -123,24 +123,49 @@ function renderNavbar(session, currentPage) {
   ];
 
   const navHtml = `
-    <nav class="bg-white shadow-sm border-b">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16">
-          <div class="flex items-center">
-            <span class="text-xl font-bold text-gray-800">自牧平施教练班</span>
-            <span class="ml-3 px-2 py-1 text-xs rounded-full ${isTeacher ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}">${roleLabel}</span>
+    <nav class="bg-white shadow-sm border-b sticky top-0 z-40">
+      <div class="max-w-7xl mx-auto px-4">
+        <div class="flex justify-between items-center h-14">
+          <!-- 品牌 -->
+          <div class="flex items-center flex-shrink-0">
+            <span class="text-base font-bold text-gray-800">自牧平施教练班</span>
+            <span class="ml-2 px-1.5 py-0.5 text-xs rounded-full ${isTeacher ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}">${roleLabel}</span>
           </div>
-          <div class="flex items-center space-x-1">
+          
+          <!-- 桌面端菜单 -->
+          <div class="hidden md:flex items-center space-x-1">
             ${navItems.map(item => `
               <a href="${item.href}" ${item.external ? 'target="_blank"' : ''} class="relative px-3 py-2 rounded-md text-sm font-medium ${currentPage === item.id ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}">
                 ${item.label}
                 ${item.hasBadge ? '<span id="nav-unread-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-xs rounded-full flex items-center justify-center px-1 font-bold"></span>' : ''}
               </a>
             `).join('')}
-            <div class="flex items-center ml-4 pl-4 border-l">
+            <div class="flex items-center ml-3 pl-3 border-l">
               <span class="text-sm text-gray-600 mr-3">${session.name}</span>
               <button onclick="logout()" class="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-md transition">退出</button>
             </div>
+          </div>
+          
+          <!-- 手机端汉堡按钮 -->
+          <button onclick="toggleMobileMenu()" class="md:hidden p-2 rounded-md text-gray-600 hover:bg-gray-100" aria-label="菜单">
+            <svg id="menu-icon-open" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            <svg id="menu-icon-close" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+      </div>
+      
+      <!-- 手机端下拉菜单 -->
+      <div id="mobile-menu" class="hidden md:hidden bg-white border-t">
+        <div class="px-4 py-3 space-y-1">
+          ${navItems.map(item => `
+            <a href="${item.href}" ${item.external ? 'target="_blank"' : ''} class="relative block px-3 py-2.5 rounded-md text-sm font-medium ${currentPage === item.id ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'}">
+              ${item.label}
+              ${item.hasBadge ? '<span id="nav-unread-badge-mobile" class="hidden absolute right-3 top-1/2 -translate-y-1/2 min-w-[18px] h-[18px] bg-red-500 text-white text-xs rounded-full flex items-center justify-center px-1 font-bold"></span>' : ''}
+            </a>
+          `).join('')}
+          <div class="pt-3 mt-3 border-t flex items-center justify-between">
+            <span class="text-sm text-gray-600">${session.name}</span>
+            <button onclick="logout()" class="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-md transition">退出登录</button>
           </div>
         </div>
       </div>
@@ -148,6 +173,24 @@ function renderNavbar(session, currentPage) {
   `;
   
   document.body.insertAdjacentHTML('afterbegin', navHtml);
+}
+
+/**
+ * 切换手机端菜单显示/隐藏
+ */
+function toggleMobileMenu() {
+  const menu = document.getElementById('mobile-menu');
+  const iconOpen = document.getElementById('menu-icon-open');
+  const iconClose = document.getElementById('menu-icon-close');
+  if (menu.classList.contains('hidden')) {
+    menu.classList.remove('hidden');
+    iconOpen.classList.add('hidden');
+    iconClose.classList.remove('hidden');
+  } else {
+    menu.classList.add('hidden');
+    iconOpen.classList.remove('hidden');
+    iconClose.classList.add('hidden');
+  }
 }
 
 /**
@@ -178,14 +221,16 @@ async function loadUnreadCount(userId) {
  * @param {number} count - 未读数量
  */
 function updateUnreadBadge(count) {
-  const badge = document.getElementById('nav-unread-badge');
-  if (!badge) return;
-  if (count > 0) {
-    badge.textContent = count > 99 ? '99+' : count;
-    badge.classList.remove('hidden');
-  } else {
-    badge.classList.add('hidden');
-  }
+  ['nav-unread-badge', 'nav-unread-badge-mobile'].forEach(id => {
+    const badge = document.getElementById(id);
+    if (!badge) return;
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : count;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  });
 }
 
 /**
