@@ -364,14 +364,56 @@
       chaptersData.forEach(c => { chMap[c.id] = c; });
       panel.innerHTML = reflections.map(r => {
         const ch = chMap[r.chapter_id];
+        const hasReply = r.teacher_reply && r.teacher_reply.trim();
         return `<div class="mb-4 p-4 bg-gray-50 rounded-lg">
           <div class="flex justify-between items-center mb-2">
             <span class="text-sm font-medium text-gray-700">${ch ? escapeHtml(ch.title) : '未知章节'}</span>
-            <span class="text-xs text-gray-400">${new Date(r.created_at).toLocaleDateString('zh-CN')}</span>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-400">${new Date(r.created_at).toLocaleDateString('zh-CN')}</span>
+              <button onclick="toggleReflectionReply(${r.id})" class="text-xs px-2 py-1 rounded ${hasReply ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'} transition">
+                ${hasReply ? '✏️ 编辑回复' : '💬 回复'}
+              </button>
+            </div>
           </div>
-          <p class="text-sm text-gray-600 whitespace-pre-wrap">${escapeHtml(r.content || '')}</p>
+          <p class="text-sm text-gray-600 whitespace-pre-wrap mb-2">${escapeHtml(r.content || '')}</p>
+          ${hasReply ? `
+            <div class="mt-3 pt-3 border-t border-gray-200">
+              <p class="text-xs text-blue-600 font-medium mb-1">老师回复 ${r.replied_at ? '· ' + new Date(r.replied_at).toLocaleDateString('zh-CN') : ''}</p>
+              <p class="text-sm text-gray-700 whitespace-pre-wrap">${escapeHtml(r.teacher_reply)}</p>
+            </div>
+          ` : ''}
+          <div id="reply-form-${r.id}" class="hidden mt-3 pt-3 border-t border-gray-200">
+            <textarea id="reply-text-${r.id}" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="写下你的回应...">${hasReply ? escapeHtml(r.teacher_reply) : ''}</textarea>
+            <div class="flex justify-end gap-2 mt-2">
+              <button onclick="toggleReflectionReply(${r.id})" class="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded transition">取消</button>
+              <button onclick="saveReflectionReply(${r.id})" class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition">保存回复</button>
+            </div>
+          </div>
         </div>`;
       }).join('');
+    }
+
+    function toggleReflectionReply(reflectionId) {
+      const form = document.getElementById('reply-form-' + reflectionId);
+      if (form) form.classList.toggle('hidden');
+    }
+
+    async function saveReflectionReply(reflectionId) {
+      const text = document.getElementById('reply-text-' + reflectionId).value.trim();
+      const r = reflections.find(x => x.id === reflectionId);
+      if (!r) return;
+      try {
+        const { error } = await sb
+          .from('chapter_reflections')
+          .update({ teacher_reply: text, replied_at: text ? new Date().toISOString() : null })
+          .eq('id', reflectionId);
+        if (error) throw error;
+        r.teacher_reply = text;
+        r.replied_at = text ? new Date().toISOString() : null;
+        renderReflections();
+      } catch (e) {
+        alert('保存回复失败：' + e.message);
+      }
     }
 
     function renderQuestions() {

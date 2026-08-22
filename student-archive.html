@@ -258,6 +258,12 @@
                 <span class="text-xs text-gray-400">${formatDate(r.created_at)}</span>
               </div>
               <p class="text-sm text-gray-600 whitespace-pre-wrap">${escapeHtml(r.content)}</p>
+              ${r.teacher_reply && r.teacher_reply.trim() ? `
+                <div class="mt-3 pt-3 border-t border-gray-100">
+                  <p class="text-xs text-blue-600 font-medium mb-1">老师回复 ${r.replied_at ? '· ' + formatDate(r.replied_at) : ''}</p>
+                  <p class="text-sm text-gray-700 whitespace-pre-wrap">${escapeHtml(r.teacher_reply)}</p>
+                </div>
+              ` : ''}
             </div>
           `).join('');
         }
