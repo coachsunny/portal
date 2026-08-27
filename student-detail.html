@@ -222,8 +222,8 @@
           sb.from('quiz_submissions').select('*').eq('user_id', studentId).eq('class_id', classId),
           // 学员资源阅读记录
           sb.from('resource_reads').select('*').eq('user_id', studentId).eq('class_id', classId),
-          // 学员心得（先去掉class_id过滤，排查问题）
-          sb.from('chapter_reflections').select('*').eq('user_id', studentId).order('created_at', { ascending: false }),
+          // 学员心得
+          sb.from('chapter_reflections').select('*').eq('user_id', studentId).eq('class_id', classId),
           // 学员提问
           sb.from('questions').select('*').eq('user_id', studentId).eq('class_id', classId).order('created_at', { ascending: false }),
           // 学习打卡（不按班级过滤，兼容历史无class_id的记录）
@@ -251,18 +251,6 @@
         reflections = refRes.data || [];
         questions = qRes.data || [];
         studyLogs = logRes.data || [];
-
-        // 调试输出
-        console.log('学员详情数据加载:', {
-          studentId,
-          classId,
-          心得数量: reflections.length,
-          心得数据: reflections,
-          心得查询错误: refRes.error
-        });
-        
-        // 保存错误信息到全局变量，供页面显示
-        window.reflectionQueryError = refRes.error ? JSON.stringify(refRes.error) : null;
 
         // 计算统计
         calculateStats();
@@ -412,24 +400,13 @@
 
     function renderReflections() {
       const panel = document.getElementById('dpanel-reflections');
-      
-      // 调试信息
-      const debugInfo = `<div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs">
-        <p class="font-medium text-yellow-800 mb-1">🔍 调试信息</p>
-        <p class="text-yellow-700">学员ID: ${studentId}</p>
-        <p class="text-yellow-700">班级ID: ${classId}</p>
-        <p class="text-yellow-700">心得数量: ${reflections.length}</p>
-        <p class="text-yellow-700">查询错误: ${window.reflectionQueryError || '无'}</p>
-        <p class="text-yellow-700 mt-1">心得数据: ${JSON.stringify(reflections.map(r => ({id: r.id, class_id: r.class_id, chapter_id: r.chapter_id})))}</p>
-      </div>`;
-      
       if (reflections.length === 0) {
-        panel.innerHTML = debugInfo + '<p class="text-center text-gray-400 py-8">暂无学习心得</p>';
+        panel.innerHTML = '<p class="text-center text-gray-400 py-8">暂无学习心得</p>';
         return;
       }
       const chMap = {};
       chaptersData.forEach(c => { chMap[c.id] = c; });
-      panel.innerHTML = debugInfo + reflections.map(r => {
+      panel.innerHTML = reflections.map(r => {
         const ch = chMap[r.chapter_id];
         const hasReply = r.teacher_reply && r.teacher_reply.trim();
         return `<div class="mb-4 p-4 bg-gray-50 rounded-lg">
