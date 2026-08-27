@@ -22,10 +22,10 @@ async function requireAuth() {
     return null;
   }
 
-  // 获取用户资料（角色）
+  // 获取用户资料（角色、有效期）
   const { data: profile, error } = await sb
     .from('profiles')
-    .select('name, role')
+    .select('name, role, membership_expires_at')
     .eq('id', user.id)
     .single();
 
@@ -37,10 +37,23 @@ async function requireAuth() {
     return null;
   }
 
+  // 学员有效期检查
+  if (profile.role === 'student' && profile.membership_expires_at) {
+    const expiryDate = new Date(profile.membership_expires_at);
+    const now = new Date();
+    if (now > expiryDate) {
+      alert('您的学习资格已过期（' + expiryDate.toLocaleDateString() + '），请联系老师续费。');
+      await sb.auth.signOut();
+      window.location.href = PAGES.login;
+      return null;
+    }
+  }
+
   return {
     user,
     name: profile.name,
-    role: profile.role
+    role: profile.role,
+    membershipExpiresAt: profile.membership_expires_at
   };
 }
 

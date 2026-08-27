@@ -28,6 +28,13 @@
         <div class="text-right">
           <p class="text-sm text-gray-400">加入时间</p>
           <p class="text-gray-600 font-medium" id="join-date">-</p>
+          <div class="mt-3">
+            <p class="text-sm text-gray-400">学习资格有效期</p>
+            <div class="flex items-center justify-end gap-2 mt-1">
+              <span id="membership-expiry" class="text-gray-600 font-medium">-</span>
+              <button onclick="openEditExpiryModal()" class="text-xs text-blue-500 hover:text-blue-700">修改</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -108,6 +115,30 @@
     </div>
   </main>
 
+  <!-- 修改有效期弹窗 -->
+  <div id="expiry-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4">
+      <div class="p-6 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">修改学习资格有效期</h3>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">有效期至</label>
+          <input type="date" id="expiry-date-input" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex gap-2">
+          <button type="button" onclick="setExpiryQuick(365)" class="flex-1 px-3 py-2 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200">+1年</button>
+          <button type="button" onclick="setExpiryQuick(730)" class="flex-1 px-3 py-2 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200">+2年</button>
+          <button type="button" onclick="setExpiryPermanent()" class="flex-1 px-3 py-2 text-xs bg-green-100 text-green-600 rounded hover:bg-green-200">永久</button>
+        </div>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeExpiryModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="saveExpiry()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">保存</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/supabase-client.js"></script>
   <script src="js/auth.js"></script>
   <script>
@@ -161,6 +192,19 @@
         document.getElementById('student-email').textContent = profile.email || '';
         document.getElementById('student-avatar').textContent = (profile.name || '?').charAt(0).toUpperCase();
         document.getElementById('join-date').textContent = profile.created_at ? new Date(profile.created_at).toLocaleDateString('zh-CN') : '-';
+
+        // 显示有效期
+        const expiryEl = document.getElementById('membership-expiry');
+        if (profile.membership_expires_at) {
+          const expiryDate = new Date(profile.membership_expires_at);
+          const daysToExpiry = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
+          let colorClass = 'text-green-600';
+          if (daysToExpiry < 0) colorClass = 'text-red-600';
+          else if (daysToExpiry <= 60) colorClass = 'text-yellow-600';
+          expiryEl.innerHTML = `<span class="${colorClass}">${expiryDate.toLocaleDateString('zh-CN')}</span>`;
+        } else {
+          expiryEl.innerHTML = '<span class="text-green-600">永久</span>';
+        }
 
         // 加载章节
         const { data: chapters, error: che } = await sb.from('chapters').select('*').eq('class_id', classId).order('sort_order', { ascending: true });
@@ -537,6 +581,66 @@
       const div = document.createElement('div');
       div.textContent = s;
       return div.innerHTML;
+    }
+
+    // === 修改有效期 ===
+    function openEditExpiryModal() {
+      const expiryEl = document.getElementById('membership-expiry');
+      const currentText = expiryEl.textContent;
+      if (currentText && currentText !== '永久' && currentText !== '-') {
+        // 尝试解析日期
+        const parts = currentText.split('/');
+        if (parts.length === 3) {
+          const date = new Date(parts[2], parts[0] - 1, parts[1]);
+          document.getElementById('expiry-date-input').value = date.toISOString().split('T')[0];
+        }
+      }
+      document.getElementById('expiry-modal').classList.remove('hidden');
+    }
+
+    function closeExpiryModal() {
+      document.getElementById('expiry-modal').classList.add('hidden');
+    }
+
+    function setExpiryQuick(days) {
+      const date = new Date();
+      date.setDate(date.getDate() + days);
+      document.getElementById('expiry-date-input').value = date.toISOString().split('T')[0];
+    }
+
+    function setExpiryPermanent() {
+      document.getElementById('expiry-date-input').value = '';
+    }
+
+    async function saveExpiry() {
+      const dateInput = document.getElementById('expiry-date-input').value;
+      const expiryValue = dateInput ? new Date(dateInput).toISOString() : null;
+
+      try {
+        const { error } = await sb
+          .from('profiles')
+          .update({ membership_expires_at: expiryValue })
+          .eq('id', studentId);
+        if (error) throw error;
+
+        // 更新显示
+        const expiryEl = document.getElementById('membership-expiry');
+        if (expiryValue) {
+          const expiryDate = new Date(expiryValue);
+          const daysToExpiry = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
+          let colorClass = 'text-green-600';
+          if (daysToExpiry < 0) colorClass = 'text-red-600';
+          else if (daysToExpiry <= 60) colorClass = 'text-yellow-600';
+          expiryEl.innerHTML = `<span class="${colorClass}">${expiryDate.toLocaleDateString('zh-CN')}</span>`;
+        } else {
+          expiryEl.innerHTML = '<span class="text-green-600">永久</span>';
+        }
+
+        closeExpiryModal();
+        alert('有效期已更新');
+      } catch (e) {
+        alert('更新失败：' + e.message);
+      }
     }
   </script>
 </body>

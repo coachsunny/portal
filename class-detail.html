@@ -1087,18 +1087,46 @@
 
     async function loadStudents() {
       try {
-        const { data: members, error } = await sb.from('class_members').select('user_id, joined_at, profiles(id, name, role, initial_password)').eq('class_id', classId).order('joined_at', { ascending: true });
+        const { data: members, error } = await sb.from('class_members').select('user_id, joined_at, profiles(id, name, role, initial_password, membership_expires_at)').eq('class_id', classId).order('joined_at', { ascending: true });
         if (error) throw error;
         const list = document.getElementById('student-list'), empty = document.getElementById('empty-students');
         if (!members || members.length === 0) { list.innerHTML = ''; empty.classList.remove('hidden'); document.getElementById('student-count').textContent = '0'; return; }
         empty.classList.add('hidden');
         document.getElementById('student-count').textContent = members.length;
+
+        // 批量查询最后活跃时间（study_logs）
+        const userIds = members.map(m => m.user_id);
+        const { data: logs } = await sb.from('study_logs').select('user_id, created_at').in('user_id', userIds).order('created_at', { ascending: false });
+        const lastActiveMap = {};
+        (logs || []).forEach(l => {
+          if (!lastActiveMap[l.user_id]) lastActiveMap[l.user_id] = l.created_at;
+        });
+
         list.innerHTML = members.map(m => {
           const p = m.profiles;
           const hasPwd = p && p.initial_password;
+          const lastActive = lastActiveMap[m.user_id];
+          const daysSinceActive = lastActive ? Math.floor((new Date() - new Date(lastActive)) / (1000 * 60 * 60 * 24)) : null;
+          const activeText = daysSinceActive === null ? '从未' : (daysSinceActive === 0 ? '今天' : daysSinceActive + '天前');
+          const activeColor = daysSinceActive === null ? 'text-gray-400' : daysSinceActive >= 14 ? 'text-red-500' : daysSinceActive >= 7 ? 'text-orange-500' : 'text-green-500';
+
+          // 有效期状态
+          let expiryBadge = '';
+          if (p && p.membership_expires_at) {
+            const expiryDate = new Date(p.membership_expires_at);
+            const daysToExpiry = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
+            if (daysToExpiry < 0) {
+              expiryBadge = '<span class="px-1.5 py-0.5 text-xs bg-red-100 text-red-600 rounded-full ml-1">已过期</span>';
+            } else if (daysToExpiry <= 60) {
+              expiryBadge = `<span class="px-1.5 py-0.5 text-xs bg-yellow-100 text-yellow-600 rounded-full ml-1">${daysToExpiry}天后过期</span>`;
+            } else {
+              expiryBadge = '<span class="px-1.5 py-0.5 text-xs bg-green-100 text-green-600 rounded-full ml-1">有效</span>';
+            }
+          }
+
           return `<div class="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition">
             <div class="flex items-center"><div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-medium mr-3">${p ? p.name.charAt(0) : '?'}</div>
-            <div><p class="font-medium text-gray-800">${p ? escapeHtml(p.name) : '未知用户'}</p><p class="text-xs text-gray-400">加入时间：${formatDate(m.joined_at)}</p></div></div>
+            <div><p class="font-medium text-gray-800">${p ? escapeHtml(p.name) : '未知用户'}${expiryBadge}</p><p class="text-xs text-gray-400">加入时间：${formatDate(m.joined_at)} · 最后活跃：<span class="${activeColor}">${activeText}</span></p></div></div>
             <div class="flex items-center space-x-2">
               ${hasPwd ? `<button onclick="copyStudentPassword('${p.initial_password}', '${escapeHtml(p.name)}')" class="px-3 py-1.5 text-sm text-blue-500 hover:bg-blue-50 rounded-lg transition" title="复制初始密码">📋 密码</button>` : ''}
               <a href="student-detail.html?user_id=${m.user_id}&class_id=${classId}" class="px-3 py-1.5 text-sm text-indigo-500 hover:bg-indigo-50 rounded-lg transition">📊 详情</a>
@@ -1280,7 +1308,7 @@
           if (authError) throw authError;
           if (!authData.user) throw new Error('未返回用户信息');
 
-          await sb.from('profiles').insert({ id: authData.user.id, name: s.name, role: 'student', initial_password: password });
+          await sb.from('profiles').insert({ id: authData.user.id, name: s.name, role: 'student', initial_password: password, membership_expires_at: new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString() });
           await sb.from('class_members').insert({ class_id: classId, user_id: authData.user.id });
 
           results.push({ ...s, password, success: true });
@@ -1365,12 +1393,13 @@
 
         const userId = authData.user.id;
 
-        // 2. 插入 profiles 表（含初始密码）
+        // 2. 插入 profiles 表（含初始密码、2年有效期）
         const { error: profileError } = await sb.from('profiles').insert({
           id: userId,
           name: name,
           role: 'student',
-          initial_password: password
+          initial_password: password,
+          membership_expires_at: new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString()
         });
         if (profileError) throw profileError;
 
