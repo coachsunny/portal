@@ -23,6 +23,7 @@
         <div class="ml-4">
           <p class="text-lg font-semibold text-gray-800" id="display-name">-</p>
           <p class="text-sm text-gray-500" id="display-email">-</p>
+          <p class="text-sm text-gray-500 mt-1" id="display-expiry">-</p>
           <span class="inline-block mt-1 px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">学员</span>
         </div>
       </div>
@@ -77,6 +78,24 @@
       document.getElementById('display-email').textContent = currentSession.user.email;
       document.getElementById('avatar-letter').textContent = currentSession.name.charAt(0);
       document.getElementById('name-input').value = currentSession.name;
+
+      // 显示有效期
+      if (currentSession.membershipExpiresAt) {
+        const expiryDate = new Date(currentSession.membershipExpiresAt);
+        const daysToExpiry = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
+        let colorClass = 'text-green-600';
+        let statusText = '有效';
+        if (daysToExpiry < 0) {
+          colorClass = 'text-red-600';
+          statusText = '已过期';
+        } else if (daysToExpiry <= 60) {
+          colorClass = 'text-yellow-600';
+          statusText = `${daysToExpiry}天后到期`;
+        }
+        document.getElementById('display-expiry').innerHTML = `📅 学习资格：<span class="${colorClass} font-medium">${expiryDate.toLocaleDateString('zh-CN')}（${statusText}）</span>`;
+      } else {
+        document.getElementById('display-expiry').innerHTML = `📅 学习资格：<span class="text-green-600 font-medium">永久</span>`;
+      }
     });
 
     // 修改姓名

@@ -18,6 +18,17 @@
       <p class="text-gray-500 mt-1">欢迎开始今天的学习</p>
     </div>
 
+    <!-- 有效期提醒 -->
+    <div id="expiry-alert" class="hidden bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
+      <div class="flex items-center">
+        <span class="text-xl mr-3">⏰</span>
+        <div class="flex-1">
+          <p class="text-sm font-medium text-yellow-800" id="expiry-alert-text">您的学习资格即将到期</p>
+          <p class="text-xs text-yellow-600 mt-1">请联系老师续费，以免影响学习</p>
+        </div>
+      </div>
+    </div>
+
     <!-- 班级公告 -->
     <div id="announcement-card" class="bg-white rounded-xl shadow-sm border border-amber-200 p-5 mb-6 hidden">
       <div class="flex items-center justify-between mb-3">
@@ -208,6 +219,17 @@
       if (!currentSession) return;
       renderNavbar(currentSession, 'dashboard');
       document.getElementById('welcome-title').textContent = `${currentSession.name} 同学，您好`;
+
+      // 有效期提醒（60天内）
+      if (currentSession.membershipExpiresAt) {
+        const expiryDate = new Date(currentSession.membershipExpiresAt);
+        const daysToExpiry = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
+        if (daysToExpiry > 0 && daysToExpiry <= 60) {
+          document.getElementById('expiry-alert-text').textContent = `您的学习资格将于 ${daysToExpiry} 天后到期（${expiryDate.toLocaleDateString('zh-CN')}）`;
+          document.getElementById('expiry-alert').classList.remove('hidden');
+        }
+      }
+
       loadMyData();
       checkOnboardingStatus();
       // 加载未读回复数，更新导航栏红点和仪表板提示
