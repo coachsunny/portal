@@ -1087,7 +1087,7 @@
 
     async function loadStudents() {
       try {
-        const { data: members, error } = await sb.from('class_members').select('user_id, joined_at, profiles(id, name, role, initial_password, membership_expires_at)').eq('class_id', classId).order('joined_at', { ascending: true });
+        const { data: members, error } = await sb.from('class_members').select('user_id, joined_at, profiles(id, name, role, initial_password, membership_expires_at, email)').eq('class_id', classId).order('joined_at', { ascending: true });
         if (error) throw error;
         const list = document.getElementById('student-list'), empty = document.getElementById('empty-students');
         if (!members || members.length === 0) { list.innerHTML = ''; empty.classList.remove('hidden'); document.getElementById('student-count').textContent = '0'; return; }
@@ -1126,7 +1126,7 @@
 
           return `<div class="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition">
             <div class="flex items-center"><div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-medium mr-3">${p ? p.name.charAt(0) : '?'}</div>
-            <div><p class="font-medium text-gray-800">${p ? escapeHtml(p.name) : '未知用户'}${expiryBadge}</p><p class="text-xs text-gray-400">加入时间：${formatDate(m.joined_at)} · 最后活跃：<span class="${activeColor}">${activeText}</span></p></div></div>
+            <div><p class="font-medium text-gray-800">${p ? escapeHtml(p.name) : '未知用户'}${expiryBadge}</p><p class="text-xs text-gray-400">${p && p.email ? p.email + ' · ' : ''}加入：${formatDate(m.joined_at)} · 最后活跃：<span class="${activeColor}">${activeText}</span></p></div></div>
             <div class="flex items-center space-x-2">
               ${hasPwd ? `<button onclick="copyStudentPassword('${p.initial_password}', '${escapeHtml(p.name)}')" class="px-3 py-1.5 text-sm text-blue-500 hover:bg-blue-50 rounded-lg transition" title="复制初始密码">📋 密码</button>` : ''}
               <a href="student-detail.html?user_id=${m.user_id}&class_id=${classId}" class="px-3 py-1.5 text-sm text-indigo-500 hover:bg-indigo-50 rounded-lg transition">📊 详情</a>
@@ -1308,7 +1308,7 @@
           if (authError) throw authError;
           if (!authData.user) throw new Error('未返回用户信息');
 
-          await sb.from('profiles').insert({ id: authData.user.id, name: s.name, role: 'student', initial_password: password, membership_expires_at: new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString() });
+          await sb.from('profiles').insert({ id: authData.user.id, name: s.name, role: 'student', initial_password: password, membership_expires_at: new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString(), email: s.email });
           await sb.from('class_members').insert({ class_id: classId, user_id: authData.user.id });
 
           results.push({ ...s, password, success: true });
@@ -1393,13 +1393,14 @@
 
         const userId = authData.user.id;
 
-        // 2. 插入 profiles 表（含初始密码、2年有效期）
+        // 2. 插入 profiles 表（含初始密码、2年有效期、邮箱）
         const { error: profileError } = await sb.from('profiles').insert({
           id: userId,
           name: name,
           role: 'student',
           initial_password: password,
-          membership_expires_at: new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString()
+          membership_expires_at: new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString(),
+          email: email
         });
         if (profileError) throw profileError;
 
