@@ -68,6 +68,38 @@
           <label class="block text-sm font-medium text-gray-700 mb-1">开始日期</label>
           <input type="date" id="class-start-date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
         </div>
+        <div id="copy-section" class="border-t border-gray-100 pt-4">
+          <div class="flex items-center justify-between mb-3">
+            <label class="text-sm font-medium text-gray-700">📋 从其他班级复制内容</label>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="copy-enabled" class="sr-only peer" onchange="toggleCopySection()">
+              <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+          <div id="copy-options" class="hidden space-y-3">
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">选择源班级</label>
+              <select id="copy-source-class" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                <option value="">-- 请选择 --</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="setCopyQuick('chapters')" class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200">仅章节</button>
+              <button type="button" onclick="setCopyQuick('all')" class="px-2 py-1 text-xs bg-blue-100 text-blue-600 rounded hover:bg-blue-200">全部复制</button>
+            </div>
+            <div class="space-y-2">
+              <label class="flex items-center text-sm text-gray-600 cursor-pointer">
+                <input type="checkbox" id="copy-chapters" class="mr-2" checked> 章节结构（标题、排序）
+              </label>
+              <label class="flex items-center text-sm text-gray-600 cursor-pointer">
+                <input type="checkbox" id="copy-resources" class="mr-2" checked> 资源关联（全局资源，班级专属资源跳过）
+              </label>
+              <label class="flex items-center text-sm text-gray-600 cursor-pointer">
+                <input type="checkbox" id="copy-quizzes" class="mr-2" checked> 测验关联（从全局题库关联）
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="p-6 border-t flex justify-end space-x-3">
         <button onclick="closeModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
@@ -186,13 +218,64 @@
     }
 
     // 打开创建弹窗
-    function openCreateModal() {
+    async function openCreateModal() {
       editingClassId = null;
       document.getElementById('modal-title').textContent = '创建班级';
       document.getElementById('class-name').value = '';
       document.getElementById('class-description').value = '';
       document.getElementById('class-start-date').value = '';
+      document.getElementById('copy-section').classList.remove('hidden');
+      document.getElementById('copy-enabled').checked = false;
+      document.getElementById('copy-options').classList.add('hidden');
+      document.getElementById('copy-source-class').value = '';
+      document.getElementById('copy-chapters').checked = true;
+      document.getElementById('copy-resources').checked = true;
+      document.getElementById('copy-quizzes').checked = true;
+
+      // 加载源班级列表（排除自己，因为是新建）
+      await loadSourceClasses();
+
       document.getElementById('class-modal').classList.remove('hidden');
+    }
+
+    // 加载源班级列表
+    async function loadSourceClasses(excludeId = null) {
+      try {
+        let query = sb.from('classes').select('id, name').eq('teacher_id', currentSession.user.id).order('created_at', { ascending: false });
+        const { data, error } = await query;
+        if (error) throw error;
+        const select = document.getElementById('copy-source-class');
+        select.innerHTML = '<option value="">-- 请选择 --</option>';
+        (data || []).forEach(c => {
+          if (c.id != excludeId) {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.name;
+            select.appendChild(opt);
+          }
+        });
+      } catch (e) {
+        console.error('加载源班级失败:', e);
+      }
+    }
+
+    // 切换复制选项显示
+    function toggleCopySection() {
+      const enabled = document.getElementById('copy-enabled').checked;
+      document.getElementById('copy-options').classList.toggle('hidden', !enabled);
+    }
+
+    // 快速设置复制选项
+    function setCopyQuick(type) {
+      if (type === 'chapters') {
+        document.getElementById('copy-chapters').checked = true;
+        document.getElementById('copy-resources').checked = false;
+        document.getElementById('copy-quizzes').checked = false;
+      } else if (type === 'all') {
+        document.getElementById('copy-chapters').checked = true;
+        document.getElementById('copy-resources').checked = true;
+        document.getElementById('copy-quizzes').checked = true;
+      }
     }
 
     // 编辑班级
@@ -206,6 +289,7 @@
         document.getElementById('class-name').value = cls.name || '';
         document.getElementById('class-description').value = cls.description || '';
         document.getElementById('class-start-date').value = cls.start_date || '';
+        document.getElementById('copy-section').classList.add('hidden');
         document.getElementById('class-modal').classList.remove('hidden');
       } catch (error) {
         alert('加载班级信息失败：' + error.message);
@@ -243,10 +327,22 @@
           if (error) throw error;
         } else {
           // 创建
-          const { error } = await sb
+          const { data: newClass, error } = await sb
             .from('classes')
-            .insert({ name, description, start_date: startDate || null, status: 'active', teacher_id: currentSession.user.id });
+            .insert({ name, description, start_date: startDate || null, status: 'active', teacher_id: currentSession.user.id })
+            .select();
           if (error) throw error;
+
+          // 如果开启了复制，执行复制
+          const copyEnabled = document.getElementById('copy-enabled').checked;
+          const sourceClassId = document.getElementById('copy-source-class').value;
+          if (copyEnabled && sourceClassId && newClass && newClass[0]) {
+            btn.textContent = '复制中...';
+            const copyChapters = document.getElementById('copy-chapters').checked;
+            const copyResources = document.getElementById('copy-resources').checked;
+            const copyQuizzes = document.getElementById('copy-quizzes').checked;
+            await copyClassContent(sourceClassId, newClass[0].id, { copyChapters, copyResources, copyQuizzes });
+          }
         }
 
         closeModal();
@@ -256,6 +352,89 @@
       } finally {
         btn.disabled = false;
         btn.textContent = '保存';
+      }
+    }
+
+    // 复制班级内容（章节、资源、测验）
+    async function copyClassContent(sourceClassId, targetClassId, options) {
+      try {
+        const { copyChapters, copyResources, copyQuizzes } = options;
+
+        // 1. 查询源班级章节
+        const { data: sourceChapters, error: ce } = await sb
+          .from('chapters')
+          .select('id, title, sort_order')
+          .eq('class_id', sourceClassId)
+          .order('sort_order', { ascending: true });
+        if (ce) throw ce;
+        if (!sourceChapters || sourceChapters.length === 0) return;
+
+        // 2. 创建新章节，建立旧ID->新ID映射
+        const chapterIdMap = {};
+        for (const sc of sourceChapters) {
+          const { data: newChapter, error: ne } = await sb
+            .from('chapters')
+            .insert({ class_id: targetClassId, title: sc.title, sort_order: sc.sort_order })
+            .select();
+          if (ne) throw ne;
+          if (newChapter && newChapter[0]) {
+            chapterIdMap[sc.id] = newChapter[0].id;
+          }
+        }
+
+        // 3. 复制资源关联（只关联全局资源，跳过班级专属）
+        if (copyResources) {
+          for (const oldChapterId of Object.keys(chapterIdMap)) {
+            const newChapterId = chapterIdMap[oldChapterId];
+            // 查询源章节关联的资源
+            const { data: crList } = await sb
+              .from('chapter_resources')
+              .select('resource_id, sort_order')
+              .eq('chapter_id', oldChapterId);
+            if (!crList) continue;
+
+            for (const cr of crList) {
+              // 查询资源，只关联全局资源（class_id IS NULL）
+              const { data: resource } = await sb
+                .from('resources')
+                .select('id, class_id')
+                .eq('id', cr.resource_id)
+                .single();
+              if (resource && !resource.class_id) {
+                // 全局资源，直接关联
+                await sb.from('chapter_resources').insert({
+                  chapter_id: newChapterId,
+                  resource_id: cr.resource_id,
+                  sort_order: cr.sort_order
+                });
+              }
+              // 班级专属资源跳过
+            }
+          }
+        }
+
+        // 4. 复制测验关联
+        if (copyQuizzes) {
+          for (const oldChapterId of Object.keys(chapterIdMap)) {
+            const newChapterId = chapterIdMap[oldChapterId];
+            const { data: cqList } = await sb
+              .from('chapter_quizzes')
+              .select('quiz_id, sort_order')
+              .eq('chapter_id', oldChapterId);
+            if (!cqList) continue;
+
+            for (const cq of cqList) {
+              await sb.from('chapter_quizzes').insert({
+                chapter_id: newChapterId,
+                quiz_id: cq.quiz_id,
+                sort_order: cq.sort_order
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.error('复制班级内容失败:', e);
+        alert('复制内容时出错：' + e.message + '（班级已创建，可稍后手动复制）');
       }
     }
 
@@ -273,8 +452,6 @@
         alert('操作失败：' + error.message);
       }
     }
-
-    // HTML 转义
     function escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text;
