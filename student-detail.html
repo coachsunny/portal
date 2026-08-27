@@ -252,6 +252,15 @@
         questions = qRes.data || [];
         studyLogs = logRes.data || [];
 
+        // 调试输出
+        console.log('学员详情数据加载:', {
+          studentId,
+          classId,
+          心得数量: reflections.length,
+          心得数据: reflections,
+          心得查询错误: refRes.error
+        });
+
         // 计算统计
         calculateStats();
 
