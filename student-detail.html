@@ -260,6 +260,9 @@
           心得数据: reflections,
           心得查询错误: refRes.error
         });
+        
+        // 保存错误信息到全局变量，供页面显示
+        window.reflectionQueryError = refRes.error ? JSON.stringify(refRes.error) : null;
 
         // 计算统计
         calculateStats();
@@ -416,6 +419,7 @@
         <p class="text-yellow-700">学员ID: ${studentId}</p>
         <p class="text-yellow-700">班级ID: ${classId}</p>
         <p class="text-yellow-700">心得数量: ${reflections.length}</p>
+        <p class="text-yellow-700">查询错误: ${window.reflectionQueryError || '无'}</p>
         <p class="text-yellow-700 mt-1">心得数据: ${JSON.stringify(reflections.map(r => ({id: r.id, class_id: r.class_id, chapter_id: r.chapter_id})))}</p>
       </div>`;
       
