@@ -204,7 +204,7 @@
 
       const { data: questions, error } = await sb
         .from('questions')
-        .select('id, question, created_at, user_id, class_id, profiles(name)')
+        .select('id, content, created_at, user_id, class_id, profiles(name)')
         .eq('status', 'open')
         .in('class_id', myClassIds)
         .order('created_at', { ascending: false });
@@ -225,7 +225,7 @@
                 <span class="text-xs text-gray-400">${myClassMap[q.class_id] || '未知班级'}</span>
                 <span class="text-xs text-gray-400">${formatDate(q.created_at)}</span>
               </div>
-              <p class="text-sm text-gray-600">${escapeHtml(q.question)}</p>
+              <p class="text-sm text-gray-600">${escapeHtml(q.content)}</p>
             </div>
             <a href="class-detail.html?id=${q.class_id}&tab=questions" class="ml-4 px-3 py-1.5 text-xs bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex-shrink-0">去回复</a>
           </div>

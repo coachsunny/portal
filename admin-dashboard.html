@@ -271,7 +271,7 @@
 
         const { data: questions, error } = await sb
           .from('questions')
-          .select('id, question, status, created_at, user_id, class_id, profiles(name)')
+          .select('id, content, status, created_at, user_id, class_id, profiles(name)')
           .eq('status', 'open')
           .in('class_id', classIds)
           .order('created_at', { ascending: false })
@@ -288,7 +288,7 @@
                 <span class="text-sm font-medium text-gray-800">${escapeHtml(q.profiles?.name || '学员')}</span>
                 <span class="ml-2 px-2 py-0.5 text-xs rounded-full bg-yellow-100 text-yellow-700">待回复</span>
               </div>
-              <p class="text-sm text-gray-600 truncate">${escapeHtml(q.question)}</p>
+              <p class="text-sm text-gray-600 truncate">${escapeHtml(q.content)}</p>
               <p class="text-xs text-gray-400 mt-1">${formatDate(q.created_at)}</p>
             </div>
           </a>
