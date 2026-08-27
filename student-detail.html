@@ -213,7 +213,7 @@
         const chapterIds = chaptersData.map(c => c.id);
 
         // 并行加载各项数据
-        const [quizRes, resRes, subRes, readRes, refRes, qRes, logRes] = await Promise.all([
+        const [quizRes, resRes, subRes, readRes, qRes, logRes] = await Promise.all([
           // 章节测验关联
           chapterIds.length ? sb.from('chapter_quizzes').select('*, quizzes(*)').in('chapter_id', chapterIds) : { data: [] },
           // 章节资源关联
@@ -222,13 +222,30 @@
           sb.from('quiz_submissions').select('*').eq('user_id', studentId).eq('class_id', classId),
           // 学员资源阅读记录
           sb.from('resource_reads').select('*').eq('user_id', studentId).eq('class_id', classId),
-          // 学员心得（先查全部，前端按class_id过滤，避免类型不匹配问题）
-          sb.from('chapter_reflections').select('*').eq('user_id', studentId).order('created_at', { ascending: false }),
           // 学员提问
           sb.from('questions').select('*').eq('user_id', studentId).eq('class_id', classId).order('created_at', { ascending: false }),
           // 学习打卡（不按班级过滤，兼容历史无class_id的记录）
           sb.from('study_logs').select('*').eq('user_id', studentId).order('created_at', { ascending: false })
         ]);
+
+        // 心得单独查询，避免受其他查询影响
+        try {
+          const { data: refData, error: refError } = await sb
+            .from('chapter_reflections')
+            .select('*')
+            .eq('user_id', studentId)
+            .order('created_at', { ascending: false });
+          if (refError) {
+            console.error('心得查询错误:', refError);
+            window.reflectionError = JSON.stringify(refError);
+          } else {
+            reflections = refData || [];
+            window.reflectionError = null;
+          }
+        } catch (e) {
+          console.error('心得查询异常:', e);
+          window.reflectionError = e.message;
+        }
 
         // 处理测验
         quizzesByChapter = {};
@@ -248,8 +265,7 @@
 
         submissions = subRes.data || [];
         resourceReads = readRes.data || [];
-        // 显示该学员的所有心得（不过滤班级，避免类型不匹配问题）
-        reflections = refRes.data || [];
+        // reflections 已在单独查询中赋值
         questions = qRes.data || [];
         studyLogs = logRes.data || [];
 
@@ -401,6 +417,17 @@
 
     function renderReflections() {
       const panel = document.getElementById('dpanel-reflections');
+      
+      // 显示查询错误
+      if (window.reflectionError) {
+        panel.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p class="text-red-600 font-medium mb-2">❌ 心得查询失败</p>
+          <p class="text-red-500 text-sm">${window.reflectionError}</p>
+          <p class="text-gray-500 text-xs mt-2">请检查 Supabase 中 chapter_reflections 表是否存在，以及 RLS 策略是否正确。</p>
+        </div>`;
+        return;
+      }
+      
       if (reflections.length === 0) {
         panel.innerHTML = '<p class="text-center text-gray-400 py-8">暂无学习心得</p>';
         return;
