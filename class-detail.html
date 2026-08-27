@@ -31,6 +31,71 @@
       </div>
     </div>
 
+    <!-- 班级整体进度 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+      <h2 class="text-lg font-semibold text-gray-800 mb-4">📊 班级整体进度</h2>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <div class="text-center p-3 bg-orange-50 rounded-lg">
+          <p class="text-2xl font-bold text-orange-600" id="stat-avg-streak">-</p>
+          <p class="text-xs text-gray-500 mt-1">平均连续打卡</p>
+        </div>
+        <div class="p-3 bg-blue-50 rounded-lg">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs text-gray-500">测验完成率</span>
+            <span class="text-sm font-bold text-blue-600" id="stat-quiz-rate">-</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2">
+            <div id="bar-quiz" class="bg-blue-500 h-2 rounded-full transition-all" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="p-3 bg-purple-50 rounded-lg">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs text-gray-500">心得完成率</span>
+            <span class="text-sm font-bold text-purple-600" id="stat-reflection-rate">-</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2">
+            <div id="bar-reflection" class="bg-purple-500 h-2 rounded-full transition-all" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="p-3 bg-green-50 rounded-lg">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs text-gray-500">资源阅读率</span>
+            <span class="text-sm font-bold text-green-600" id="stat-resource-rate">-</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2">
+            <div id="bar-resource" class="bg-green-500 h-2 rounded-full transition-all" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="text-center p-3 bg-red-50 rounded-lg cursor-pointer hover:bg-red-100 transition" onclick="switchTab('quizzes')">
+          <p class="text-2xl font-bold text-red-600" id="stat-pending-quiz">-</p>
+          <p class="text-xs text-gray-500 mt-1">待批改测验</p>
+        </div>
+        <div class="text-center p-3 bg-orange-50 rounded-lg cursor-pointer hover:bg-orange-100 transition" onclick="switchTab('questions')">
+          <p class="text-2xl font-bold text-orange-600" id="stat-pending-question">-</p>
+          <p class="text-xs text-gray-500 mt-1">待回复提问</p>
+        </div>
+      </div>
+
+      <!-- 学员进度分布 -->
+      <div class="border-t border-gray-100 pt-4">
+        <h3 class="text-sm font-medium text-gray-700 mb-3">学员进度分布</h3>
+        <div class="flex items-center gap-4">
+          <div class="flex-1">
+            <div class="flex h-8 rounded-lg overflow-hidden">
+              <div id="dist-good" class="bg-green-400 flex items-center justify-center text-white text-xs font-medium transition-all" style="width:0%"></div>
+              <div id="dist-medium" class="bg-yellow-400 flex items-center justify-center text-white text-xs font-medium transition-all" style="width:0%"></div>
+              <div id="dist-low" class="bg-red-400 flex items-center justify-center text-white text-xs font-medium transition-all" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 text-xs">
+            <span class="flex items-center"><span class="w-3 h-3 bg-green-400 rounded mr-1"></span>良好(>80%) <span id="cnt-good" class="ml-1 font-medium">0</span></span>
+            <span class="flex items-center"><span class="w-3 h-3 bg-yellow-400 rounded mr-1"></span>中等(50-80%) <span id="cnt-medium" class="ml-1 font-medium">0</span></span>
+            <span class="flex items-center"><span class="w-3 h-3 bg-red-400 rounded mr-1"></span>落后(<50%) <span id="cnt-low" class="ml-1 font-medium">0</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="flex space-x-1 mb-6 bg-white rounded-xl p-1 border border-gray-100 w-fit">
       <button onclick="switchTab('students')" id="tab-students" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-700">👥 学员管理</button>
       <button onclick="switchTab('chapters')" id="tab-chapters" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">📚 章节与资源</button>
@@ -628,6 +693,7 @@
       if (!classId) { alert('缺少班级 ID'); window.location.href = 'classes.html'; return; }
       await loadClassInfo();
       await loadStudents();
+      await loadClassStats();
 
       // 读取URL参数，自动切换标签
       const tabParam = params.get('tab');
@@ -664,6 +730,169 @@
           ? '<span class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700">进行中</span>'
           : '<span class="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500">已归档</span>';
       } catch (e) { alert('加载班级信息失败：' + e.message); }
+    }
+
+    // 加载班级整体进度统计
+    async function loadClassStats() {
+      try {
+        // 1. 获取班级学员列表
+        const { data: members, error: me } = await sb
+          .from('class_members')
+          .select('user_id')
+          .eq('class_id', classId);
+        if (me) throw me;
+        if (!members || members.length === 0) {
+          // 没有学员，显示默认值
+          document.getElementById('stat-avg-streak').textContent = '0';
+          document.getElementById('stat-quiz-rate').textContent = '-';
+          document.getElementById('stat-reflection-rate').textContent = '-';
+          document.getElementById('stat-resource-rate').textContent = '-';
+          document.getElementById('stat-pending-quiz').textContent = '0';
+          document.getElementById('stat-pending-question').textContent = '0';
+          return;
+        }
+
+        const userIds = members.map(m => m.user_id);
+
+        // 2. 先查询班级章节列表
+        const { data: chaptersData } = await sb.from('chapters').select('id').eq('class_id', classId);
+        const chapterIds = (chaptersData || []).map(c => c.id);
+        const totalChapters = chapterIds.length;
+
+        // 3. 并行查询所有数据
+        const [logsRes, quizSubRes, resReadRes, refRes, pendingQuizRes, pendingQRes, totalQuizRes, totalResRes] = await Promise.all([
+          sb.from('study_logs').select('user_id, created_at').in('user_id', userIds),
+          sb.from('quiz_submissions').select('user_id, quiz_id').in('user_id', userIds).eq('class_id', classId),
+          sb.from('resource_reads').select('user_id, resource_id').in('user_id', userIds).eq('class_id', classId),
+          sb.from('chapter_reflections').select('user_id, chapter_id').in('user_id', userIds).eq('class_id', classId),
+          sb.from('quiz_submissions').select('*', { count: 'exact', head: true }).eq('class_id', classId).is('score', null),
+          sb.from('questions').select('*', { count: 'exact', head: true }).eq('class_id', classId).eq('status', 'open'),
+          chapterIds.length > 0
+            ? sb.from('chapter_quizzes').select('quiz_id', { count: 'exact', head: true }).in('chapter_id', chapterIds)
+            : Promise.resolve({ count: 0 }),
+          chapterIds.length > 0
+            ? sb.from('chapter_resources').select('resource_id', { count: 'exact', head: true }).in('chapter_id', chapterIds)
+            : Promise.resolve({ count: 0 })
+        ]);
+
+        // 3. 按学员分组统计
+        const streakByUser = {};
+        const quizByUser = {};
+        const resReadByUser = {};
+        const refByUser = {};
+
+        // 计算每个学员的连续打卡
+        const logsByUser = {};
+        (logsRes.data || []).forEach(l => {
+          if (!logsByUser[l.user_id]) logsByUser[l.user_id] = [];
+          logsByUser[l.user_id].push(l);
+        });
+
+        const today = new Date();
+        userIds.forEach(uid => {
+          const logs = logsByUser[uid] || [];
+          const dateSet = new Set(logs.map(l => {
+            const d = new Date(l.created_at);
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          }));
+          let streak = 0;
+          for (let i = 0; i < 365; i++) {
+            const d = new Date(today);
+            d.setDate(d.getDate() - i);
+            const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            if (dateSet.has(ds)) streak++;
+            else if (i > 0) break;
+          }
+          streakByUser[uid] = streak;
+        });
+
+        (quizSubRes.data || []).forEach(q => {
+          if (!quizByUser[q.user_id]) quizByUser[q.user_id] = new Set();
+          quizByUser[q.user_id].add(q.quiz_id);
+        });
+
+        (resReadRes.data || []).forEach(r => {
+          if (!resReadByUser[r.user_id]) resReadByUser[r.user_id] = new Set();
+          resReadByUser[r.user_id].add(r.resource_id);
+        });
+
+        (refRes.data || []).forEach(r => {
+          if (!refByUser[r.user_id]) refByUser[r.user_id] = new Set();
+          refByUser[r.user_id].add(r.chapter_id);
+        });
+
+        // 4. 计算平均值
+        const totalQuizzes = totalQuizRes.count || 0;
+        const totalResources = totalResRes.count || 0;
+
+        let avgStreak = 0;
+        let avgQuizRate = 0;
+        let avgRefRate = 0;
+        let avgResRate = 0;
+        const progressList = [];
+
+        userIds.forEach(uid => {
+          const streak = streakByUser[uid] || 0;
+          const quizCount = (quizByUser[uid] || new Set()).size;
+          const refCount = (refByUser[uid] || new Set()).size;
+          const resCount = (resReadByUser[uid] || new Set()).size;
+
+          avgStreak += streak;
+          const quizRate = totalQuizzes > 0 ? (quizCount / totalQuizzes) * 100 : 0;
+          const refRate = totalChapters > 0 ? (refCount / totalChapters) * 100 : 0;
+          const resRate = totalResources > 0 ? (resCount / totalResources) * 100 : 0;
+          avgQuizRate += quizRate;
+          avgRefRate += refRate;
+          avgResRate += resRate;
+
+          // 综合进度（取四项平均）
+          const overall = (quizRate + refRate + resRate) / 3;
+          progressList.push({ uid, overall });
+        });
+
+        const n = userIds.length;
+        avgStreak = Math.round(avgStreak / n);
+        avgQuizRate = Math.round(avgQuizRate / n);
+        avgRefRate = Math.round(avgRefRate / n);
+        avgResRate = Math.round(avgResRate / n);
+
+        // 5. 更新统计卡片
+        document.getElementById('stat-avg-streak').textContent = avgStreak + '天';
+        document.getElementById('stat-quiz-rate').textContent = avgQuizRate + '%';
+        document.getElementById('stat-reflection-rate').textContent = avgRefRate + '%';
+        document.getElementById('stat-resource-rate').textContent = avgResRate + '%';
+        document.getElementById('stat-pending-quiz').textContent = pendingQuizRes.count || 0;
+        document.getElementById('stat-pending-question').textContent = pendingQRes.count || 0;
+
+        // 更新进度条
+        document.getElementById('bar-quiz').style.width = avgQuizRate + '%';
+        document.getElementById('bar-reflection').style.width = avgRefRate + '%';
+        document.getElementById('bar-resource').style.width = avgResRate + '%';
+
+        // 6. 计算学员进度分布
+        let good = 0, medium = 0, low = 0;
+        progressList.forEach(p => {
+          if (p.overall > 80) good++;
+          else if (p.overall >= 50) medium++;
+          else low++;
+        });
+
+        document.getElementById('cnt-good').textContent = good;
+        document.getElementById('cnt-medium').textContent = medium;
+        document.getElementById('cnt-low').textContent = low;
+
+        const total = good + medium + low;
+        if (total > 0) {
+          document.getElementById('dist-good').style.width = (good / total * 100) + '%';
+          document.getElementById('dist-medium').style.width = (medium / total * 100) + '%';
+          document.getElementById('dist-low').style.width = (low / total * 100) + '%';
+          if (good > 0) document.getElementById('dist-good').textContent = good;
+          if (medium > 0) document.getElementById('dist-medium').textContent = medium;
+          if (low > 0) document.getElementById('dist-low').textContent = low;
+        }
+      } catch (e) {
+        console.error('加载班级统计失败:', e);
+      }
     }
 
     async function loadStudents() {
