@@ -248,8 +248,8 @@
 
         submissions = subRes.data || [];
         resourceReads = readRes.data || [];
-        // 心得按class_id前端过滤（避免类型不匹配问题）
-        reflections = (refRes.data || []).filter(r => String(r.class_id) === String(classId));
+        // 显示该学员的所有心得（不过滤班级，避免类型不匹配问题）
+        reflections = refRes.data || [];
         questions = qRes.data || [];
         studyLogs = logRes.data || [];
 
