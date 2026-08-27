@@ -283,36 +283,61 @@
         return;
       }
 
-      const { data: reflections, error } = await sb
-        .from('chapter_reflections')
-        .select('id, user_id, class_id, chapter_id, content, created_at, profiles(name), chapters(title)')
-        .not('content', 'eq', '')
-        .or('teacher_reply.is.null,teacher_reply.eq.')
-        .in('class_id', myClassIds)
-        .order('created_at', { ascending: false });
+      try {
+        // 先不关联表，避免关联查询RLS问题
+        const { data: reflections, error } = await sb
+          .from('chapter_reflections')
+          .select('id, user_id, class_id, chapter_id, content, created_at, teacher_reply')
+          .not('content', 'eq', '')
+          .or('teacher_reply.is.null,teacher_reply.eq.')
+          .in('class_id', myClassIds)
+          .order('created_at', { ascending: false });
 
-      document.getElementById('count-reflections').textContent = (reflections || []).length;
+        if (error) {
+          console.error('心得查询错误:', error);
+          container.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p class="text-red-600 font-medium">查询失败: ${error.message}</p>
+          </div>`;
+          document.getElementById('count-reflections').textContent = '0';
+          return;
+        }
 
-      if (!reflections || reflections.length === 0) {
-        container.innerHTML = emptyState('暂无待回复心得');
-        return;
-      }
+        document.getElementById('count-reflections').textContent = (reflections || []).length;
 
-      container.innerHTML = reflections.map(r => `
-        <div class="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
-          <div class="flex items-start justify-between">
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="text-sm font-medium text-gray-800">${escapeHtml(r.profiles?.name || '学员')}</span>
-                <span class="text-xs text-gray-400">${myClassMap[r.class_id] || '未知班级'}</span>
-                <span class="text-xs text-gray-400">${formatDate(r.created_at)}</span>
+        if (!reflections || reflections.length === 0) {
+          container.innerHTML = emptyState('暂无待回复心得');
+          return;
+        }
+
+        // 批量查询学员姓名和章节标题
+        const userIds = [...new Set(reflections.map(r => r.user_id))];
+        const chapterIds = [...new Set(reflections.map(r => r.chapter_id))];
+        
+        const [{ data: profiles }, { data: chapters }] = await Promise.all([
+          userIds.length > 0 ? sb.from('profiles').select('id, name').in('id', userIds) : Promise.resolve({ data: [] }),
+          chapterIds.length > 0 ? sb.from('chapters').select('id, title').in('id', chapterIds) : Promise.resolve({ data: [] })
+        ]);
+        
+        const nameMap = {};
+        (profiles || []).forEach(p => { nameMap[p.id] = p.name; });
+        const titleMap = {};
+        (chapters || []).forEach(c => { titleMap[c.id] = c.title; });
+
+        container.innerHTML = reflections.map(r => `
+          <div class="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
+            <div class="flex items-start justify-between">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-sm font-medium text-gray-800">${escapeHtml(nameMap[r.user_id] || '学员')}</span>
+                  <span class="text-xs text-gray-400">${myClassMap[r.class_id] || '未知班级'}</span>
+                  <span class="text-xs text-gray-400">${formatDate(r.created_at)}</span>
+                </div>
+                <p class="text-sm text-gray-600 font-medium mb-1">${escapeHtml(titleMap[r.chapter_id] || '章节')}</p>
+                <p class="text-sm text-gray-500 line-clamp-2">${escapeHtml(r.content)}</p>
               </div>
-              <p class="text-sm text-gray-600 font-medium mb-1">${escapeHtml(r.chapters?.title || '章节')}</p>
-              <p class="text-sm text-gray-500 line-clamp-2">${escapeHtml(r.content)}</p>
+              <button onclick="openReplyModal(${r.id}, '${escapeJs(nameMap[r.user_id] || '学员')}', '${escapeJs(myClassMap[r.class_id] || '')}', '${escapeJs(titleMap[r.chapter_id] || '')}', '${escapeJs(r.content)}')" class="ml-4 px-3 py-1.5 text-xs bg-purple-500 text-white rounded-lg hover:bg-purple-600 flex-shrink-0">回复</button>
             </div>
-            <button onclick="openReplyModal(${r.id}, '${escapeJs(r.profiles?.name || '学员')}', '${escapeJs(myClassMap[r.class_id] || '')}', '${escapeJs(r.chapters?.title || '')}', '${escapeJs(r.content)}')" class="ml-4 px-3 py-1.5 text-xs bg-purple-500 text-white rounded-lg hover:bg-purple-600 flex-shrink-0">回复</button>
           </div>
-        </div>
       `).join('');
     }
 
