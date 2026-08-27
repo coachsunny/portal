@@ -19,7 +19,7 @@
     </div>
 
     <!-- 统计卡片 -->
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
       <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
         <div class="flex items-center justify-between">
           <div>
@@ -42,28 +42,6 @@
           </div>
         </div>
       </div>
-      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm text-gray-500">学习资源</p>
-            <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-resources">-</p>
-          </div>
-          <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-            <span class="text-xl">📄</span>
-          </div>
-        </div>
-      </div>
-      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm text-gray-500">题库题目</p>
-            <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-quizzes">-</p>
-          </div>
-          <div class="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-            <span class="text-xl">📝</span>
-          </div>
-        </div>
-      </div>
       <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 cursor-pointer hover:shadow-md transition" onclick="window.location.href='classes.html?tab=questions'">
         <div class="flex items-center justify-between">
           <div>
@@ -74,6 +52,43 @@
             <span class="text-xl">💬</span>
           </div>
         </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 cursor-pointer hover:shadow-md transition" onclick="window.location.href='student-stats.html'">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500">待批改测验</p>
+            <p class="text-2xl font-bold text-blue-600 mt-1" id="stat-quiz-pending">-</p>
+          </div>
+          <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+            <span class="text-xl">📝</span>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 cursor-pointer hover:shadow-md transition" onclick="window.location.href='student-stats.html'">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500">待回复心得</p>
+            <p class="text-2xl font-bold text-purple-600 mt-1" id="stat-reflection-pending">-</p>
+          </div>
+          <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+            <span class="text-xl">✍️</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 今日待办汇总 -->
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100 mb-8">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-800">📋 今日待办</h2>
+        <span class="text-sm text-gray-500" id="todo-date"></span>
+      </div>
+      <div id="todo-summary" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- 动态填充 -->
+      </div>
+      <div id="todo-all-done" class="hidden text-center py-4">
+        <p class="text-3xl mb-2">🎉</p>
+        <p class="text-gray-600 font-medium">今日待办已全部完成，辛苦了！</p>
       </div>
     </div>
 
@@ -101,16 +116,16 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <!-- 最近提问 -->
+      <!-- 待回复提问 -->
       <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold text-gray-800">最近学员提问</h2>
+          <h2 class="text-lg font-semibold text-gray-800">💬 待回复提问</h2>
           <a href="classes.html?tab=questions" class="text-sm text-blue-600 hover:text-blue-700">查看全部 →</a>
         </div>
         <div id="recent-questions">
           <div class="text-center py-8 text-gray-400">
-            <p class="text-3xl mb-2">💬</p>
-            <p class="text-sm">暂无提问</p>
+            <p class="text-3xl mb-2">✅</p>
+            <p class="text-sm">暂无待回复提问</p>
           </div>
         </div>
       </div>
@@ -142,7 +157,10 @@
       if (!currentSession) return;
       renderNavbar(currentSession, 'dashboard');
       document.getElementById('welcome-title').textContent = `${currentSession.name} 老师，您好`;
+      const now = new Date();
+      document.getElementById('todo-date').textContent = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
       loadStats();
+      loadTodoSummary();
       loadRecentQuestions();
       loadClasses();
     });
@@ -150,29 +168,76 @@
     // 加载统计数据
     async function loadStats() {
       try {
-        const [classRes, studentRes, resourceRes, quizRes, questionRes] = await Promise.all([
+        const [classRes, studentRes, questionRes, quizPendingRes, reflectionRes] = await Promise.all([
           sb.from('classes').select('*', { count: 'exact', head: true }),
           sb.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
-          sb.from('resources').select('*', { count: 'exact', head: true }),
-          sb.from('quizzes').select('*', { count: 'exact', head: true }),
-          sb.from('questions').select('*', { count: 'exact', head: true }).eq('status', 'open')
+          sb.from('questions').select('*', { count: 'exact', head: true }).eq('status', 'open'),
+          sb.from('quiz_submissions').select('*', { count: 'exact', head: true }).is('score', null),
+          sb.from('chapter_reflections').select('*', { count: 'exact', head: true }).not('content', 'eq', '').or('teacher_reply.is.null,teacher_reply.eq.')
         ]);
         document.getElementById('stat-classes').textContent = classRes.count || 0;
         document.getElementById('stat-students').textContent = studentRes.count || 0;
-        document.getElementById('stat-resources').textContent = resourceRes.count || 0;
-        document.getElementById('stat-quizzes').textContent = quizRes.count || 0;
         document.getElementById('stat-questions').textContent = questionRes.count || 0;
+        document.getElementById('stat-quiz-pending').textContent = quizPendingRes.count || 0;
+        document.getElementById('stat-reflection-pending').textContent = reflectionRes.count || 0;
       } catch (error) {
         console.error('加载统计数据失败:', error);
       }
     }
 
-    // 加载最近提问
+    // 加载今日待办汇总
+    async function loadTodoSummary() {
+      try {
+        const [qRes, quizRes, refRes] = await Promise.all([
+          sb.from('questions').select('*', { count: 'exact', head: true }).eq('status', 'open'),
+          sb.from('quiz_submissions').select('*', { count: 'exact', head: true }).is('score', null),
+          sb.from('chapter_reflections').select('*', { count: 'exact', head: true }).not('content', 'eq', '').or('teacher_reply.is.null,teacher_reply.eq.')
+        ]);
+        const qCount = qRes.count || 0;
+        const quizCount = quizRes.count || 0;
+        const refCount = refRes.count || 0;
+        const total = qCount + quizCount + refCount;
+
+        const container = document.getElementById('todo-summary');
+        const allDone = document.getElementById('todo-all-done');
+
+        if (total === 0) {
+          container.classList.add('hidden');
+          allDone.classList.remove('hidden');
+          return;
+        }
+
+        container.classList.remove('hidden');
+        allDone.classList.add('hidden');
+
+        const items = [
+          { icon: '💬', label: '待回复提问', count: qCount, color: 'orange', href: 'classes.html?tab=questions' },
+          { icon: '📝', label: '待批改测验', count: quizCount, color: 'blue', href: 'student-stats.html' },
+          { icon: '✍️', label: '待回复心得', count: refCount, color: 'purple', href: 'student-stats.html' }
+        ];
+
+        container.innerHTML = items.map(item => `
+          <a href="${item.href}" class="flex items-center p-4 bg-white rounded-lg border border-${item.color}-100 hover:shadow-md transition ${item.count > 0 ? '' : 'opacity-50'}">
+            <span class="text-2xl mr-3">${item.icon}</span>
+            <div class="flex-1">
+              <p class="text-sm text-gray-600">${item.label}</p>
+              <p class="text-2xl font-bold text-${item.color}-600">${item.count}</p>
+            </div>
+            <span class="text-gray-400">→</span>
+          </a>
+        `).join('');
+      } catch (e) {
+        console.error('加载待办汇总失败:', e);
+      }
+    }
+
+    // 加载待回复提问
     async function loadRecentQuestions() {
       try {
         const { data: questions, error } = await sb
           .from('questions')
-          .select('id, content, status, created_at, user_id, class_id, profiles(name)')
+          .select('id, question, status, created_at, user_id, class_id, profiles(name)')
+          .eq('status', 'open')
           .order('created_at', { ascending: false })
           .limit(5);
         if (error) throw error;
@@ -181,18 +246,18 @@
         if (!questions || questions.length === 0) return;
 
         container.innerHTML = questions.map(q => `
-          <div class="flex items-start justify-between p-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition">
+          <a href="class-detail.html?id=${q.class_id}&tab=questions" class="flex items-start justify-between p-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition">
             <div class="flex-1 min-w-0">
               <div class="flex items-center mb-1">
                 <span class="text-sm font-medium text-gray-800">${escapeHtml(q.profiles?.name || '学员')}</span>
-                <span class="ml-2 px-2 py-0.5 text-xs rounded-full ${q.status === 'open' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}">${q.status === 'open' ? '待回复' : '已回复'}</span>
+                <span class="ml-2 px-2 py-0.5 text-xs rounded-full bg-yellow-100 text-yellow-700">待回复</span>
               </div>
-              <p class="text-sm text-gray-600 truncate">${escapeHtml(q.content)}</p>
+              <p class="text-sm text-gray-600 truncate">${escapeHtml(q.question)}</p>
               <p class="text-xs text-gray-400 mt-1">${formatDate(q.created_at)}</p>
             </div>
-          </div>
+          </a>
         `).join('');
-      } catch (e) { console.error('加载最近提问失败:', e); }
+      } catch (e) { console.error('加载待回复提问失败:', e); }
     }
 
     // 加载班级列表
@@ -208,16 +273,27 @@
         const container = document.getElementById('class-list');
         if (!classes || classes.length === 0) return;
 
-        // 统计每个班级的学员数
         const classIds = classes.map(c => c.id);
-        const { data: members } = await sb
-          .from('class_members')
-          .select('class_id')
-          .in('class_id', classIds);
-        const memberCount = {};
-        (members || []).forEach(m => { memberCount[m.class_id] = (memberCount[m.class_id] || 0) + 1; });
 
-        container.innerHTML = classes.map(c => `
+        // 并行查询：学员数、待回复提问数、待批改测验数
+        const [membersRes, questionsRes, quizRes] = await Promise.all([
+          sb.from('class_members').select('class_id').in('class_id', classIds),
+          sb.from('questions').select('class_id').in('class_id', classIds).eq('status', 'open'),
+          sb.from('quiz_submissions').select('class_id').in('class_id', classIds).is('score', null)
+        ]);
+
+        const memberCount = {};
+        const pendingQuestions = {};
+        const pendingQuizzes = {};
+        (membersRes.data || []).forEach(m => { memberCount[m.class_id] = (memberCount[m.class_id] || 0) + 1; });
+        (questionsRes.data || []).forEach(q => { pendingQuestions[q.class_id] = (pendingQuestions[q.class_id] || 0) + 1; });
+        (quizRes.data || []).forEach(q => { pendingQuizzes[q.class_id] = (pendingQuizzes[q.class_id] || 0) + 1; });
+
+        container.innerHTML = classes.map(c => {
+          const pq = pendingQuestions[c.id] || 0;
+          const pqz = pendingQuizzes[c.id] || 0;
+          const hasTodo = pq > 0 || pqz > 0;
+          return `
           <a href="class-detail.html?id=${c.id}" class="flex items-center justify-between p-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition">
             <div class="flex items-center min-w-0">
               <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
@@ -228,9 +304,17 @@
                 <p class="text-xs text-gray-500">${memberCount[c.id] || 0} 名学员</p>
               </div>
             </div>
-            <span class="px-2 py-1 text-xs rounded-full flex-shrink-0 ml-2 ${c.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">${c.status === 'active' ? '进行中' : '已结束'}</span>
-          </a>
-        `).join('');
+            <div class="flex items-center gap-2 flex-shrink-0 ml-2">
+              ${hasTodo ? `
+                <div class="flex items-center gap-1">
+                  ${pq > 0 ? `<span class="px-1.5 py-0.5 text-xs bg-orange-100 text-orange-600 rounded-full font-medium">💬${pq}</span>` : ''}
+                  ${pqz > 0 ? `<span class="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-600 rounded-full font-medium">📝${pqz}</span>` : ''}
+                </div>
+              ` : ''}
+              <span class="px-2 py-1 text-xs rounded-full ${c.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">${c.status === 'active' ? '进行中' : '已结束'}</span>
+            </div>
+          </a>`;
+        }).join('');
       } catch (e) { console.error('加载班级列表失败:', e); }
     }
 
