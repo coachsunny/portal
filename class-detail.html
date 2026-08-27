@@ -2425,6 +2425,25 @@
           .order('created_at', { ascending: false });
         if (error) throw error;
 
+        // 查询班级学员总数
+        const { count: totalStudents, error: me } = await sb
+          .from('class_members')
+          .select('*', { count: 'exact', head: true })
+          .eq('class_id', classId);
+
+        // 查询所有公告的已读记录
+        const announcementIds = (data || []).map(a => a.id);
+        let readCounts = {};
+        if (announcementIds.length > 0) {
+          const { data: reads } = await sb
+            .from('announcement_reads')
+            .select('announcement_id')
+            .in('announcement_id', announcementIds);
+          (reads || []).forEach(r => {
+            readCounts[r.announcement_id] = (readCounts[r.announcement_id] || 0) + 1;
+          });
+        }
+
         const list = document.getElementById('announcements-list');
         const empty = document.getElementById('empty-announcements');
 
@@ -2438,6 +2457,11 @@
         const now = new Date();
         list.innerHTML = data.map(a => {
           const isExpired = a.expires_at && new Date(a.expires_at) < now;
+          const readCount = readCounts[a.id] || 0;
+          const total = totalStudents || 0;
+          const readPercent = total > 0 ? Math.round((readCount / total) * 100) : 0;
+          const readColor = readPercent >= 80 ? 'text-green-600' : readPercent >= 50 ? 'text-yellow-600' : 'text-red-600';
+
           return `<div class="bg-white rounded-xl shadow-sm border ${isExpired ? 'border-gray-200 opacity-60' : 'border-gray-100'} p-5">
             <div class="flex items-start justify-between">
               <div class="flex-1 min-w-0">
@@ -2447,7 +2471,10 @@
                   <h3 class="font-semibold text-gray-800">${escapeHtml(a.title)}</h3>
                 </div>
                 <p class="text-sm text-gray-600 whitespace-pre-wrap mt-2">${escapeHtml(a.content)}</p>
-                <p class="text-xs text-gray-400 mt-3">发布于 ${formatDate(a.created_at)}${a.expires_at ? ' · 有效期至 ' + formatDate(a.expires_at) : ' · 永久有效'}</p>
+                <div class="flex items-center gap-4 mt-3">
+                  <p class="text-xs text-gray-400">发布于 ${formatDate(a.created_at)}${a.expires_at ? ' · 有效期至 ' + formatDate(a.expires_at) : ' · 永久有效'}</p>
+                  <span class="text-xs ${readColor} font-medium" title="已读${readCount}人，未读${total - readCount}人">👁️ 已读 ${readCount}/${total} (${readPercent}%)</span>
+                </div>
               </div>
               <div class="flex items-center gap-1 ml-4 flex-shrink-0">
                 <button onclick="toggleAnnouncementPin('${a.id}', ${!a.is_pinned})" class="p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition" title="${a.is_pinned ? '取消置顶' : '置顶'}">${a.is_pinned ? '📌' : '📍'}</button>
