@@ -427,7 +427,14 @@
             </div>
           ` : ''}
           <div id="reply-form-${r.id}" class="hidden mt-3 pt-3 border-t border-gray-200">
-            <textarea id="reply-text-${r.id}" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="写下你的回应...">${hasReply ? escapeHtml(r.teacher_reply) : ''}</textarea>
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs text-gray-500">快速模板：</span>
+              <button onclick="insertReplyTemplate(${r.id}, 'encourage')" class="text-xs px-2 py-1 bg-green-50 text-green-600 rounded hover:bg-green-100 transition">👍 鼓励肯定</button>
+              <button onclick="insertReplyTemplate(${r.id}, 'reflect')" class="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition">🤔 引导反思</button>
+              <button onclick="insertReplyTemplate(${r.id}, 'action')" class="text-xs px-2 py-1 bg-orange-50 text-orange-600 rounded hover:bg-orange-100 transition">🎯 行动建议</button>
+              <button onclick="insertReplyTemplate(${r.id}, 'question')" class="text-xs px-2 py-1 bg-purple-50 text-purple-600 rounded hover:bg-purple-100 transition">💡 深度提问</button>
+            </div>
+            <textarea id="reply-text-${r.id}" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="写下你的回应...（可点击上方模板快速插入）">${hasReply ? escapeHtml(r.teacher_reply) : ''}</textarea>
             <div class="flex justify-end gap-2 mt-2">
               <button onclick="toggleReflectionReply(${r.id})" class="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded transition">取消</button>
               <button onclick="saveReflectionReply(${r.id})" class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition">保存回复</button>
@@ -440,6 +447,55 @@
     function toggleReflectionReply(reflectionId) {
       const form = document.getElementById('reply-form-' + reflectionId);
       if (form) form.classList.toggle('hidden');
+    }
+
+    // 心得回复模板（基于五步法：看见→共情→提问→价值→行动）
+    const replyTemplates = {
+      encourage: `我看到你在这一章的学习中非常用心，特别是你提到的______，说明你真的在认真思考和觉察。
+
+这种自我觉察的能力非常宝贵，它是成长的第一步。继续保持这份真诚和勇气，你会越来越清晰自己想要什么。
+
+相信你自己，你已经在进步的路上了！`,
+
+      reflect: `你提到______，这让我很好奇——
+
+你觉得是什么让你有这样的感受？这个感受在提醒你什么？
+
+如果换一个角度看这件事，会不会有不同的发现？试着想象一下，如果是你的好朋友遇到同样的情况，你会怎么对TA说？`,
+
+      action: `很棒的觉察！既然你已经意识到______，接下来可以尝试一个小行动：
+
+1. 本周内尝试______
+2. 记录下你的感受和变化
+3. 下次我们一起复盘
+
+不用追求完美，先迈出一小步就好。试试看，一周后我们再聊聊感受如何？`,
+
+      question: `你说的______很有意思，我想进一步了解：
+
+1. 这背后对你来说真正重要的是什么？
+2. 如果这个问题解决了，你的生活会有什么不同？
+3. 你内心深处真正渴望的是什么？
+
+不用急着回答，可以慢慢想。有时候好的问题比答案更重要。`
+    };
+
+    function insertReplyTemplate(reflectionId, type) {
+      const textarea = document.getElementById('reply-text-' + reflectionId);
+      if (!textarea) return;
+      const template = replyTemplates[type];
+      if (!template) return;
+      // 如果当前有内容，追加；否则直接插入
+      if (textarea.value.trim()) {
+        if (confirm('当前已有回复内容，是否替换为模板？\n\n点击「确定」替换，「取消」追加到末尾。')) {
+          textarea.value = template;
+        } else {
+          textarea.value += '\n\n' + template;
+        }
+      } else {
+        textarea.value = template;
+      }
+      textarea.focus();
     }
 
     async function saveReflectionReply(reflectionId) {
