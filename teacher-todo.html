@@ -340,6 +340,13 @@
             </div>
           </div>
       `).join('');
+      } catch (e) {
+        console.error('加载心得异常:', e);
+        container.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p class="text-red-600 font-medium">加载失败: ${e.message}</p>
+        </div>`;
+        document.getElementById('count-reflections').textContent = '0';
+      }
     }
 
     // 打开批改弹窗
