@@ -409,13 +409,23 @@
 
     function renderReflections() {
       const panel = document.getElementById('dpanel-reflections');
+      
+      // 调试信息
+      const debugInfo = `<div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs">
+        <p class="font-medium text-yellow-800 mb-1">🔍 调试信息</p>
+        <p class="text-yellow-700">学员ID: ${studentId}</p>
+        <p class="text-yellow-700">班级ID: ${classId}</p>
+        <p class="text-yellow-700">心得数量: ${reflections.length}</p>
+        <p class="text-yellow-700 mt-1">心得数据: ${JSON.stringify(reflections.map(r => ({id: r.id, class_id: r.class_id, chapter_id: r.chapter_id})))}</p>
+      </div>`;
+      
       if (reflections.length === 0) {
-        panel.innerHTML = '<p class="text-center text-gray-400 py-8">暂无学习心得</p>';
+        panel.innerHTML = debugInfo + '<p class="text-center text-gray-400 py-8">暂无学习心得</p>';
         return;
       }
       const chMap = {};
       chaptersData.forEach(c => { chMap[c.id] = c; });
-      panel.innerHTML = reflections.map(r => {
+      panel.innerHTML = debugInfo + reflections.map(r => {
         const ch = chMap[r.chapter_id];
         const hasReply = r.teacher_reply && r.teacher_reply.trim();
         return `<div class="mb-4 p-4 bg-gray-50 rounded-lg">
