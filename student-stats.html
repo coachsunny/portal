@@ -47,6 +47,47 @@
       </div>
     </div>
 
+    <!-- 学习异常预警区 -->
+    <div id="alert-section" class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6 hidden">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">⚠️</span>
+          <h2 class="text-lg font-semibold text-gray-800">需要关注</h2>
+          <span id="alert-total" class="px-2 py-0.5 text-xs bg-red-100 text-red-600 rounded-full font-medium">0人</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="toggleAlertFilter()" id="alert-filter-btn" class="px-3 py-1.5 text-xs bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition font-medium">只看需要关注</button>
+          <button onclick="showIgnoredAlerts()" id="ignored-btn" class="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 transition hidden">已忽略 0 项</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="p-3 bg-red-50 rounded-lg border border-red-100">
+          <div class="flex items-center gap-2">
+            <span>🔴</span>
+            <span class="text-sm font-medium text-red-700">长期未打卡</span>
+            <span id="alert-no-checkin" class="ml-auto text-lg font-bold text-red-600">0</span>
+          </div>
+          <p class="text-xs text-red-500 mt-1">≥14天未学习</p>
+        </div>
+        <div class="p-3 bg-orange-50 rounded-lg border border-orange-100">
+          <div class="flex items-center gap-2">
+            <span>🟠</span>
+            <span class="text-sm font-medium text-orange-700">测验未完成</span>
+            <span id="alert-no-quiz" class="ml-auto text-lg font-bold text-orange-600">0</span>
+          </div>
+          <p class="text-xs text-orange-500 mt-1">每14天应完成≥3题</p>
+        </div>
+        <div class="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+          <div class="flex items-center gap-2">
+            <span>🟡</span>
+            <span class="text-sm font-medium text-yellow-700">心得未写</span>
+            <span id="alert-no-reflection" class="ml-auto text-lg font-bold text-yellow-600">0</span>
+          </div>
+          <p class="text-xs text-yellow-500 mt-1">每14天应完成≥1篇</p>
+        </div>
+      </div>
+    </div>
+
     <!-- 学员列表 -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div class="overflow-x-auto">
@@ -78,12 +119,84 @@
     let currentSession = null;
     let allClasses = [];
     let allStudents = [];
+    let showAlertOnly = false;
+    let ignoredAlerts = {};
+
+    // 加载忽略记录
+    function loadIgnoredAlerts() {
+      try {
+        const data = localStorage.getItem('ignored_alerts');
+        ignoredAlerts = data ? JSON.parse(data) : {};
+      } catch (e) {
+        ignoredAlerts = {};
+      }
+    }
+
+    // 保存忽略记录
+    function saveIgnoredAlerts() {
+      localStorage.setItem('ignored_alerts', JSON.stringify(ignoredAlerts));
+    }
+
+    // 忽略某项预警
+    function ignoreAlert(userId, alertType) {
+      if (!ignoredAlerts[userId]) ignoredAlerts[userId] = {};
+      ignoredAlerts[userId][alertType] = true;
+      saveIgnoredAlerts();
+      renderTable();
+      updateAlertSection();
+    }
+
+    // 恢复某项预警
+    function restoreAlert(userId, alertType) {
+      if (ignoredAlerts[userId]) {
+        delete ignoredAlerts[userId][alertType];
+        if (Object.keys(ignoredAlerts[userId]).length === 0) {
+          delete ignoredAlerts[userId];
+        }
+      }
+      saveIgnoredAlerts();
+      renderTable();
+      updateAlertSection();
+    }
+
+    // 切换只看需要关注
+    function toggleAlertFilter() {
+      showAlertOnly = !showAlertOnly;
+      const btn = document.getElementById('alert-filter-btn');
+      if (showAlertOnly) {
+        btn.textContent = '显示全部学员';
+        btn.className = 'px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition font-medium';
+      } else {
+        btn.textContent = '只看需要关注';
+        btn.className = 'px-3 py-1.5 text-xs bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition font-medium';
+      }
+      renderTable();
+    }
+
+    // 显示已忽略的预警（简单提示）
+    function showIgnoredAlerts() {
+      let count = 0;
+      Object.values(ignoredAlerts).forEach(alerts => {
+        count += Object.keys(alerts).length;
+      });
+      if (count === 0) {
+        alert('暂无已忽略的预警');
+        return;
+      }
+      if (confirm(`共有 ${count} 项已忽略的预警，是否全部恢复？`)) {
+        ignoredAlerts = {};
+        saveIgnoredAlerts();
+        renderTable();
+        updateAlertSection();
+      }
+    }
 
     (async function init() {
       currentSession = await requireTeacher();
       if (!currentSession) return;
       renderNavbar(currentSession, 'student-stats');
 
+      loadIgnoredAlerts();
       await loadClasses();
       await loadAllData();
 
@@ -94,7 +207,7 @@
 
     async function loadClasses() {
       try {
-        const { data, error } = await sb.from('classes').select('id, name').order('created_at', { ascending: false });
+        const { data, error } = await sb.from('classes').select('id, name, start_date').order('created_at', { ascending: false });
         if (error) throw error;
         allClasses = data || [];
         const select = document.getElementById('class-filter');
@@ -199,17 +312,76 @@
           s.streak = streak;
           s.totalCheckins = dateSet.size;
 
+          // 最后打卡距今天数
+          if (logs.length > 0) {
+            const lastLog = logs.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b);
+            const lastDate = new Date(lastLog.created_at);
+            const diffTime = today - lastDate;
+            s.daysSinceLastCheckin = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+          } else {
+            s.daysSinceLastCheckin = 999; // 从未打卡
+          }
+
           // 测验完成数
           s.quizCount = (quizByUser[s.user_id] || new Set()).size;
 
           // 资源阅读数
           s.resourceCount = (resReadByUser[s.user_id] || new Set()).size;
 
-          // 心得数
+          // 心得数（只算有内容的）
           s.reflectionCount = refByUser[s.user_id] || 0;
 
           // 提问数
           s.questionCount = qByUser[s.user_id] || 0;
+
+          // === 预警计算 ===
+          s.alerts = {};
+
+          // 取学员所在班级中开学最早的日期
+          let earliestStart = null;
+          s.classIds.forEach(cid => {
+            const cls = allClasses.find(c => c.id == cid);
+            if (cls && cls.start_date) {
+              const sd = new Date(cls.start_date);
+              if (!earliestStart || sd < earliestStart) earliestStart = sd;
+            }
+          });
+          s.earliestStart = earliestStart;
+
+          // 1. 长期未打卡：≥14天
+          if (s.daysSinceLastCheckin >= 14) {
+            s.alerts.noCheckin = { days: s.daysSinceLastCheckin };
+          }
+
+          // 2. 测验未完成：每14天至少3题
+          if (earliestStart) {
+            const daysSinceStart = Math.floor((today - earliestStart) / (1000 * 60 * 60 * 24));
+            const expectedQuizzes = Math.floor(daysSinceStart / 14) * 3;
+            s.expectedQuizzes = expectedQuizzes;
+            if (expectedQuizzes >= 3 && s.quizCount < expectedQuizzes) {
+              s.alerts.noQuiz = { actual: s.quizCount, expected: expectedQuizzes };
+            }
+          }
+
+          // 3. 心得未写：每14天至少1篇
+          if (earliestStart) {
+            const daysSinceStart = Math.floor((today - earliestStart) / (1000 * 60 * 60 * 24));
+            const expectedReflections = Math.floor(daysSinceStart / 14) * 1;
+            s.expectedReflections = expectedReflections;
+            if (expectedReflections >= 1 && s.reflectionCount < expectedReflections) {
+              s.alerts.noReflection = { actual: s.reflectionCount, expected: expectedReflections };
+            }
+          }
+
+          // 过滤掉已忽略的预警
+          const userIgnored = ignoredAlerts[s.user_id] || {};
+          s.activeAlerts = {};
+          Object.keys(s.alerts).forEach(key => {
+            if (!userIgnored[key]) {
+              s.activeAlerts[key] = s.alerts[key];
+            }
+          });
+          s.hasAlert = Object.keys(s.activeAlerts).length > 0;
         });
 
         // 更新概览统计
@@ -232,36 +404,107 @@
         filtered = allStudents.filter(s => s.classIds.includes(parseInt(filterClassId)) || s.classIds.includes(filterClassId));
       }
 
+      // 只看需要关注
+      if (showAlertOnly) {
+        filtered = filtered.filter(s => s.hasAlert);
+      }
+
       if (filtered.length === 0) {
-        document.getElementById('student-table-body').innerHTML = '<tr><td colspan="9" class="px-6 py-12 text-center text-gray-400">该班级暂无学员</td></tr>';
+        const msg = showAlertOnly ? '没有需要关注的学员' : (filterClassId ? '该班级暂无学员' : '暂无学员');
+        document.getElementById('student-table-body').innerHTML = `<tr><td colspan="9" class="px-6 py-12 text-center text-gray-400">${msg}</td></tr>`;
         return;
       }
 
-      // 按连续打卡降序排列
-      filtered.sort((a, b) => b.streak - a.streak);
+      // 按是否有预警 + 连续打卡降序排列
+      filtered.sort((a, b) => {
+        if (a.hasAlert !== b.hasAlert) return a.hasAlert ? -1 : 1;
+        return b.streak - a.streak;
+      });
 
       const tbody = document.getElementById('student-table-body');
       tbody.innerHTML = filtered.map(s => {
         const streakColor = s.streak >= 7 ? 'text-orange-500 font-bold' : s.streak >= 3 ? 'text-orange-400' : 'text-gray-600';
-        return `<tr class="hover:bg-gray-50 transition">
+        const rowBg = s.hasAlert ? 'bg-red-50/30' : '';
+
+        // 预警标签
+        let alertBadges = '';
+        if (s.activeAlerts.noCheckin) {
+          alertBadges += `<span class="inline-flex items-center px-1.5 py-0.5 text-xs bg-red-100 text-red-600 rounded-full mr-1" title="已${s.activeAlerts.noCheckin.days}天未打卡">🔴${s.activeAlerts.noCheckin.days}天</span>`;
+        }
+        if (s.activeAlerts.noQuiz) {
+          alertBadges += `<span class="inline-flex items-center px-1.5 py-0.5 text-xs bg-orange-100 text-orange-600 rounded-full mr-1" title="应完成${s.activeAlerts.noQuiz.expected}题，实际${s.activeAlerts.noQuiz.actual}题">🟠${s.activeAlerts.noQuiz.actual}/${s.activeAlerts.noQuiz.expected}</span>`;
+        }
+        if (s.activeAlerts.noReflection) {
+          alertBadges += `<span class="inline-flex items-center px-1.5 py-0.5 text-xs bg-yellow-100 text-yellow-600 rounded-full mr-1" title="应完成${s.activeAlerts.noReflection.expected}篇，实际${s.activeAlerts.noReflection.actual}篇">🟡${s.activeAlerts.noReflection.actual}/${s.activeAlerts.noReflection.expected}</span>`;
+        }
+
+        // 忽略按钮（有预警时显示）
+        let ignoreBtn = '';
+        if (s.hasAlert) {
+          ignoreBtn = `<div class="flex flex-col gap-1">
+            <a href="student-detail.html?user_id=${s.user_id}&class_id=${s.classIds[0]}" class="text-blue-500 hover:text-blue-700 text-sm font-medium">详情</a>
+            <button onclick="ignoreAlert('${s.user_id}', '${Object.keys(s.activeAlerts)[0]}')" class="text-gray-400 hover:text-gray-600 text-xs">忽略</button>
+          </div>`;
+        } else {
+          ignoreBtn = `<a href="student-detail.html?user_id=${s.user_id}&class_id=${s.classIds[0]}" class="text-blue-500 hover:text-blue-700 text-sm font-medium">详情</a>`;
+        }
+
+        return `<tr class="hover:bg-gray-50 transition ${rowBg}">
           <td class="px-6 py-4">
             <div class="flex items-center">
               <div class="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-medium text-sm mr-3">${s.name.charAt(0)}</div>
-              <span class="text-sm font-medium text-gray-800">${escapeHtml(s.name)}</span>
+              <div>
+                <span class="text-sm font-medium text-gray-800">${escapeHtml(s.name)}</span>
+                ${alertBadges ? `<div class="mt-1">${alertBadges}</div>` : ''}
+              </div>
             </div>
           </td>
           <td class="px-6 py-4 text-sm text-gray-500">${s.classes.map(escapeHtml).join('、')}</td>
-          <td class="px-6 py-4 text-center text-sm ${streakColor}">${s.streak} 天</td>
+          <td class="px-6 py-4 text-center text-sm ${s.activeAlerts.noCheckin ? 'text-red-600 font-bold' : streakColor}">${s.streak} 天</td>
           <td class="px-6 py-4 text-center text-sm text-gray-600">${s.totalCheckins} 天</td>
-          <td class="px-6 py-4 text-center text-sm text-gray-600">${s.quizCount} 份</td>
+          <td class="px-6 py-4 text-center text-sm ${s.activeAlerts.noQuiz ? 'text-orange-600 font-bold' : 'text-gray-600'}">${s.quizCount} 份</td>
           <td class="px-6 py-4 text-center text-sm text-gray-600">${s.resourceCount} 个</td>
-          <td class="px-6 py-4 text-center text-sm text-gray-600">${s.reflectionCount} 篇</td>
+          <td class="px-6 py-4 text-center text-sm ${s.activeAlerts.noReflection ? 'text-yellow-600 font-bold' : 'text-gray-600'}">${s.reflectionCount} 篇</td>
           <td class="px-6 py-4 text-center text-sm text-gray-600">${s.questionCount} 次</td>
-          <td class="px-6 py-4 text-center">
-            <a href="student-detail.html?user_id=${s.user_id}&class_id=${s.classIds[0]}" class="text-blue-500 hover:text-blue-700 text-sm font-medium">详情</a>
-          </td>
+          <td class="px-6 py-4 text-center">${ignoreBtn}</td>
         </tr>`;
       }).join('');
+
+      updateAlertSection();
+    }
+
+    // 更新预警区
+    function updateAlertSection() {
+      const alertStudents = allStudents.filter(s => s.hasAlert);
+      const noCheckinCount = allStudents.filter(s => s.activeAlerts.noCheckin).length;
+      const noQuizCount = allStudents.filter(s => s.activeAlerts.noQuiz).length;
+      const noReflectionCount = allStudents.filter(s => s.activeAlerts.noReflection).length;
+
+      // 统计已忽略数量
+      let ignoredCount = 0;
+      Object.values(ignoredAlerts).forEach(alerts => {
+        ignoredCount += Object.keys(alerts).length;
+      });
+
+      const section = document.getElementById('alert-section');
+      if (alertStudents.length === 0 && ignoredCount === 0) {
+        section.classList.add('hidden');
+        return;
+      }
+
+      section.classList.remove('hidden');
+      document.getElementById('alert-total').textContent = `${alertStudents.length}人`;
+      document.getElementById('alert-no-checkin').textContent = noCheckinCount;
+      document.getElementById('alert-no-quiz').textContent = noQuizCount;
+      document.getElementById('alert-no-reflection').textContent = noReflectionCount;
+
+      const ignoredBtn = document.getElementById('ignored-btn');
+      if (ignoredCount > 0) {
+        ignoredBtn.classList.remove('hidden');
+        ignoredBtn.textContent = `已忽略 ${ignoredCount} 项`;
+      } else {
+        ignoredBtn.classList.add('hidden');
+      }
     }
 
     function escapeHtml(s) {
