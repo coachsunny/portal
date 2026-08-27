@@ -53,7 +53,7 @@
           </div>
         </div>
       </div>
-      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 cursor-pointer hover:shadow-md transition" onclick="window.location.href='student-stats.html'">
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 cursor-pointer hover:shadow-md transition" onclick="window.location.href='teacher-todo.html?tab=quizzes'">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm text-gray-500">待批改测验</p>
@@ -64,7 +64,7 @@
           </div>
         </div>
       </div>
-      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 cursor-pointer hover:shadow-md transition" onclick="window.location.href='student-stats.html'">
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 cursor-pointer hover:shadow-md transition" onclick="window.location.href='teacher-todo.html?tab=reflections'">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm text-gray-500">待回复心得</p>
@@ -168,12 +168,25 @@
     // 加载统计数据
     async function loadStats() {
       try {
+        // 先获取当前老师的班级
+        const { data: myClasses } = await sb
+          .from('classes')
+          .select('id')
+          .eq('teacher_id', currentSession.user.id);
+        const classIds = (myClasses || []).map(c => c.id);
+
         const [classRes, studentRes, questionRes, quizPendingRes, reflectionRes] = await Promise.all([
-          sb.from('classes').select('*', { count: 'exact', head: true }),
+          sb.from('classes').select('*', { count: 'exact', head: true }).eq('teacher_id', currentSession.user.id),
           sb.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
-          sb.from('questions').select('*', { count: 'exact', head: true }).eq('status', 'open'),
-          sb.from('quiz_submissions').select('*', { count: 'exact', head: true }).is('score', null),
-          sb.from('chapter_reflections').select('*', { count: 'exact', head: true }).not('content', 'eq', '').or('teacher_reply.is.null,teacher_reply.eq.')
+          classIds.length > 0 
+            ? sb.from('questions').select('*', { count: 'exact', head: true }).eq('status', 'open').in('class_id', classIds)
+            : Promise.resolve({ count: 0 }),
+          classIds.length > 0
+            ? sb.from('quiz_submissions').select('*', { count: 'exact', head: true }).is('score', null).in('class_id', classIds)
+            : Promise.resolve({ count: 0 }),
+          classIds.length > 0
+            ? sb.from('chapter_reflections').select('*', { count: 'exact', head: true }).not('content', 'eq', '').or('teacher_reply.is.null,teacher_reply.eq.').in('class_id', classIds)
+            : Promise.resolve({ count: 0 })
         ]);
         document.getElementById('stat-classes').textContent = classRes.count || 0;
         document.getElementById('stat-students').textContent = studentRes.count || 0;
@@ -188,10 +201,23 @@
     // 加载今日待办汇总
     async function loadTodoSummary() {
       try {
+        // 先获取当前老师的班级
+        const { data: myClasses } = await sb
+          .from('classes')
+          .select('id')
+          .eq('teacher_id', currentSession.user.id);
+        const classIds = (myClasses || []).map(c => c.id);
+
         const [qRes, quizRes, refRes] = await Promise.all([
-          sb.from('questions').select('*', { count: 'exact', head: true }).eq('status', 'open'),
-          sb.from('quiz_submissions').select('*', { count: 'exact', head: true }).is('score', null),
-          sb.from('chapter_reflections').select('*', { count: 'exact', head: true }).not('content', 'eq', '').or('teacher_reply.is.null,teacher_reply.eq.')
+          classIds.length > 0
+            ? sb.from('questions').select('*', { count: 'exact', head: true }).eq('status', 'open').in('class_id', classIds)
+            : Promise.resolve({ count: 0 }),
+          classIds.length > 0
+            ? sb.from('quiz_submissions').select('*', { count: 'exact', head: true }).is('score', null).in('class_id', classIds)
+            : Promise.resolve({ count: 0 }),
+          classIds.length > 0
+            ? sb.from('chapter_reflections').select('*', { count: 'exact', head: true }).not('content', 'eq', '').or('teacher_reply.is.null,teacher_reply.eq.').in('class_id', classIds)
+            : Promise.resolve({ count: 0 })
         ]);
         const qCount = qRes.count || 0;
         const quizCount = quizRes.count || 0;
@@ -211,9 +237,9 @@
         allDone.classList.add('hidden');
 
         const items = [
-          { icon: '💬', label: '待回复提问', count: qCount, color: 'orange', href: 'classes.html?tab=questions' },
-          { icon: '📝', label: '待批改测验', count: quizCount, color: 'blue', href: 'student-stats.html' },
-          { icon: '✍️', label: '待回复心得', count: refCount, color: 'purple', href: 'student-stats.html' }
+          { icon: '💬', label: '待回复提问', count: qCount, color: 'orange', href: 'teacher-todo.html?tab=questions' },
+          { icon: '📝', label: '待批改测验', count: quizCount, color: 'blue', href: 'teacher-todo.html?tab=quizzes' },
+          { icon: '✍️', label: '待回复心得', count: refCount, color: 'purple', href: 'teacher-todo.html?tab=reflections' }
         ];
 
         container.innerHTML = items.map(item => `
@@ -234,10 +260,20 @@
     // 加载待回复提问
     async function loadRecentQuestions() {
       try {
+        // 先获取当前老师的班级
+        const { data: myClasses } = await sb
+          .from('classes')
+          .select('id')
+          .eq('teacher_id', currentSession.user.id);
+        const classIds = (myClasses || []).map(c => c.id);
+
+        if (classIds.length === 0) return;
+
         const { data: questions, error } = await sb
           .from('questions')
           .select('id, question, status, created_at, user_id, class_id, profiles(name)')
           .eq('status', 'open')
+          .in('class_id', classIds)
           .order('created_at', { ascending: false })
           .limit(5);
         if (error) throw error;
@@ -266,6 +302,7 @@
         const { data: classes, error } = await sb
           .from('classes')
           .select('id, name, description, status, created_at')
+          .eq('teacher_id', currentSession.user.id)
           .order('created_at', { ascending: false })
           .limit(6);
         if (error) throw error;

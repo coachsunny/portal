@@ -109,7 +109,7 @@
     // 加载班级列表
     async function loadClasses() {
       try {
-        let query = sb.from('classes').select('*').order('created_at', { ascending: false });
+        let query = sb.from('classes').select('*').eq('teacher_id', currentSession.user.id).order('created_at', { ascending: false });
         
         if (currentFilter !== 'all') {
           query = query.eq('status', currentFilter);
@@ -245,7 +245,7 @@
           // 创建
           const { error } = await sb
             .from('classes')
-            .insert({ name, description, start_date: startDate || null, status: 'active' });
+            .insert({ name, description, start_date: startDate || null, status: 'active', teacher_id: currentSession.user.id });
           if (error) throw error;
         }
 
