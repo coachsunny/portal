@@ -98,10 +98,11 @@
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">班级</th>
               <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">连续打卡</th>
               <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">累计打卡</th>
+              <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">最后活跃</th>
               <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">测验完成率</th>
               <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">资源阅读率</th>
               <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">心得</th>
-              <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">提问</th>
+              <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">有效期</th>
               <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
             </tr>
           </thead>
@@ -255,12 +256,13 @@
         const userIds = allStudents.map(s => s.user_id);
 
         // 批量查询所有统计数据
-        const [logsRes, quizRes, resReadRes, refRes, qRes] = await Promise.all([
+        const [logsRes, quizRes, resReadRes, refRes, qRes, profilesRes] = await Promise.all([
           sb.from('study_logs').select('user_id, created_at').in('user_id', userIds),
           sb.from('quiz_submissions').select('user_id, quiz_id, class_id').in('user_id', userIds),
           sb.from('resource_reads').select('user_id, resource_id, class_id').in('user_id', userIds),
           sb.from('chapter_reflections').select('user_id, class_id').in('user_id', userIds),
-          sb.from('questions').select('user_id, class_id').in('user_id', userIds)
+          sb.from('questions').select('user_id, class_id').in('user_id', userIds),
+          sb.from('profiles').select('id, membership_expires_at').in('id', userIds)
         ]);
 
         // 按用户分组统计
@@ -292,6 +294,12 @@
           qByUser[q.user_id] = (qByUser[q.user_id] || 0) + 1;
         });
 
+        // 有效期映射
+        const expiryMap = {};
+        (profilesRes.data || []).forEach(p => {
+          expiryMap[p.id] = p.membership_expires_at;
+        });
+
         // 计算每个学员的统计
         allStudents.forEach(s => {
           // 连续打卡天数（用本地日期）
@@ -311,6 +319,31 @@
           }
           s.streak = streak;
           s.totalCheckins = dateSet.size;
+
+          // 最后活跃时间
+          if (logs.length > 0) {
+            const lastLog = logs.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b);
+            s.lastActive = lastLog.created_at;
+            const diffDays = Math.floor((today - new Date(lastLog.created_at)) / (1000 * 60 * 60 * 24));
+            s.lastActiveText = diffDays === 0 ? '今天' : diffDays + '天前';
+            s.lastActiveColor = diffDays >= 14 ? 'text-red-500' : diffDays >= 7 ? 'text-orange-500' : 'text-green-500';
+          } else {
+            s.lastActive = null;
+            s.lastActiveText = '从未';
+            s.lastActiveColor = 'text-gray-400';
+          }
+
+          // 有效期
+          s.membershipExpiresAt = expiryMap[s.user_id] || null;
+          if (s.membershipExpiresAt) {
+            const expiryDate = new Date(s.membershipExpiresAt);
+            const daysToExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+            s.expiryText = expiryDate.toLocaleDateString('zh-CN');
+            s.expiryColor = daysToExpiry < 0 ? 'text-red-600' : daysToExpiry <= 60 ? 'text-yellow-600' : 'text-green-600';
+          } else {
+            s.expiryText = '永久';
+            s.expiryColor = 'text-green-600';
+          }
 
           // 最后打卡距今天数
           if (logs.length > 0) {
@@ -411,7 +444,7 @@
 
       if (filtered.length === 0) {
         const msg = showAlertOnly ? '没有需要关注的学员' : (filterClassId ? '该班级暂无学员' : '暂无学员');
-        document.getElementById('student-table-body').innerHTML = `<tr><td colspan="9" class="px-6 py-12 text-center text-gray-400">${msg}</td></tr>`;
+        document.getElementById('student-table-body').innerHTML = `<tr><td colspan="10" class="px-6 py-12 text-center text-gray-400">${msg}</td></tr>`;
         return;
       }
 
@@ -462,10 +495,11 @@
           <td class="px-6 py-4 text-sm text-gray-500">${s.classes.map(escapeHtml).join('、')}</td>
           <td class="px-6 py-4 text-center text-sm ${s.activeAlerts.noCheckin ? 'text-red-600 font-bold' : streakColor}">${s.streak} 天</td>
           <td class="px-6 py-4 text-center text-sm text-gray-600">${s.totalCheckins} 天</td>
+          <td class="px-6 py-4 text-center text-sm ${s.lastActiveColor || 'text-gray-600'}">${s.lastActiveText || '-'}</td>
           <td class="px-6 py-4 text-center text-sm ${s.activeAlerts.noQuiz ? 'text-orange-600 font-bold' : 'text-gray-600'}">${s.quizCount} 份</td>
           <td class="px-6 py-4 text-center text-sm text-gray-600">${s.resourceCount} 个</td>
           <td class="px-6 py-4 text-center text-sm ${s.activeAlerts.noReflection ? 'text-yellow-600 font-bold' : 'text-gray-600'}">${s.reflectionCount} 篇</td>
-          <td class="px-6 py-4 text-center text-sm text-gray-600">${s.questionCount} 次</td>
+          <td class="px-6 py-4 text-center text-sm ${s.expiryColor || 'text-gray-600'}">${s.expiryText || '-'}</td>
           <td class="px-6 py-4 text-center">${ignoreBtn}</td>
         </tr>`;
       }).join('');
