@@ -124,6 +124,19 @@
       </div>
     </div>
 
+    <!-- 性向评估结果（老师查看） -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-800">🧭 性向评估结果</h2>
+      </div>
+      <div id="assessment-result">
+        <div class="text-center py-8 text-gray-400">
+          <p class="text-3xl mb-2">📋</p>
+          <p class="text-sm">学员尚未完成性向评估</p>
+        </div>
+      </div>
+    </div>
+
     <!-- 私人备注（仅老师可见） -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
       <div class="flex items-center justify-between mb-4">
@@ -355,6 +368,9 @@
 
         // 加载老师关怀
         loadCareMessages();
+
+        // 加载学员性向评估结果
+        loadStudentAssessment();
 
       } catch (e) {
         console.error('加载数据失败:', e);
@@ -923,6 +939,60 @@
         loadCareMessages();
       } catch (e) {
         alert('发送失败：' + e.message);
+      }
+    }
+
+    // === 学员性向评估结果（老师查看） ===
+    async function loadStudentAssessment() {
+      try {
+        const { data: assessments, error } = await sb
+          .from('personality_assessments')
+          .select('*')
+          .eq('user_id', studentId)
+          .order('assessed_at', { ascending: false })
+          .limit(1);
+        if (error) throw error;
+
+        const container = document.getElementById('assessment-result');
+        if (!assessments || assessments.length === 0) {
+          container.innerHTML = `<div class="text-center py-8 text-gray-400"><p class="text-3xl mb-2">📋</p><p class="text-sm">学员尚未完成性向评估</p></div>`;
+          return;
+        }
+
+        const result = assessments[0];
+        const typeMap = {
+          enthusiastic_leader: { name: '热情引领型', color: 'bg-gradient-to-r from-orange-500 to-pink-500', keywords: '热情、感染力、愿景导向、善于激励' },
+          decisive_decision: { name: '果断决策型', color: 'bg-gradient-to-r from-red-500 to-orange-500', keywords: '果断、目标导向、高效、掌控力强' },
+          gentle_detail: { name: '温和细致型', color: 'bg-gradient-to-r from-green-500 to-teal-500', keywords: '温和、细致、可靠、关怀他人' },
+          rigorous_analysis: { name: '严谨分析型', color: 'bg-gradient-to-r from-blue-500 to-indigo-500', keywords: '严谨、理性、深度思考、追求完美' }
+        };
+        const type = typeMap[result.personality_type] || { name: result.personality_type, color: 'bg-gray-500', keywords: '' };
+
+        container.innerHTML = `
+          <div class="rounded-lg overflow-hidden mb-4">
+            <div class="p-4 text-white ${type.color}">
+              <p class="text-xs opacity-80">性格类型</p>
+              <p class="text-xl font-bold mt-1">${type.name}</p>
+              <p class="text-sm mt-1 opacity-90">${type.keywords}</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4 text-sm">
+            <div class="bg-gray-50 rounded-lg p-3">
+              <p class="text-xs text-gray-500 mb-1">关注度维度</p>
+              <p class="font-medium text-gray-800">${result.people_task_score < 5 ? '偏向在乎人' : result.people_task_score > 5 ? '偏向在乎事' : '比较均衡'} (${result.people_task_score}/10)</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3">
+              <p class="text-xs text-gray-500 mb-1">决断度维度</p>
+              <p class="font-medium text-gray-800">${result.direction_detail_score < 5 ? '偏向在乎方向' : result.direction_detail_score > 5 ? '偏向关心细节' : '比较均衡'} (${result.direction_detail_score}/10)</p>
+            </div>
+          </div>
+          <p class="text-xs text-gray-400 mt-4 text-center">评估时间：${new Date(result.assessed_at).toLocaleDateString('zh-CN')}</p>
+          <div class="mt-4 text-center">
+            <a href="personality-assessment.html" target="_blank" class="text-xs text-blue-500 hover:text-blue-700">查看完整评估报告 →</a>
+          </div>
+        `;
+      } catch (e) {
+        console.error('加载学员评估结果失败:', e);
       }
     }
 
