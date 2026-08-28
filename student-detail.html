@@ -107,6 +107,23 @@
       </div>
     </div>
 
+    <!-- 老师关怀（双向对话） -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-800">💝 老师关怀</h2>
+      </div>
+      <div id="care-messages" class="space-y-3 mb-4 max-h-96 overflow-y-auto">
+        <div class="text-center py-8 text-gray-400">
+          <p class="text-3xl mb-2">💌</p>
+          <p class="text-sm">暂无关怀对话，发送第一条关怀消息吧</p>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <textarea id="care-input" rows="2" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none" placeholder="输入关怀消息，如：好久没看到你打卡了，最近还好吗？"></textarea>
+        <button onclick="sendCareMessage()" class="px-4 py-2 bg-pink-500 text-white rounded-lg text-sm font-medium hover:bg-pink-600 transition self-end">发送</button>
+      </div>
+    </div>
+
     <!-- 私人备注（仅老师可见） -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
       <div class="flex items-center justify-between mb-4">
@@ -335,6 +352,9 @@
 
         // 加载私人备注
         loadNotes();
+
+        // 加载老师关怀
+        loadCareMessages();
 
       } catch (e) {
         console.error('加载数据失败:', e);
@@ -841,6 +861,68 @@
         loadNotes();
       } catch (e) {
         alert('删除备注失败：' + e.message);
+      }
+    }
+
+    // === 老师关怀 ===
+    async function loadCareMessages() {
+      try {
+        const { data: messages, error } = await sb
+          .from('care_messages')
+          .select('*')
+          .eq('student_id', studentId)
+          .eq('teacher_id', currentSession.user.id)
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+
+        const container = document.getElementById('care-messages');
+        if (!messages || messages.length === 0) {
+          container.innerHTML = `<div class="text-center py-8 text-gray-400"><p class="text-3xl mb-2">💌</p><p class="text-sm">暂无关怀对话，发送第一条关怀消息吧</p></div>`;
+          return;
+        }
+
+        // 标记学员发送的消息为已读
+        const unreadIds = messages.filter(m => m.sender_role === 'student' && !m.is_read).map(m => m.id);
+        if (unreadIds.length > 0) {
+          await sb.from('care_messages').update({ is_read: true }).in('id', unreadIds);
+        }
+
+        container.innerHTML = messages.map(msg => {
+          const isTeacher = msg.sender_role === 'teacher';
+          return `<div class="flex ${isTeacher ? 'justify-end' : 'justify-start'}">
+            <div class="max-w-[75%] ${isTeacher ? 'bg-pink-50 border-pink-200' : 'bg-blue-50 border-blue-200'} border rounded-xl p-3">
+              <p class="text-xs ${isTeacher ? 'text-pink-600' : 'text-blue-600'} mb-1">${isTeacher ? '老师' : '学员'}</p>
+              <p class="text-sm text-gray-700 whitespace-pre-wrap">${escapeHtml(msg.content)}</p>
+              <p class="text-xs text-gray-400 mt-1 text-right">${new Date(msg.created_at).toLocaleString('zh-CN')}</p>
+            </div>
+          </div>`;
+        }).join('');
+
+        // 滚动到底部
+        container.scrollTop = container.scrollHeight;
+      } catch (e) {
+        console.error('加载关怀消息失败:', e);
+      }
+    }
+
+    async function sendCareMessage() {
+      const input = document.getElementById('care-input');
+      const content = input.value.trim();
+      if (!content) { alert('请输入关怀消息'); return; }
+
+      try {
+        const { error } = await sb.from('care_messages').insert({
+          class_id: classId,
+          student_id: studentId,
+          teacher_id: currentSession.user.id,
+          content: content,
+          sender_role: 'teacher'
+        });
+        if (error) throw error;
+        input.value = '';
+        loadCareMessages();
+      } catch (e) {
+        alert('发送失败：' + e.message);
       }
     }
 

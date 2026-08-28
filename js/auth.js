@@ -130,6 +130,7 @@ function renderNavbar(session, currentPage) {
     { id: 'resources', label: '学习资源', href: 'student-resources.html' },
     { id: 'quizzes', label: '我的测验', href: 'student-resources.html?tab=quizzes' },
     { id: 'questions', label: '我的提问', href: 'student-questions.html', hasBadge: true },
+    { id: 'care', label: '老师关怀', href: 'student-care.html', hasBadge: true },
     { id: 'assessment', label: '性向评估', href: 'personality-assessment.html' },
     { id: 'vision', label: '自我愿景', href: 'student-vision.html' },
     { id: 'profile', label: '个人中心', href: 'student-profile.html' },
@@ -214,16 +215,29 @@ function toggleMobileMenu() {
  */
 async function loadUnreadCount(userId) {
   try {
-    const { data, error } = await sb
+    // 查询未读的老师回复（提问）
+    const { data: questions, error: qe } = await sb
       .from('questions')
-      .select('id', { count: 'exact' })
+      .select('id')
       .eq('user_id', userId)
       .eq('status', 'answered')
       .is('student_read_at', null);
-    if (error) throw error;
-    const count = data ? data.length : 0;
-    updateUnreadBadge(count);
-    return count;
+    if (qe) throw qe;
+    const questionCount = questions ? questions.length : 0;
+
+    // 查询未读的老师关怀消息
+    const { data: careMessages, error: ce } = await sb
+      .from('care_messages')
+      .select('id')
+      .eq('student_id', userId)
+      .eq('sender_role', 'teacher')
+      .eq('is_read', false);
+    // care_messages表可能还不存在，忽略错误
+    const careCount = (!ce && careMessages) ? careMessages.length : 0;
+
+    const totalCount = questionCount + careCount;
+    updateUnreadBadge(totalCount);
+    return totalCount;
   } catch (e) {
     console.error('查询未读消息失败:', e);
     return 0;
