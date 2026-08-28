@@ -1292,6 +1292,10 @@
         if (!lastActiveMap[l.user_id]) lastActiveMap[l.user_id] = l.created_at;
       });
 
+      // 批量查询有备注的学员
+      const { data: notesData } = await sb.from('student_notes').select('student_id').in('student_id', userIds);
+      const hasNoteSet = new Set((notesData || []).map(n => n.student_id));
+
       list.innerHTML = members.map(m => {
           const p = m.profiles;
           const hasPwd = p && p.initial_password;
@@ -1321,9 +1325,12 @@
             return `<span class="px-1.5 py-0.5 text-xs ${tagInfo.bg} ${tagInfo.text} rounded-full ml-1">${tagInfo.icon} ${tagInfo.label}</span>`;
           }).join('');
 
+          // 备注标记
+          const noteBadge = hasNoteSet.has(m.user_id) ? '<span class="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-600 rounded-full ml-1" title="有私人备注">🔒 备注</span>' : '';
+
           return `<div class="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition">
             <div class="flex items-center"><div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-medium mr-3">${p ? p.name.charAt(0) : '?'}</div>
-            <div><p class="font-medium text-gray-800">${p ? escapeHtml(p.name) : '未知用户'}${expiryBadge}${tagBadges}</p><p class="text-xs text-gray-400">${p && p.email ? p.email + ' · ' : ''}加入：${formatDate(m.joined_at)} · 最后活跃：<span class="${activeColor}">${activeText}</span></p></div></div>
+            <div><p class="font-medium text-gray-800">${p ? escapeHtml(p.name) : '未知用户'}${expiryBadge}${tagBadges}${noteBadge}</p><p class="text-xs text-gray-400">${p && p.email ? p.email + ' · ' : ''}加入：${formatDate(m.joined_at)} · 最后活跃：<span class="${activeColor}">${activeText}</span></p></div></div>
             <div class="flex items-center space-x-2">
               ${hasPwd ? `<button onclick="copyStudentPassword('${p.initial_password}', '${escapeHtml(p.name)}')" class="px-3 py-1.5 text-sm text-blue-500 hover:bg-blue-50 rounded-lg transition" title="复制初始密码">📋 密码</button>` : ''}
               <a href="student-detail.html?user_id=${m.user_id}&class_id=${classId}" class="px-3 py-1.5 text-sm text-indigo-500 hover:bg-indigo-50 rounded-lg transition">📊 详情</a>
