@@ -237,14 +237,11 @@
             .order('created_at', { ascending: false });
           if (refError) {
             console.error('心得查询错误:', refError);
-            window.reflectionError = JSON.stringify(refError);
           } else {
             reflections = refData || [];
-            window.reflectionError = null;
           }
         } catch (e) {
           console.error('心得查询异常:', e);
-          window.reflectionError = e.message;
         }
 
         // 处理测验
@@ -417,16 +414,6 @@
 
     function renderReflections() {
       const panel = document.getElementById('dpanel-reflections');
-      
-      // 显示查询错误
-      if (window.reflectionError) {
-        panel.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p class="text-red-600 font-medium mb-2">❌ 心得查询失败</p>
-          <p class="text-red-500 text-sm">${window.reflectionError}</p>
-          <p class="text-gray-500 text-xs mt-2">请检查 Supabase 中 chapter_reflections 表是否存在，以及 RLS 策略是否正确。</p>
-        </div>`;
-        return;
-      }
       
       if (reflections.length === 0) {
         panel.innerHTML = '<p class="text-center text-gray-400 py-8">暂无学习心得</p>';
