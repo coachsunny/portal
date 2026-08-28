@@ -6,6 +6,7 @@
   <title>班级详情 - 自牧平施教练班</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <style>
     /* 拖拽排序样式 */
@@ -102,6 +103,25 @@
             <span class="flex items-center"><span class="w-3 h-3 bg-green-400 rounded mr-1"></span>良好(>80%) <span id="cnt-good" class="ml-1 font-medium">0</span></span>
             <span class="flex items-center"><span class="w-3 h-3 bg-yellow-400 rounded mr-1"></span>中等(50-80%) <span id="cnt-medium" class="ml-1 font-medium">0</span></span>
             <span class="flex items-center"><span class="w-3 h-3 bg-red-400 rounded mr-1"></span>落后(<50%) <span id="cnt-low" class="ml-1 font-medium">0</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 学习趋势图表 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+      <h2 class="text-lg font-semibold text-gray-800 mb-4">📈 学习趋势</h2>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div>
+          <h3 class="text-sm font-medium text-gray-700 mb-3">近30天打卡人数趋势</h3>
+          <div class="relative h-64">
+            <canvas id="chart-checkin-trend"></canvas>
+          </div>
+        </div>
+        <div>
+          <h3 class="text-sm font-medium text-gray-700 mb-3">测验成绩分布</h3>
+          <div class="relative h-64">
+            <canvas id="chart-score-distribution"></canvas>
           </div>
         </div>
       </div>
@@ -963,6 +983,123 @@
         }
       } catch (e) {
         console.error('加载班级统计失败:', e);
+      }
+
+      // 加载学习趋势图表
+      loadLearningCharts();
+    }
+
+    // === 学习趋势图表 ===
+    let checkinChart = null;
+    let scoreChart = null;
+
+    async function loadLearningCharts() {
+      try {
+        // 1. 查询近30天打卡数据
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        const { data: checkinData, error: ce } = await sb
+          .from('study_logs')
+          .select('user_id, created_at')
+          .eq('class_id', classId)
+          .gte('created_at', thirtyDaysAgo.toISOString());
+        
+        if (ce) throw ce;
+
+        // 按日期统计打卡人数
+        const checkinByDate = {};
+        (checkinData || []).forEach(log => {
+          const date = new Date(log.created_at).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+          if (!checkinByDate[date]) checkinByDate[date] = new Set();
+          checkinByDate[date].add(log.user_id);
+        });
+
+        // 生成近30天的日期标签
+        const labels = [];
+        const data = [];
+        for (let i = 29; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const label = d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+          labels.push(label);
+          data.push(checkinByDate[label] ? checkinByDate[label].size : 0);
+        }
+
+        // 渲染打卡趋势图
+        const ctx1 = document.getElementById('chart-checkin-trend').getContext('2d');
+        if (checkinChart) checkinChart.destroy();
+        checkinChart = new Chart(ctx1, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: '打卡人数',
+              data: data,
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              fill: true,
+              tension: 0.3,
+              pointRadius: 2,
+              pointHoverRadius: 5
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true, ticks: { stepSize: 1 } },
+              x: { ticks: { maxRotation: 45, minRotation: 45, font: { size: 10 } } }
+            }
+          }
+        });
+
+        // 2. 查询测验成绩分布
+        const { data: submissionData, error: se } = await sb
+          .from('quiz_submissions')
+          .select('score')
+          .eq('class_id', classId)
+          .not('score', 'is', null);
+        
+        if (se) throw se;
+
+        // 统计分数段
+        const scoreRanges = ['<60', '60-79', '80-89', '90-100'];
+        const scoreCounts = [0, 0, 0, 0];
+        (submissionData || []).forEach(sub => {
+          const score = sub.score;
+          if (score < 60) scoreCounts[0]++;
+          else if (score < 80) scoreCounts[1]++;
+          else if (score < 90) scoreCounts[2]++;
+          else scoreCounts[3]++;
+        });
+
+        // 渲染成绩分布图
+        const ctx2 = document.getElementById('chart-score-distribution').getContext('2d');
+        if (scoreChart) scoreChart.destroy();
+        scoreChart = new Chart(ctx2, {
+          type: 'bar',
+          data: {
+            labels: scoreRanges,
+            datasets: [{
+              label: '测验次数',
+              data: scoreCounts,
+              backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#10b981'],
+              borderRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true, ticks: { stepSize: 1 } }
+            }
+          }
+        });
+      } catch (e) {
+        console.error('加载学习趋势图表失败:', e);
       }
     }
 
