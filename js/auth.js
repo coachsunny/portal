@@ -348,128 +348,104 @@ async function checkIn(userId) {
 }
 
 // ============================================
-// 简繁切换功能
+// 简繁切换功能（使用 OpenCC 库）
 // ============================================
 
-// 常用简繁转换映射表（覆盖网站常用字）
-const simplifiedToTraditionalMap = {
-  '个':'個','们':'們','这':'這','那':'嗎','么':'麼','发':'發','现':'現','说':'說','话':'話',
-  '请':'請','问':'問','题':'題','对':'對','错':'錯','学':'學','习':'習','师':'師','课':'課',
-  '资':'資','测':'測','验':'驗','评':'評','结':'結','时':'時','间':'間','开':'開','页':'頁',
-  '点':'點','击':'擊','钮':'鈕','输':'輸','选':'選','择':'擇','确':'確','认':'認','删':'刪',
-  '编':'編','辑':'輯','显':'顯','隐':'隱','搜':'索','筛':'篩','导':'導','载':'載','传':'傳',
-  '图':'圖','视':'視','频':'頻','录':'錄','制':'製','账':'賬','号':'號','码':'碼','册':'冊',
-  '设':'設','系':'系','统':'統','管':'理','员':'員','台':'檯','数':'數','据':'據','计':'計',
-  '总':'總','报':'報','单':'單','类':'類','别':'別','状':'狀','态':'態','标':'標','记':'記',
-  '签':'簽','释':'釋','详':'詳','细':'細','简':'簡','绍':'紹','内':'內','项':'項','长':'長',
-  '宽':'寬','远':'遠','浅':'淺','轻':'輕','软':'軟','热':'熱','温':'溫','凉':'涼','湿':'濕',
-  '干':'乾','脏':'髒','净':'淨','乱':'亂','齐':'齊','洁':'潔','坏':'壞','优':'優','强':'強',
-  '聪':'聰','灵':'靈','锐':'銳','迟':'遲','钝':'鈍','奋':'奮','懒':'懶','专':'專','贯':'貫',
-  '彻':'徹','领':'領','会':'會','体':'體','觉':'覺','认':'識','识':'識','应':'應','实':'實',
-  '践':'踐','经':'經','验':'驗','够':'夠','该':'該','须':'須','愿':'願','望':'望','团':'團',
-  '队':'隊','孙':'孫','亲':'親','邻':'鄰','宾':'賓','众':'眾','户':'戶','婴':'嬰','寿':'壽',
-  '岁':'歲','龄':'齡','轮':'輪','辈':'輩','纪':'紀','载':'載','节':'節','气':'氣','风':'風',
-  '雾':'霧','电':'電','闪':'閃','阴':'陰','云':'雲','霾':'霾','寒':'寒','潮':'潮','冻':'凍',
-  '务':'務','职':'職','岗':'崗','责':'責','权':'權','义':'義','绩':'績','败':'敗','过':'過',
-  '误':'誤','获':'獲','给':'給','赋':'賦','授':'授','教':'教','育':'育','培':'培','养':'養',
-  '训':'訓','练':'練','钻':'鑽','寻':'尋','闯':'闖','闭':'閉','闲':'閒','间':'間','闻':'聞',
-  '阁':'閣','阅':'閱','阳':'陽','阵':'陣','阶':'階','际':'際','随':'隨','险':'險','隐':'隱',
-  '隶':'隸','难':'難','雏':'雛','杂':'雜','离':'離','种':'種','积':'積','称':'稱','稳':'穩',
-  '窍':'竅','窥':'窺','窜':'竄','窝':'窩','竖':'豎','竞':'競','笔':'筆','答':'答','策':'策',
-  '紧':'緊','终':'終','组':'組','织':'織','绕':'繞','绘':'繪','络':'絡','绝':'絕','绞':'絞',
-  '绣':'繡','继':'繼','绩':'績','绪':'緒','续':'續','绰':'綽','绳':'繩','维':'維','绵':'綿',
-  '绷':'繃','综':'綜','绽':'綻','绿':'綠','缀':'綴','缅':'緬','缆':'纜','缇':'緹','缈':'緲',
-  '缉':'緝','缦':'縵','缨':'纓','缩':'縮','缪':'繆','缫':'繅','缬':'纈','缭':'繚','缮':'繕',
-  '缯':'繒','缰':'韁','缱':'繾','缲':'繰','缳':'繯','缴':'繳','辫':'辮','缵':'纘','坛':'壇',
-  '块':'塊','坚':'堅','坜':'壢','坝':'壩','坞':'塢','坟':'墳','坠':'墜','垄':'壟','垆':'壚',
-  '垒':'壘','垦':'墾','垩':'堊','垫':'墊','垭':'埡','垴':'堖','达':'達','迈':'邁','运':'運',
-  '还':'還','进':'進','违':'違','连':'連','迟':'遲','迩':'邇','迳':'逕','迹':'跡','适':'適',
-  '逊':'遜','递':'遞','逻':'邏','遗':'遺','遥':'遙','邓':'鄧','邝':'鄺','邬':'鄔','邮':'郵',
-  '邹':'鄒','邺':'鄴','郁':'鬱','郓':'鄆','郦':'酈','郧':'鄖','郸':'鄲','酝':'醞','酿':'釀',
-  '医':'醫','酱':'醬','释':'釋','鉴':'鑑','銮':'鑾','鋆':'鋆','錱':'錱','鐘':'鐘','鐵':'鐵'
-};
-// 当前语言状态
-let currentLanguage = localStorage.getItem('language') || 'simplified';
+let openccLoaded = false;
+let s2tConverter = null;
+let t2sConverter = null;
 
 /**
- * 简体转繁体
+ * 动态加载 OpenCC 库
  */
-function simplifiedToTraditional(text) {
-  if (!text) return text;
-  let result = '';
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    result += simplifiedToTraditionalMap[char] || char;
+function loadOpenCC(callback) {
+  if (openccLoaded && typeof OpenCC !== 'undefined') {
+    callback();
+    return;
   }
-  return result;
+  
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/full.js';
+  script.onload = function() {
+    openccLoaded = true;
+    s2tConverter = OpenCC.Converter({ from: 'cn', to: 'tw' });
+    t2sConverter = OpenCC.Converter({ from: 'tw', to: 'cn' });
+    callback();
+  };
+  script.onerror = function() {
+    console.error('OpenCC 库加载失败');
+  };
+  document.head.appendChild(script);
 }
 
 /**
- * 转换页面所有文字（更可靠的方法）
+ * 递归转换所有文本节点
  */
-function convertPageLanguage(toTraditional) {
-  // 遍历所有元素，转换其直接文本子节点
-  const allElements = document.querySelectorAll('body *:not(script):not(style):not(noscript)');
-  
-  let convertedCount = 0;
-  
-  allElements.forEach(el => {
-    // 只处理有直接文本子节点的元素
-    for (let i = 0; i < el.childNodes.length; i++) {
-      const node = el.childNodes[i];
-      if (node.nodeType === Node.TEXT_NODE && node.textContent && node.textContent.trim()) {
-        if (toTraditional) {
-          if (!node.dataset.originalText) {
-            node.dataset.originalText = node.textContent;
-          }
-          const converted = simplifiedToTraditional(node.dataset.originalText);
-          if (converted !== node.textContent) {
-            node.textContent = converted;
-            convertedCount++;
-          }
-        } else {
-          if (node.dataset.originalText) {
-            node.textContent = node.dataset.originalText;
-            convertedCount++;
-          }
-        }
-      }
+function convertTextNodes(node, converter) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    if (node.nodeValue && node.nodeValue.trim()) {
+      node.nodeValue = converter(node.nodeValue);
     }
-  });
-  
-  console.log(`[语言切换] 转换了 ${convertedCount} 个文本节点，目标：${toTraditional ? '繁体' : '简体'}`);
-  
-  // 更新按钮文字
-  updateLanguageButton();
+  } else if (node.nodeType === Node.ELEMENT_NODE) {
+    const tag = node.tagName.toLowerCase();
+    if (tag === 'script' || tag === 'style' || tag === 'textarea' || tag === 'input' || tag === 'code' || tag === 'pre') {
+      return;
+    }
+    if (node.id === 'lang-toggle-text' || node.id === 'lang-toggle-text-mobile') {
+      return;
+    }
+    for (let i = 0; i < node.childNodes.length; i++) {
+      convertTextNodes(node.childNodes[i], converter);
+    }
+  }
 }
 
 /**
- * 更新语言切换按钮文字
+ * 转换整个页面为繁体
  */
-function updateLanguageButton() {
-  const isTraditional = currentLanguage === 'traditional';
-  const desktopBtn = document.getElementById('lang-toggle-text');
-  const mobileBtn = document.getElementById('lang-toggle-text-mobile');
-  
-  if (desktopBtn) desktopBtn.textContent = isTraditional ? '简' : '繁';
-  if (mobileBtn) mobileBtn.textContent = isTraditional ? '简体' : '繁体';
+function convertPageToTraditional() {
+  if (!s2tConverter) return;
+  convertTextNodes(document.body, s2tConverter);
+  document.title = s2tConverter(document.title);
 }
 
 /**
- * 切换语言
+ * 切换语言（切换后刷新页面）
  */
 function toggleLanguage() {
-  currentLanguage = currentLanguage === 'simplified' ? 'traditional' : 'simplified';
-  localStorage.setItem('language', currentLanguage);
-  convertPageLanguage(currentLanguage === 'traditional');
+  const currentLang = localStorage.getItem('language') || 'simplified';
+  const newLang = currentLang === 'simplified' ? 'traditional' : 'simplified';
+  localStorage.setItem('language', newLang);
+  location.reload();
 }
 
 /**
  * 页面加载时应用语言设置
  */
 function applyLanguageSetting() {
-  if (currentLanguage === 'traditional') {
-    // 延迟执行，确保导航栏已渲染
-    setTimeout(() => convertPageLanguage(true), 100);
+  const currentLang = localStorage.getItem('language') || 'simplified';
+  updateLanguageButton();
+  
+  if (currentLang === 'traditional') {
+    loadOpenCC(function() {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', convertPageToTraditional);
+      } else {
+        setTimeout(convertPageToTraditional, 200);
+      }
+    });
   }
+}
+
+/**
+ * 更新语言切换按钮文字
+ */
+function updateLanguageButton() {
+  const currentLang = localStorage.getItem('language') || 'simplified';
+  const isTraditional = currentLang === 'traditional';
+  const desktopBtn = document.getElementById('lang-toggle-text');
+  const mobileBtn = document.getElementById('lang-toggle-text-mobile');
+  
+  if (desktopBtn) desktopBtn.textContent = isTraditional ? '简' : '繁';
+  if (mobileBtn) mobileBtn.textContent = isTraditional ? '简体' : '繁体';
 }
