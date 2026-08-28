@@ -24,6 +24,16 @@
           <h1 class="text-2xl font-bold text-gray-800" id="student-name">加载中...</h1>
           <p class="text-gray-500 mt-1" id="student-email"></p>
           <p class="text-sm text-gray-400 mt-1" id="student-class"></p>
+          <div class="flex items-center gap-2 mt-2">
+            <span class="text-sm text-gray-500">学员标签：</span>
+            <span id="student-tags-display"></span>
+            <select id="student-tag-select" onchange="updateStudentTag(this.value)" class="text-xs px-2 py-1 border border-gray-200 rounded-lg text-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              <option value="">设置标签</option>
+              <option value="active">🟢 活跃</option>
+              <option value="attention">🟡 需关注</option>
+              <option value="graduated">🔵 已结业</option>
+            </select>
+          </div>
         </div>
         <div class="text-right">
           <p class="text-sm text-gray-400">加入时间</p>
@@ -146,6 +156,7 @@
     let studentId = null;
     let classId = null;
     let classData = null;
+    let currentTags = [];
     let chaptersData = [];
     let quizzesByChapter = {};
     let resourcesByChapter = {};
@@ -204,6 +215,19 @@
           expiryEl.innerHTML = `<span class="${colorClass}">${expiryDate.toLocaleDateString('zh-CN')}</span>`;
         } else {
           expiryEl.innerHTML = '<span class="text-green-600">永久</span>';
+        }
+
+        // 加载学员标签
+        const { data: memberData, error: me } = await sb
+          .from('class_members')
+          .select('tags, joined_at')
+          .eq('user_id', studentId)
+          .eq('class_id', classId)
+          .single();
+        if (!me && memberData) {
+          currentTags = memberData.tags || [];
+          document.getElementById('join-date').textContent = memberData.joined_at ? new Date(memberData.joined_at).toLocaleDateString('zh-CN') : '-';
+          renderStudentTags();
         }
 
         // 加载章节
@@ -644,6 +668,50 @@
       } catch (e) {
         console.error('保存评价失败:', e);
         alert('保存失败：' + e.message);
+      }
+    }
+
+    // === 学员标签 ===
+    function getTagInfo(tag) {
+      const tagMap = {
+        active: { icon: '🟢', label: '活跃', bg: 'bg-green-100', text: 'text-green-700' },
+        attention: { icon: '🟡', label: '需关注', bg: 'bg-yellow-100', text: 'text-yellow-700' },
+        graduated: { icon: '🔵', label: '已结业', bg: 'bg-blue-100', text: 'text-blue-700' }
+      };
+      return tagMap[tag] || { icon: '⚪', label: tag, bg: 'bg-gray-100', text: 'text-gray-600' };
+    }
+
+    function renderStudentTags() {
+      const displayEl = document.getElementById('student-tags-display');
+      const selectEl = document.getElementById('student-tag-select');
+      if (currentTags.length === 0) {
+        displayEl.innerHTML = '<span class="text-sm text-gray-400">暂无标签</span>';
+      } else {
+        displayEl.innerHTML = currentTags.map(tag => {
+          const info = getTagInfo(tag);
+          return `<span class="px-2 py-0.5 text-xs ${info.bg} ${info.text} rounded-full">${info.icon} ${info.label}</span>`;
+        }).join('');
+      }
+      // 同步下拉选择
+      if (selectEl) {
+        selectEl.value = currentTags.length > 0 ? currentTags[0] : '';
+      }
+    }
+
+    async function updateStudentTag(tag) {
+      try {
+        const newTags = tag ? [tag] : [];
+        const { error } = await sb
+          .from('class_members')
+          .update({ tags: newTags })
+          .eq('user_id', studentId)
+          .eq('class_id', classId);
+        if (error) throw error;
+        currentTags = newTags;
+        renderStudentTags();
+      } catch (e) {
+        console.error('更新标签失败:', e);
+        alert('更新标签失败：' + e.message);
       }
     }
 
