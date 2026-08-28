@@ -463,38 +463,39 @@ function simplifiedToTraditional(text) {
 }
 
 /**
- * 转换页面所有文字
+ * 转换页面所有文字（更可靠的方法）
  */
 function convertPageLanguage(toTraditional) {
-  const walker = document.createTreeWalker(
-    document.body,
-    NodeFilter.SHOW_TEXT,
-    null,
-    false
-  );
+  // 遍历所有元素，转换其直接文本子节点
+  const allElements = document.querySelectorAll('body *:not(script):not(style):not(noscript)');
   
-  const textNodes = [];
-  while (walker.nextNode()) {
-    const node = walker.currentNode;
-    // 跳过script和style标签
-    if (node.parentElement && (node.parentElement.tagName === 'SCRIPT' || node.parentElement.tagName === 'STYLE')) continue;
-    if (node.textContent && node.textContent.trim()) {
-      textNodes.push(node);
-    }
-  }
+  let convertedCount = 0;
   
-  textNodes.forEach(node => {
-    if (toTraditional) {
-      if (!node.dataset.originalText) {
-        node.dataset.originalText = node.textContent;
-      }
-      node.textContent = simplifiedToTraditional(node.dataset.originalText);
-    } else {
-      if (node.dataset.originalText) {
-        node.textContent = node.dataset.originalText;
+  allElements.forEach(el => {
+    // 只处理有直接文本子节点的元素
+    for (let i = 0; i < el.childNodes.length; i++) {
+      const node = el.childNodes[i];
+      if (node.nodeType === Node.TEXT_NODE && node.textContent && node.textContent.trim()) {
+        if (toTraditional) {
+          if (!node.dataset.originalText) {
+            node.dataset.originalText = node.textContent;
+          }
+          const converted = simplifiedToTraditional(node.dataset.originalText);
+          if (converted !== node.textContent) {
+            node.textContent = converted;
+            convertedCount++;
+          }
+        } else {
+          if (node.dataset.originalText) {
+            node.textContent = node.dataset.originalText;
+            convertedCount++;
+          }
+        }
       }
     }
   });
+  
+  console.log(`[语言切换] 转换了 ${convertedCount} 个文本节点，目标：${toTraditional ? '繁体' : '简体'}`);
   
   // 更新按钮文字
   updateLanguageButton();
