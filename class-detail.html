@@ -1651,8 +1651,31 @@
 
     async function removeStudent(uid) {
       if (!confirm('确定要将这名学员移出班级吗？')) return;
-      try { const { error } = await sb.from('class_members').delete().eq('class_id', classId).eq('user_id', uid); if (error) throw error; loadStudents(); }
-      catch (e) { alert('移除学员失败：' + e.message); }
+      try {
+        // 先查询学员信息用于撤销
+        const { data: member } = await sb.from('class_members').select('*, profiles(name)').eq('class_id', classId).eq('user_id', uid).single();
+        const studentName = member?.profiles?.name || '学员';
+
+        // 先从页面移除
+        loadStudents();
+
+        showUndoToast(
+          `已将「${studentName}」移出班级`,
+          // 撤销：恢复学员
+          async () => {
+            try {
+              await sb.from('class_members').insert({ user_id: uid, class_id: classId, joined_at: member.joined_at, tags: member.tags });
+              loadStudents();
+            } catch (e) { console.error('恢复学员失败:', e); alert('恢复失败：' + e.message); }
+          },
+          // 确认：真正删除（已经删除了，这里不需要再操作）
+          null
+        );
+
+        // 立即执行删除
+        const { error } = await sb.from('class_members').delete().eq('class_id', classId).eq('user_id', uid);
+        if (error) throw error;
+      } catch (e) { alert('移除学员失败：' + e.message); }
     }
 
     // ========== 章节与资源（方案A：全局资源库 + 章节引用） ==========
@@ -1809,8 +1832,34 @@
     }
     async function deleteChapter(id) {
       if (!confirm('确定要删除这个章节吗？章节与资源的关联关系也会被删除（资源本身保留在资源库中）。')) return;
-      try { const { error } = await sb.from('chapters').delete().eq('id', id); if (error) throw error; loadChapters(); }
-      catch (e) { alert('删除章节失败：' + e.message); }
+      try {
+        // 先查询章节数据用于撤销
+        const { data: chapter } = await sb.from('chapters').select('*').eq('id', id).single();
+        // 查询章节资源关联用于撤销
+        const { data: resources } = await sb.from('chapter_resources').select('*').eq('chapter_id', id);
+        // 查询章节测验关联用于撤销
+        const { data: quizzes } = await sb.from('chapter_quizzes').select('*').eq('chapter_id', id);
+
+        // 先从页面移除（视觉上立即删除）
+        loadChapters();
+
+        showUndoToast(
+          `已删除章节「${chapter?.title || ''}」`,
+          // 撤销：恢复章节和关联
+          async () => {
+            try {
+              await sb.from('chapters').insert(chapter);
+              if (resources && resources.length > 0) await sb.from('chapter_resources').insert(resources);
+              if (quizzes && quizzes.length > 0) await sb.from('chapter_quizzes').insert(quizzes);
+              loadChapters();
+            } catch (e) { console.error('恢复章节失败:', e); alert('恢复失败：' + e.message); }
+          },
+          // 确认：真正删除
+          async () => {
+            try { await sb.from('chapters').delete().eq('id', id); } catch (e) { console.error('删除章节失败:', e); }
+          }
+        );
+      } catch (e) { alert('删除章节失败：' + e.message); }
     }
 
     // ========== 添加资源弹窗 ==========
@@ -2862,14 +2911,75 @@
     async function deleteAnnouncement(id) {
       if (!confirm('确定删除这条公告吗？')) return;
       try {
-        const { error } = await sb.from('announcements').delete().eq('id', id);
-        if (error) throw error;
+        // 先查询公告数据用于撤销
+        const { data: announcement } = await sb.from('announcements').select('*').eq('id', id).single();
+
+        // 先从页面移除
         loadAnnouncements();
+
+        showUndoToast(
+          `已删除公告「${announcement?.title || ''}」`,
+          // 撤销：恢复公告
+          async () => {
+            try {
+              await sb.from('announcements').insert(announcement);
+              loadAnnouncements();
+            } catch (e) { console.error('恢复公告失败:', e); alert('恢复失败：' + e.message); }
+          },
+          // 确认：真正删除
+          async () => {
+            try { await sb.from('announcements').delete().eq('id', id); } catch (e) { console.error('删除公告失败:', e); }
+          }
+        );
       } catch (e) { alert('删除失败：' + e.message); }
     }
 
     function escapeHtml(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
     function formatDate(s) { if (!s) return '-'; return new Date(s).toLocaleDateString('zh-CN'); }
+
+    // === 操作撤销 ===
+    let undoTimer = null;
+    let pendingDelete = null;
+
+    function showUndoToast(message, onUndo, onConfirm) {
+      // 清除之前的定时器
+      if (undoTimer) { clearTimeout(undoTimer); undoTimer = null; }
+      // 如果有待确认的删除，先执行
+      if (pendingDelete && pendingDelete.onConfirm) { pendingDelete.onConfirm(); pendingDelete = null; }
+
+      pendingDelete = { onUndo, onConfirm };
+
+      const toast = document.getElementById('undo-toast');
+      document.getElementById('undo-message').textContent = message;
+      toast.classList.remove('hidden');
+      toast.classList.add('flex');
+
+      // 5秒后自动确认删除
+      undoTimer = setTimeout(() => {
+        if (pendingDelete && pendingDelete.onConfirm) { pendingDelete.onConfirm(); }
+        pendingDelete = null;
+        hideUndoToast();
+      }, 5000);
+    }
+
+    function undoDelete() {
+      if (undoTimer) { clearTimeout(undoTimer); undoTimer = null; }
+      if (pendingDelete && pendingDelete.onUndo) { pendingDelete.onUndo(); }
+      pendingDelete = null;
+      hideUndoToast();
+    }
+
+    function hideUndoToast() {
+      const toast = document.getElementById('undo-toast');
+      toast.classList.add('hidden');
+      toast.classList.remove('flex');
+    }
   </script>
+
+  <!-- 撤销提示条 -->
+  <div id="undo-toast" class="hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-5 py-3 rounded-xl shadow-2xl z-50 items-center gap-4 max-w-md">
+    <span id="undo-message" class="text-sm flex-1">已删除</span>
+    <button onclick="undoDelete()" class="text-sm font-medium text-blue-400 hover:text-blue-300 whitespace-nowrap">撤销</button>
+  </div>
 </body>
 </html>
