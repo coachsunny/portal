@@ -3,6 +3,42 @@
 // 依赖：supabase-client.js（需先引入）
 // ============================================
 
+/**
+ * 注入手机端优化的CSS规则
+ */
+function injectMobileOptimizationCSS() {
+  const css = `
+    /* 手机端按钮和输入框最小高度，适合手指点击 */
+    @media (max-width: 768px) {
+      button, .btn, input[type="text"], input[type="email"], input[type="password"], 
+      input[type="number"], input[type="date"], select, textarea {
+        min-height: 44px !important;
+        font-size: 15px !important;
+      }
+      
+      /* 表格容器允许横向滚动 */
+      .table-container, .overflow-x-auto {
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      /* 卡片内边距在手机上适当减小 */
+      .p-6 { padding: 1rem !important; }
+      .p-8 { padding: 1.25rem !important; }
+      
+      /* 统计卡片在手机上字号适当调整 */
+      .text-3xl { font-size: 1.5rem !important; }
+      .text-4xl { font-size: 1.75rem !important; }
+    }
+  `;
+  
+  const style = document.createElement('style');
+  style.textContent = css;
+  document.head.appendChild(style);
+}
+
+// 页面加载时注入手机端优化CSS
+injectMobileOptimizationCSS();
+
 // 页面路径配置
 const PAGES = {
   login: 'index.html',
