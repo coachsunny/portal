@@ -6,6 +6,17 @@
   <title>班级详情 - 自牧平施教练班</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <style>
+    /* 拖拽排序样式 */
+    .chapter-item { transition: transform 0.2s, box-shadow 0.2s; }
+    .chapter-item.sortable-ghost { opacity: 0.4; background: #e0f2fe !important; border: 2px dashed #3b82f6 !important; }
+    .chapter-item.sortable-chosen { box-shadow: 0 10px 25px rgba(0,0,0,0.15); transform: scale(1.02); cursor: grabbing !important; }
+    .chapter-item.sortable-drag { opacity: 0.9; }
+    .drag-handle { cursor: grab; color: #9ca3af; padding: 4px; border-radius: 4px; }
+    .drag-handle:hover { color: #3b82f6; background: #eff6ff; }
+    .drag-handle:active { cursor: grabbing; }
+  </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -133,6 +144,17 @@
           <button onclick="openChapterModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center">
             <span class="mr-2">➕</span> 新建章节
           </button>
+        </div>
+      </div>
+      <!-- 拖拽排序操作栏（默认隐藏） -->
+      <div id="sort-action-bar" class="hidden mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between">
+        <div class="flex items-center">
+          <span class="text-lg mr-2">🔀</span>
+          <span class="text-sm text-blue-700 font-medium">章节顺序已调整，请保存或取消</span>
+        </div>
+        <div class="flex space-x-2">
+          <button onclick="cancelChapterSort()" class="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">取消</button>
+          <button onclick="saveChapterOrder()" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">💾 保存顺序</button>
         </div>
       </div>
       <div id="chapter-list" class="space-y-4"></div>
@@ -1475,9 +1497,14 @@
 
         list.innerHTML = chapters.map(c => {
           const rl = byCh[c.id] || [];
-          return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          return `<div class="chapter-item bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden" data-chapter-id="${c.id}">
             <div class="p-4 flex items-center justify-between bg-gray-50 border-b">
-              <div class="flex items-center"><span class="text-lg mr-3">📖</span><h3 class="font-semibold text-gray-800">${escapeHtml(c.title)}</h3><span class="ml-3 text-xs text-gray-400">${rl.length} 个资源</span></div>
+              <div class="flex items-center">
+                <span class="drag-handle text-lg mr-2" title="拖拽排序">⋮⋮</span>
+                <span class="text-lg mr-3">📖</span>
+                <h3 class="font-semibold text-gray-800">${escapeHtml(c.title)}</h3>
+                <span class="ml-3 text-xs text-gray-400">${rl.length} 个资源</span>
+              </div>
               <div class="flex items-center space-x-2">
                 <button onclick="openResourceModal(${c.id})" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">➕ 添加资源</button>
                 <button onclick="editChapter(${c.id})" class="px-2 py-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition" title="编辑">✏️</button>
@@ -1494,7 +1521,88 @@
                   <button onclick="removeResourceFromChapter(${c.id}, ${r.id})" class="px-2 py-1.5 text-red-500 hover:bg-red-50 rounded-lg transition text-sm" title="从本章节移除">移除</button>
                 </div></div>`).join('')}</div>`}</div></div>`;
         }).join('');
+        
+        // 初始化拖拽排序
+        initChapterSortable();
       } catch (e) { console.error('加载章节失败:', e); alert('加载章节失败：' + e.message); }
+    }
+
+    // ========== 章节拖拽排序 ==========
+    let chapterSortable = null;
+    let originalChapterOrder = [];
+    let isOrderChanged = false;
+
+    function initChapterSortable() {
+      const list = document.getElementById('chapter-list');
+      if (!list || list.children.length === 0) return;
+      
+      // 销毁旧实例
+      if (chapterSortable) { chapterSortable.destroy(); chapterSortable = null; }
+      
+      // 保存原始顺序
+      originalChapterOrder = Array.from(list.children).map(el => el.getAttribute('data-chapter-id'));
+      isOrderChanged = false;
+      document.getElementById('sort-action-bar').classList.add('hidden');
+      
+      chapterSortable = new Sortable(list, {
+        animation: 200,
+        handle: '.drag-handle',
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        dragClass: 'sortable-drag',
+        onEnd: function(evt) {
+          // 检查顺序是否真的改变了
+          const newOrder = Array.from(list.children).map(el => el.getAttribute('data-chapter-id'));
+          isOrderChanged = JSON.stringify(newOrder) !== JSON.stringify(originalChapterOrder);
+          if (isOrderChanged) {
+            document.getElementById('sort-action-bar').classList.remove('hidden');
+          } else {
+            document.getElementById('sort-action-bar').classList.add('hidden');
+          }
+        }
+      });
+    }
+
+    function cancelChapterSort() {
+      // 恢复原始顺序
+      const list = document.getElementById('chapter-list');
+      const items = Array.from(list.children);
+      originalChapterOrder.forEach((id, index) => {
+        const item = items.find(el => el.getAttribute('data-chapter-id') === id);
+        if (item) list.appendChild(item);
+      });
+      isOrderChanged = false;
+      document.getElementById('sort-action-bar').classList.add('hidden');
+    }
+
+    async function saveChapterOrder() {
+      const list = document.getElementById('chapter-list');
+      const newOrder = Array.from(list.children).map(el => parseInt(el.getAttribute('data-chapter-id')));
+      
+      const btn = event.target;
+      btn.disabled = true;
+      btn.textContent = '保存中...';
+      
+      try {
+        // 批量更新每个章节的 sort_order
+        const updates = newOrder.map((id, index) => 
+          sb.from('chapters').update({ sort_order: index + 1 }).eq('id', id)
+        );
+        await Promise.all(updates);
+        
+        // 更新原始顺序
+        originalChapterOrder = newOrder.map(String);
+        isOrderChanged = false;
+        document.getElementById('sort-action-bar').classList.add('hidden');
+        
+        alert('章节顺序已保存！');
+      } catch (e) {
+        console.error('保存章节顺序失败:', e);
+        alert('保存失败：' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 保存顺序';
+      }
     }
 
     function openChapterModal() { editingChapterId = null; document.getElementById('chapter-modal-title').textContent = '新建章节'; document.getElementById('chapter-title').value = ''; document.getElementById('chapter-order').value = '1'; document.getElementById('chapter-modal').classList.remove('hidden'); }
