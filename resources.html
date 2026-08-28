@@ -130,6 +130,7 @@
     let currentSession = null;
     let allResources = [];
     let allClasses = [];
+    let resourceStats = {};
     let selectedPdfFile = null;
     let editingResourceId = null;
 
@@ -156,6 +157,22 @@
         const { data: resources, error } = await sb.from('resources').select('*').order('created_at', { ascending: false });
         if (error) throw error;
         allResources = resources || [];
+
+        // 查询资源使用统计
+        if (allResources.length > 0) {
+          const resourceIds = allResources.map(r => r.id);
+          const { data: reads } = await sb.from('resource_reads').select('resource_id, user_id').in('resource_id', resourceIds);
+          // 统计每个资源的查看次数和查看人数
+          resourceStats = {};
+          (reads || []).forEach(read => {
+            if (!resourceStats[read.resource_id]) {
+              resourceStats[read.resource_id] = { count: 0, users: new Set() };
+            }
+            resourceStats[read.resource_id].count++;
+            resourceStats[read.resource_id].users.add(read.user_id);
+          });
+        }
+
         renderResourceList();
       } catch (e) { console.error('加载资源失败:', e); alert('加载资源失败：' + e.message); }
     }
@@ -178,12 +195,17 @@
         const scopeLabel = r.class_id
           ? `<span class="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded">${escapeHtml(cls ? cls.name : '班级专属')}</span>`
           : '<span class="text-xs px-1.5 py-0.5 bg-green-100 text-green-600 rounded">全局</span>';
+        // 资源使用统计
+        const stats = resourceStats[r.id];
+        const statsLabel = stats
+          ? `<span class="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded ml-1" title="查看${stats.count}次，${stats.users.size}人看过">👁 ${stats.users.size}人 / ${stats.count}次</span>`
+          : '';
         return `
         <div class="flex items-center justify-between p-4 bg-white border border-gray-100 rounded-xl hover:shadow-sm transition">
           <div class="flex items-center flex-1 min-w-0">
             <span class="text-2xl mr-4 flex-shrink-0">${r.type === 'pdf' ? '📄' : '🎬'}</span>
             <div class="min-w-0">
-              <p class="font-medium text-gray-800 truncate">${escapeHtml(r.title)} ${scopeLabel}</p>
+              <p class="font-medium text-gray-800 truncate">${escapeHtml(r.title)} ${scopeLabel}${statsLabel}</p>
               <p class="text-xs text-gray-400 truncate mt-1">${escapeHtml(r.description || (r.type === 'pdf' ? 'PDF文档' : '视频 · 提取码: ' + (r.extraction_code || '无')))}</p>
             </div>
           </div>

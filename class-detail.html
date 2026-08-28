@@ -1709,6 +1709,25 @@
           if (cr.resources) byCh[cr.chapter_id].push({ ...cr.resources, cr_sort: cr.sort_order });
         });
 
+        // 查询本班资源使用统计
+        const allResourceIds = [];
+        Object.values(byCh).forEach(rl => rl.forEach(r => allResourceIds.push(r.id)));
+        let classResourceStats = {};
+        let classStudentCount = 0;
+        if (allResourceIds.length > 0) {
+          const { data: reads } = await sb.from('resource_reads').select('resource_id, user_id').eq('class_id', classId).in('resource_id', allResourceIds);
+          (reads || []).forEach(read => {
+            if (!classResourceStats[read.resource_id]) {
+              classResourceStats[read.resource_id] = { count: 0, users: new Set() };
+            }
+            classResourceStats[read.resource_id].count++;
+            classResourceStats[read.resource_id].users.add(read.user_id);
+          });
+        }
+        // 查询班级总人数
+        const { count: studentCount } = await sb.from('class_members').select('*', { count: 'exact', head: true }).eq('class_id', classId);
+        classStudentCount = studentCount || 0;
+
         list.innerHTML = chapters.map(c => {
           const rl = byCh[c.id] || [];
           return `<div class="chapter-item bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden" data-chapter-id="${c.id}">
@@ -1726,14 +1745,21 @@
               </div>
             </div>
             <div class="p-4">${rl.length === 0 ? '<p class="text-sm text-gray-400 text-center py-4">暂无资源，点击「添加资源」从资源库选择或上传新资源</p>' :
-              `<div class="space-y-2">${rl.map(r => `<div class="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition">
+              `<div class="space-y-2">${rl.map(r => {
+                // 本班资源使用统计
+                const stats = classResourceStats[r.id];
+                const readCount = stats ? stats.users.size : 0;
+                const readRate = classStudentCount > 0 ? Math.round(readCount / classStudentCount * 100) : 0;
+                const statsLabel = `<span class="text-xs px-1.5 py-0.5 ${readRate >= 80 ? 'bg-green-100 text-green-600' : readRate >= 50 ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-500'} rounded ml-1" title="本班${readCount}/${classStudentCount}人看过，共${stats ? stats.count : 0}次">👁 ${readCount}/${classStudentCount}人 (${readRate}%)</span>`;
+                return `<div class="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition">
                 <div class="flex items-center flex-1 min-w-0"><span class="text-xl mr-3 flex-shrink-0">${r.type === 'pdf' ? '📄' : '🎬'}</span>
-                <div class="min-w-0"><p class="text-sm font-medium text-gray-800 truncate">${escapeHtml(r.title)}</p>${r.description ? `<p class="text-xs text-gray-400 truncate">${escapeHtml(r.description)}</p>` : `<p class="text-xs text-gray-400">${r.type === 'pdf' ? 'PDF文档' : '视频 · 提取码: ' + (r.extraction_code || '无')}</p>`}</div></div>
+                <div class="min-w-0"><p class="text-sm font-medium text-gray-800 truncate">${escapeHtml(r.title)}${statsLabel}</p>${r.description ? `<p class="text-xs text-gray-400 truncate">${escapeHtml(r.description)}</p>` : `<p class="text-xs text-gray-400">${r.type === 'pdf' ? 'PDF文档' : '视频 · 提取码: ' + (r.extraction_code || '无')}</p>`}</div></div>
                 <div class="flex items-center space-x-2 flex-shrink-0 ml-2">
                   ${r.type === 'pdf' && r.file_url ? `<a href="${r.file_url}" target="_blank" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">查看</a>` : ''}
                   ${r.type === 'video' && r.file_url ? `<button onclick="copyVideoLink('${r.file_url}', '${r.extraction_code || ''}')" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">复制链接</button>` : ''}
                   <button onclick="removeResourceFromChapter(${c.id}, ${r.id})" class="px-2 py-1.5 text-red-500 hover:bg-red-50 rounded-lg transition text-sm" title="从本章节移除">移除</button>
-                </div></div>`).join('')}</div>`}</div></div>`;
+                </div></div>`;
+              }).join('')}</div>`}</div></div>`;
         }).join('');
         
         // 初始化拖拽排序
