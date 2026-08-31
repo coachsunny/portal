@@ -1,4 +1,4 @@
-﻿// ============================================
+// ============================================
 // 通用认证模块 - 所有页面共用
 // 依赖：supabase-client.js（需先引入）
 // ============================================
@@ -160,6 +160,7 @@ function renderNavbar(session, currentPage) {
     { id: 'student-stats', label: '学员状态', href: 'student-stats.html' },
     { id: 'resources', label: '资源管理', href: 'resources.html' },
     { id: 'quizzes', label: '测验管理', href: 'quizzes.html' },
+    { id: 'tools', label: '🧰 工具', href: 'tools.html' },
     { id: 'questions', label: '学员提问', href: 'classes.html?tab=questions' }
   ] : [
     { id: 'dashboard', label: '首页', href: PAGES.student },
@@ -169,6 +170,7 @@ function renderNavbar(session, currentPage) {
     { id: 'care', label: '老师关怀', href: 'student-care.html', hasBadge: true },
     { id: 'assessment', label: '性向评估', href: 'personality-assessment.html' },
     { id: 'vision', label: '自我愿景', href: 'student-vision.html' },
+    { id: 'tools', label: '🧰 工具', href: 'tools.html' },
     { id: 'profile', label: '个人中心', href: 'student-profile.html' },
     { id: 'guide', label: '📖 使用手册', href: 'student-guide.html', external: true }
   ];
