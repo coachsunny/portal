@@ -1,1 +1,274 @@
-﻿<!DOCTYPE html><html lang="zh-CN"><head>  <meta charset="UTF-8">  <meta name="viewport" content="width=device-width, initial-scale=1.0">  <title>教练工具 - 自牧平施教练班</title>  <script src="https://cdn.tailwindcss.com"></script>  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head><body class="bg-gray-50 min-h-screen">  <main class="max-w-5xl mx-auto px-4 py-8">    <!-- 页面标题 -->    <div class="flex items-center justify-between mb-8">      <div>        <h1 class="text-2xl font-bold text-gray-800">🧰 教练工具</h1>        <p class="text-gray-500 mt-1">精心挑选的学习与成长工具，助你一臂之力</p>      </div>      <button id="manage-btn" onclick="openManageModal()" class="hidden bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center">        <span class="mr-2">⚙️</span> 管理工具      </button>    </div>    <!-- 工具列表 -->    <div id="tools-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">      <!-- 动态填充 -->    </div>    <!-- 空状态 -->    <div id="empty-state" class="hidden text-center py-16">      <p class="text-5xl mb-4">🔧</p>      <p class="text-gray-500">暂无工具，敬请期待</p>    </div>  </main>  <!-- 添加/编辑工具弹窗 -->  <div id="tool-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">    <div class="bg-white rounded-xl shadow-xl w-full max-w-md">      <div class="p-6 border-b">        <h3 id="modal-title" class="text-lg font-semibold text-gray-800">添加工具</h3>      </div>      <div class="p-6 space-y-4">        <input type="hidden" id="tool-id">        <div>          <label class="block text-sm font-medium text-gray-700 mb-1">图标（emoji）</label>          <input type="text" id="tool-icon" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="🔧" maxlength="10">        </div>        <div>          <label class="block text-sm font-medium text-gray-700 mb-1">工具名称 *</label>          <input type="text" id="tool-name" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="如：教练博客">        </div>        <div>          <label class="block text-sm font-medium text-gray-700 mb-1">工具描述</label>          <textarea id="tool-description" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="简要描述这个工具的用途"></textarea>        </div>        <div>          <label class="block text-sm font-medium text-gray-700 mb-1">工具链接 *</label>          <input type="url" id="tool-url" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="https://...">        </div>        <div>          <label class="block text-sm font-medium text-gray-700 mb-1">排序（数字越小越靠前）</label>          <input type="number" id="tool-sort" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="0">        </div>        <div class="flex items-center">          <input type="checkbox" id="tool-active" class="w-4 h-4 text-blue-600 rounded" checked>          <label for="tool-active" class="ml-2 text-sm text-gray-700">显示此工具</label>        </div>      </div>      <div class="p-6 border-t flex justify-end space-x-3">        <button onclick="closeToolModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>        <button onclick="saveTool()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">保存</button>      </div>    </div>  </div>  <!-- 确认删除弹窗 -->  <div id="delete-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm">      <div class="p-6">        <h3 class="text-lg font-semibold text-gray-800 mb-2">确认删除</h3>        <p class="text-gray-600 text-sm">确定要删除工具「<span id="delete-tool-name"></span>」吗？此操作不可撤销。</p>      </div>      <div class="p-6 border-t flex justify-end space-x-3">        <button onclick="closeDeleteModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>        <button onclick="confirmDelete()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition">删除</button>      </div>    </div>  </div>  <script src="js/supabase-client.js"></script>  <script src="js/auth.js"></script>  <script>    let currentSession = null;    let isTeacher = false;    let allTools = [];    let deleteToolId = null;    // 页面初始化    window.addEventListener('load', async () => {      currentSession = await requireAuth();      if (!currentSession) return;      renderNavbar(currentSession, 'tools');      isTeacher = currentSession.role === 'teacher';            // 老师显示管理按钮      if (isTeacher) {        document.getElementById('manage-btn').classList.remove('hidden');      }            loadTools();    });    // 加载工具列表    async function loadTools() {      try {        let query = sb.from('tools').select('*').order('sort_order', { ascending: true });                // 学员只看活跃的工具        if (!isTeacher) {          query = query.eq('is_active', true);        }                const { data, error } = await query;        if (error) throw error;                allTools = data || [];        renderTools();      } catch (e) {        console.error('加载工具失败:', e);      }    }    // 渲染工具列表    function renderTools() {      const grid = document.getElementById('tools-grid');      const emptyState = document.getElementById('empty-state');            if (allTools.length === 0) {        grid.innerHTML = '';        emptyState.classList.remove('hidden');        return;      }            emptyState.classList.add('hidden');      grid.innerHTML = allTools.map(tool => `        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition group relative">          ${isTeacher ? `            <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition flex gap-1">              <button onclick="editTool(${tool.id})" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="编辑">✏️</button>              <button onclick="deleteTool(${tool.id}, '${escapeHtml(tool.name)}')" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title="删除">🗑️</button>            </div>          ` : ''}          ${!tool.is_active ? '<span class="absolute top-3 left-3 px-2 py-0.5 text-xs bg-gray-100 text-gray-500 rounded-full">已隐藏</span>' : ''}          <a href="${escapeHtml(tool.url)}" target="_blank" rel="noopener noreferrer" class="block">            <div class="w-14 h-14 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition">              ${tool.icon || '🔧'}            </div>            <h3 class="text-lg font-semibold text-gray-800 mb-2 group-hover:text-blue-600 transition">${escapeHtml(tool.name)}</h3>            <p class="text-sm text-gray-500 leading-relaxed">${tool.description ? escapeHtml(tool.description) : '点击访问'}</p>            <div class="mt-4 flex items-center text-sm text-blue-600 font-medium">              <span>打开工具</span>              <span class="ml-1 group-hover:translate-x-1 transition">→</span>            </div>          </a>        </div>      `).join('');    }    // 打开管理弹窗（添加模式）    function openManageModal() {      document.getElementById('modal-title').textContent = '添加工具';      document.getElementById('tool-id').value = '';      document.getElementById('tool-icon').value = '🔧';      document.getElementById('tool-name').value = '';      document.getElementById('tool-description').value = '';      document.getElementById('tool-url').value = '';      document.getElementById('tool-sort').value = allTools.length + 1;      document.getElementById('tool-active').checked = true;      document.getElementById('tool-modal').classList.remove('hidden');    }    // 编辑工具    function editTool(id) {      const tool = allTools.find(t => t.id === id);      if (!tool) return;            document.getElementById('modal-title').textContent = '编辑工具';      document.getElementById('tool-id').value = tool.id;      document.getElementById('tool-icon').value = tool.icon || '🔧';      document.getElementById('tool-name').value = tool.name;      document.getElementById('tool-description').value = tool.description || '';      document.getElementById('tool-url').value = tool.url;      document.getElementById('tool-sort').value = tool.sort_order || 0;      document.getElementById('tool-active').checked = tool.is_active;      document.getElementById('tool-modal').classList.remove('hidden');    }    // 关闭工具弹窗    function closeToolModal() {      document.getElementById('tool-modal').classList.add('hidden');    }    // 保存工具    async function saveTool() {      const id = document.getElementById('tool-id').value;      const icon = document.getElementById('tool-icon').value.trim() || '🔧';      const name = document.getElementById('tool-name').value.trim();      const description = document.getElementById('tool-description').value.trim();      const url = document.getElementById('tool-url').value.trim();      const sort_order = parseInt(document.getElementById('tool-sort').value) || 0;      const is_active = document.getElementById('tool-active').checked;      if (!name || !url) {        alert('请填写工具名称和链接');        return;      }      try {        const toolData = { icon, name, description, url, sort_order, is_active };                if (id) {          // 更新          const { error } = await sb.from('tools').update(toolData).eq('id', parseInt(id));          if (error) throw error;        } else {          // 新增          const { error } = await sb.from('tools').insert(toolData);          if (error) throw error;        }                closeToolModal();        loadTools();      } catch (e) {        console.error('保存工具失败:', e);        alert('保存失败：' + e.message);      }    }    // 删除工具    function deleteTool(id, name) {      deleteToolId = id;      document.getElementById('delete-tool-name').textContent = name;      document.getElementById('delete-modal').classList.remove('hidden');    }    // 关闭删除弹窗    function closeDeleteModal() {      deleteToolId = null;      document.getElementById('delete-modal').classList.add('hidden');    }    // 确认删除    async function confirmDelete() {      if (!deleteToolId) return;      try {        const { error } = await sb.from('tools').delete().eq('id', deleteToolId);        if (error) throw error;        closeDeleteModal();        loadTools();      } catch (e) {        console.error('删除工具失败:', e);        alert('删除失败：' + e.message);      }    }    // HTML转义    function escapeHtml(text) {      if (!text) return '';      const div = document.createElement('div');      div.textContent = text;      return div.innerHTML;    }  </script></body></html>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>教练工具 - 自牧平施教练班</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <main class="max-w-5xl mx-auto px-4 py-8">
+    <!-- 页面标题 -->
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800">🧰 教练工具</h1>
+        <p class="text-gray-500 mt-1">精心挑选的学习与成长工具，助你一臂之力</p>
+      </div>
+      <button id="manage-btn" onclick="openManageModal()" class="hidden bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center">
+        <span class="mr-2">⚙️</span> 管理工具
+      </button>
+    </div>
+
+    <!-- 工具列表 -->
+    <div id="tools-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- 动态填充 -->
+    </div>
+
+    <!-- 空状态 -->
+    <div id="empty-state" class="hidden text-center py-16">
+      <p class="text-5xl mb-4">🔧</p>
+      <p class="text-gray-500">暂无工具，敬请期待</p>
+    </div>
+  </main>
+
+  <!-- 添加/编辑工具弹窗 -->
+  <div id="tool-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
+      <div class="p-6 border-b">
+        <h3 id="modal-title" class="text-lg font-semibold text-gray-800">添加工具</h3>
+      </div>
+      <div class="p-6 space-y-4">
+        <input type="hidden" id="tool-id">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">图标（emoji）</label>
+          <input type="text" id="tool-icon" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="🔧" maxlength="10">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">工具名称 *</label>
+          <input type="text" id="tool-name" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="如：教练博客">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">工具描述</label>
+          <textarea id="tool-description" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="简要描述这个工具的用途"></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">工具链接 *</label>
+          <input type="url" id="tool-url" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="https://...">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">排序（数字越小越靠前）</label>
+          <input type="number" id="tool-sort" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="0">
+        </div>
+        <div class="flex items-center">
+          <input type="checkbox" id="tool-active" class="w-4 h-4 text-blue-600 rounded" checked>
+          <label for="tool-active" class="ml-2 text-sm text-gray-700">显示此工具</label>
+        </div>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeToolModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="saveTool()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 确认删除弹窗 -->
+  <div id="delete-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm">
+      <div class="p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-2">确认删除</h3>
+        <p class="text-gray-600 text-sm">确定要删除工具「<span id="delete-tool-name"></span>」吗？此操作不可撤销。</p>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeDeleteModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="confirmDelete()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let currentSession = null;
+    let isTeacher = false;
+    let allTools = [];
+    let deleteToolId = null;
+
+    // 页面初始化
+    window.addEventListener('load', async () => {
+      currentSession = await requireAuth();
+      if (!currentSession) return;
+      renderNavbar(currentSession, 'tools');
+      isTeacher = currentSession.role === 'teacher';
+      
+      // 老师显示管理按钮
+      if (isTeacher) {
+        document.getElementById('manage-btn').classList.remove('hidden');
+      }
+      
+      loadTools();
+    });
+
+    // 加载工具列表
+    async function loadTools() {
+      try {
+        let query = sb.from('tools').select('*').order('sort_order', { ascending: true });
+        
+        // 学员只看活跃的工具
+        if (!isTeacher) {
+          query = query.eq('is_active', true);
+        }
+        
+        const { data, error } = await query;
+        if (error) throw error;
+        
+        allTools = data || [];
+        renderTools();
+      } catch (e) {
+        console.error('加载工具失败:', e);
+      }
+    }
+
+    // 渲染工具列表
+    function renderTools() {
+      const grid = document.getElementById('tools-grid');
+      const emptyState = document.getElementById('empty-state');
+      
+      if (allTools.length === 0) {
+        grid.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+      
+      emptyState.classList.add('hidden');
+      grid.innerHTML = allTools.map(tool => `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition group relative">
+          ${isTeacher ? `
+            <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition flex gap-1">
+              <button onclick="editTool(${tool.id})" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="编辑">✏️</button>
+              <button onclick="deleteTool(${tool.id}, '${escapeHtml(tool.name)}')" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title="删除">🗑️</button>
+            </div>
+          ` : ''}
+          ${!tool.is_active ? '<span class="absolute top-3 left-3 px-2 py-0.5 text-xs bg-gray-100 text-gray-500 rounded-full">已隐藏</span>' : ''}
+          <a href="${escapeHtml(tool.url)}" target="_blank" rel="noopener noreferrer" class="block">
+            <div class="w-14 h-14 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition">
+              ${tool.icon || '🔧'}
+            </div>
+            <h3 class="text-lg font-semibold text-gray-800 mb-2 group-hover:text-blue-600 transition">${escapeHtml(tool.name)}</h3>
+            <p class="text-sm text-gray-500 leading-relaxed">${tool.description ? escapeHtml(tool.description) : '点击访问'}</p>
+            <div class="mt-4 flex items-center text-sm text-blue-600 font-medium">
+              <span>打开工具</span>
+              <span class="ml-1 group-hover:translate-x-1 transition">→</span>
+            </div>
+          </a>
+        </div>
+      `).join('');
+    }
+
+    // 打开管理弹窗（添加模式）
+    function openManageModal() {
+      document.getElementById('modal-title').textContent = '添加工具';
+      document.getElementById('tool-id').value = '';
+      document.getElementById('tool-icon').value = '🔧';
+      document.getElementById('tool-name').value = '';
+      document.getElementById('tool-description').value = '';
+      document.getElementById('tool-url').value = '';
+      document.getElementById('tool-sort').value = allTools.length + 1;
+      document.getElementById('tool-active').checked = true;
+      document.getElementById('tool-modal').classList.remove('hidden');
+    }
+
+    // 编辑工具
+    function editTool(id) {
+      const tool = allTools.find(t => t.id === id);
+      if (!tool) return;
+      
+      document.getElementById('modal-title').textContent = '编辑工具';
+      document.getElementById('tool-id').value = tool.id;
+      document.getElementById('tool-icon').value = tool.icon || '🔧';
+      document.getElementById('tool-name').value = tool.name;
+      document.getElementById('tool-description').value = tool.description || '';
+      document.getElementById('tool-url').value = tool.url;
+      document.getElementById('tool-sort').value = tool.sort_order || 0;
+      document.getElementById('tool-active').checked = tool.is_active;
+      document.getElementById('tool-modal').classList.remove('hidden');
+    }
+
+    // 关闭工具弹窗
+    function closeToolModal() {
+      document.getElementById('tool-modal').classList.add('hidden');
+    }
+
+    // 保存工具
+    async function saveTool() {
+      const id = document.getElementById('tool-id').value;
+      const icon = document.getElementById('tool-icon').value.trim() || '🔧';
+      const name = document.getElementById('tool-name').value.trim();
+      const description = document.getElementById('tool-description').value.trim();
+      const url = document.getElementById('tool-url').value.trim();
+      const sort_order = parseInt(document.getElementById('tool-sort').value) || 0;
+      const is_active = document.getElementById('tool-active').checked;
+
+      if (!name || !url) {
+        alert('请填写工具名称和链接');
+        return;
+      }
+
+      try {
+        const toolData = { icon, name, description, url, sort_order, is_active };
+        
+        if (id) {
+          // 更新
+          const { error } = await sb.from('tools').update(toolData).eq('id', parseInt(id));
+          if (error) throw error;
+        } else {
+          // 新增
+          const { error } = await sb.from('tools').insert(toolData);
+          if (error) throw error;
+        }
+        
+        closeToolModal();
+        loadTools();
+      } catch (e) {
+        console.error('保存工具失败:', e);
+        alert('保存失败：' + e.message);
+      }
+    }
+
+    // 删除工具
+    function deleteTool(id, name) {
+      deleteToolId = id;
+      document.getElementById('delete-tool-name').textContent = name;
+      document.getElementById('delete-modal').classList.remove('hidden');
+    }
+
+    // 关闭删除弹窗
+    function closeDeleteModal() {
+      deleteToolId = null;
+      document.getElementById('delete-modal').classList.add('hidden');
+    }
+
+    // 确认删除
+    async function confirmDelete() {
+      if (!deleteToolId) return;
+      try {
+        const { error } = await sb.from('tools').delete().eq('id', deleteToolId);
+        if (error) throw error;
+        closeDeleteModal();
+        loadTools();
+      } catch (e) {
+        console.error('删除工具失败:', e);
+        alert('删除失败：' + e.message);
+      }
+    }
+
+    // HTML转义
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
