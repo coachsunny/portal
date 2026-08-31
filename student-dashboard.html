@@ -374,6 +374,11 @@
 
         const myClasses = (memberships || []).map(m => m.classes).filter(c => c);
         document.getElementById('stat-classes').textContent = myClasses.length;
+        if (myClasses.length > 0) {
+          currentClassIdForGoals = myClasses[0].id;
+          loadGoals();
+          loadLearningStats();
+        }
         loadDashboardAnnouncements(myClasses.map(c => c.id));
         loadStreak(userId);
 
@@ -632,12 +637,12 @@
 
         const visionDone = (visionRes.data || []).length > 0;
         const assessmentDone = (assessmentRes.data || []).length > 0;
-        const resourcesDone = localStorage.getItem('visited_resources') === 'true';
+        const goalsDone = (goalsRes.data || []).length > 0;
 
         // 更新任务UI
         updateTaskUI('task-vision', visionDone);
         updateTaskUI('task-assessment', assessmentDone);
-        updateTaskUI('task-resources', resourcesDone);
+        updateTaskUI('task-goals', goalsDone);
 
         // 更新进度
         const doneCount = [visionDone, assessmentDone, goalsDone].filter(Boolean).length;
