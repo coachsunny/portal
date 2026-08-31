@@ -1,1 +1,314 @@
-﻿<!DOCTYPE html><html lang="zh-CN"><head>  <meta charset="UTF-8">  <meta name="viewport" content="width=device-width, initial-scale=1.0">  <title>老师首页 - 自牧平施教练班</title>  <script src="https://cdn.tailwindcss.com"></script>  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head><body class="bg-gray-50 min-h-screen">  <!-- 导航栏由 auth.js 动态渲染 -->  <!-- 主内容区 -->  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">    <!-- 欢迎区 -->    <div class="mb-8">      <h1 class="text-2xl font-bold text-gray-800" id="welcome-title">老师您好</h1>      <p class="text-gray-500 mt-1">欢迎回到教学管理后台</p>    </div>    <!-- 统计卡片（只保留全局统计） -->    <div class="grid grid-cols-2 gap-4 mb-6">      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">        <div class="flex items-center justify-between">          <div>            <p class="text-sm text-gray-500">班级数量</p>            <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-classes">-</p>          </div>          <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">            <span class="text-xl">📚</span>          </div>        </div>      </div>      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">        <div class="flex items-center justify-between">          <div>            <p class="text-sm text-gray-500">学员总数</p>            <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-students">-</p>          </div>          <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">            <span class="text-xl">👥</span>          </div>        </div>      </div>    </div>    <!-- 今日待办汇总 -->    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100 mb-8">      <div class="flex items-center justify-between mb-4">        <h2 class="text-lg font-semibold text-gray-800">📋 今日待办</h2>        <span class="text-sm text-gray-500" id="todo-date"></span>      </div>      <div id="todo-summary" class="grid grid-cols-1 md:grid-cols-3 gap-4">        <!-- 动态填充 -->      </div>      <div id="todo-all-done" class="hidden text-center py-4">        <p class="text-3xl mb-2">🎉</p>        <p class="text-gray-600 font-medium">今日待办已全部完成，辛苦了！</p>      </div>    </div>    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">      <!-- 我的班级 -->      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">        <div class="flex items-center justify-between mb-4">          <h2 class="text-lg font-semibold text-gray-800">📚 我的班级</h2>          <a href="classes.html" class="text-sm text-blue-600 hover:text-blue-700">管理班级 →</a>        </div>        <div id="class-list">          <div class="text-center py-8 text-gray-400">            <p class="text-3xl mb-2">📚</p>            <p class="text-sm">暂无班级</p>          </div>        </div>      </div>      <!-- 最近动态 -->      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">        <div class="flex items-center justify-between mb-4">          <h2 class="text-lg font-semibold text-gray-800">🕐 最近动态</h2>        </div>        <div id="recent-activity">          <div class="text-center py-8 text-gray-400">            <p class="text-3xl mb-2">📭</p>            <p class="text-sm">暂无动态</p>          </div>        </div>      </div>    </div>  </main>  <script src="js/supabase-client.js"></script>  <script src="js/auth.js"></script>  <script>    let currentSession = null;    /* 页面初始化    window.addEventListener('load', async () => {      currentSession = await requireTeacher()*/;      if (!currentSession) return;      renderNavbar(currentSession, 'dashboard');      document.getElementById('welcome-title').textContent = `${currentSession.name} 老师，您好`;      const now = new Date();      document.getElementById('todo-date').textContent = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;      loadStats();      loadTodoSummary();      loadClasses();      loadRecentActivity();    });    /* 加载统计数据（只保留班级数量和学员总数）    async function loadStats() {      try {        const [classRes, studentRes] = await Promise.all([          sb.from('classes').select('*', { count: 'exact', head: true */}).eq('teacher_id', currentSession.user.id),          sb.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student')        ]);        document.getElementById('stat-classes').textContent = classRes.count || 0;        document.getElementById('stat-students').textContent = studentRes.count || 0;      } catch (error) {        console.error('加载统计数据失败:', error);      }    }    /* 加载今日待办汇总    async function loadTodoSummary() {      try {                const { data: myClasses */} = await sb          .from('classes')          .select('id')          .eq('teacher_id', currentSession.user.id);        const classIds = (myClasses || []).map(c => c.id);        const [qRes, quizRes, refRes] = await Promise.all([          classIds.length > 0            ? sb.from('questions').select('*', { count: 'exact', head: true }).eq('status', 'open').in('class_id', classIds)            : Promise.resolve({ count: 0 }),          classIds.length > 0            ? sb.from('quiz_submissions').select('*', { count: 'exact', head: true }).is('score', null).in('class_id', classIds)            : Promise.resolve({ count: 0 }),          classIds.length > 0            ? sb.from('chapter_reflections').select('*', { count: 'exact', head: true }).not('content', 'eq', '').or('teacher_reply.is.null,teacher_reply.eq.').in('class_id', classIds)            : Promise.resolve({ count: 0 })        ]);        const qCount = qRes.count || 0;        const quizCount = quizRes.count || 0;        const refCount = refRes.count || 0;        const total = qCount + quizCount + refCount;        const container = document.getElementById('todo-summary');        const allDone = document.getElementById('todo-all-done');        if (total === 0) {          container.classList.add('hidden');          allDone.classList.remove('hidden');          return;        }        container.classList.remove('hidden');        allDone.classList.add('hidden');        const items = [          { icon: '💬', label: '待回复提问', count: qCount, color: 'orange', href: 'teacher-todo.html?tab=questions' },          { icon: '📝', label: '待批改测验', count: quizCount, color: 'blue', href: 'teacher-todo.html?tab=quizzes' },          { icon: '✍️', label: '待回复心得', count: refCount, color: 'purple', href: 'teacher-todo.html?tab=reflections' }        ];        container.innerHTML = items.map(item => `          <a href="${item.href}" class="flex items-center p-4 bg-white rounded-lg border border-${item.color}-100 hover:shadow-md transition ${item.count > 0 ? '' : 'opacity-50'}">            <span class="text-2xl mr-3">${item.icon}</span>            <div class="flex-1">              <p class="text-sm text-gray-600">${item.label}</p>              <p class="text-2xl font-bold text-${item.color}-600">${item.count}</p>            </div>            <span class="text-gray-400">→</span>          </a>        `).join('');      } catch (e) {        console.error('加载待办汇总失败:', e);      }    }    /* 加载待回复提问        async function loadRecentActivity() {      try {        const { data: myClasses */} = await sb          .from('classes')          .select('id, name')          .eq('teacher_id', currentSession.user.id);        const classIds = (myClasses || []).map(c => c.id);        const classNameMap = {};        (myClasses || []).forEach(c => { classNameMap[c.id] = c.name; });        if (classIds.length === 0) return;        /* 并行查询最近的打卡、心得、测验提交        const [checkinRes, reflectionRes, quizRes] = await Promise.all([          sb.from('study_logs').select('user_id, created_at, class_id, profiles(name)').in('class_id', classIds).order('created_at', { ascending: false */}).limit(5),          sb.from('chapter_reflections').select('user_id, created_at, class_id, content, profiles(name)').in('class_id', classIds).order('created_at', { ascending: false }).limit(5),          sb.from('quiz_submissions').select('user_id, created_at, class_id, score, profiles(name)').in('class_id', classIds).order('created_at', { ascending: false }).limit(5)        ]);        /* 合并并按时间排序        const activities = []*/;        (checkinRes.data || []).forEach(l => activities.push({ type: 'checkin', time: l.created_at, user: l.profiles?.name || '学员', classId: l.class_id, className: classNameMap[l.class_id] || '' }));        (reflectionRes.data || []).forEach(r => activities.push({ type: 'reflection', time: r.created_at, user: r.profiles?.name || '学员', classId: r.class_id, className: classNameMap[r.class_id] || '', content: r.content }));        (quizRes.data || []).forEach(q => activities.push({ type: 'quiz', time: q.created_at, user: q.profiles?.name || '学员', classId: q.class_id, className: classNameMap[q.class_id] || '', score: q.score }));        activities.sort((a, b) => new Date(b.time) - new Date(a.time));        const recent = activities.slice(0, 8);        const container = document.getElementById('recent-activity');        if (recent.length === 0) return;        const typeConfig = {          checkin: { icon: '✅', label: '打卡', color: 'text-green-600' },          reflection: { icon: '✍️', label: '写心得', color: 'text-purple-600' },          quiz: { icon: '📝', label: '完成测验', color: 'text-blue-600' }        };        container.innerHTML = recent.map(a => {          const cfg = typeConfig[a.type];          return `<div class="flex items-start p-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition">            <span class="text-lg mr-3 flex-shrink-0">${cfg.icon}</span>            <div class="flex-1 min-w-0">              <p class="text-sm text-gray-800"><span class="font-medium">${escapeHtml(a.user)}</span> <span class="${cfg.color}">${cfg.label}</span></p>              <p class="text-xs text-gray-400 mt-0.5">${a.className} · ${formatDate(a.time)}</p>            </div>          </div>`;        }).join('');      } catch (e) { console.error('加载最近动态失败:', e); }    }    /* 加载班级列表    async function loadClasses() {      try {        const { data: classes, error */} = await sb          .from('classes')          .select('id, name, description, status, created_at')          .eq('teacher_id', currentSession.user.id)          .order('created_at', { ascending: false })          .limit(6);        if (error) throw error;        const container = document.getElementById('class-list');        if (!classes || classes.length === 0) return;        const classIds = classes.map(c => c.id);        /* 并行查询：学员数、待回复提问数、待批改测验数        const [membersRes, questionsRes, quizRes] = await Promise.all([          sb.from('class_members').select('class_id').in('class_id', classIds),          sb.from('questions').select('class_id').in('class_id', classIds).eq('status', 'open'),          sb.from('quiz_submissions').select('class_id').in('class_id', classIds).is('score', null)        ])*/;        const memberCount = {};        const pendingQuestions = {};        const pendingQuizzes = {};        (membersRes.data || []).forEach(m => { memberCount[m.class_id] = (memberCount[m.class_id] || 0) + 1; });        (questionsRes.data || []).forEach(q => { pendingQuestions[q.class_id] = (pendingQuestions[q.class_id] || 0) + 1; });        (quizRes.data || []).forEach(q => { pendingQuizzes[q.class_id] = (pendingQuizzes[q.class_id] || 0) + 1; });        container.innerHTML = classes.map(c => {          const pq = pendingQuestions[c.id] || 0;          const pqz = pendingQuizzes[c.id] || 0;          const hasTodo = pq > 0 || pqz > 0;          return `          <a href="class-detail.html?id=${c.id}" class="flex items-center justify-between p-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition">            <div class="flex items-center min-w-0">              <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">                <span class="text-lg">📚</span>              </div>              <div class="min-w-0">                <h3 class="font-medium text-gray-800 truncate">${escapeHtml(c.name)}</h3>                <p class="text-xs text-gray-500">${memberCount[c.id] || 0} 名学员</p>              </div>            </div>            <div class="flex items-center gap-2 flex-shrink-0 ml-2">              ${hasTodo ? `                <div class="flex items-center gap-1">                  ${pq > 0 ? `<span class="px-1.5 py-0.5 text-xs bg-orange-100 text-orange-600 rounded-full font-medium">💬${pq}</span>` : ''}                  ${pqz > 0 ? `<span class="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-600 rounded-full font-medium">📝${pqz}</span>` : ''}                </div>              ` : ''}              <span class="px-2 py-1 text-xs rounded-full ${c.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">${c.status === 'active' ? '进行中' : '已结束'}</span>            </div>          </a>`;        }).join('');      } catch (e) { console.error('加载班级列表失败:', e); }    }    function escapeHtml(text) {      const div = document.createElement('div');      div.textContent = text;      return div.innerHTML;    }    function formatDate(dateStr) {      if (!dateStr) return '';      const d = new Date(dateStr);      const now = new Date();      const diff = now - d;      if (diff < 60000) return '刚刚';      if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';      if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';      if (diff < 604800000) return Math.floor(diff / 86400000) + '天前';      return `${d.getMonth() + 1}月${d.getDate()}日`;    }  </script></body></html>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>老师首页 - 自牧平施教练班</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <!-- 导航栏由 auth.js 动态渲染 -->
+
+  <!-- 主内容区 -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- 欢迎区 -->
+    <div class="mb-8">
+      <h1 class="text-2xl font-bold text-gray-800" id="welcome-title">老师您好</h1>
+      <p class="text-gray-500 mt-1">欢迎回到教学管理后台</p>
+    </div>
+
+    <!-- 统计卡片（只保留全局统计） -->
+    <div class="grid grid-cols-2 gap-4 mb-6">
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500">班级数量</p>
+            <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-classes">-</p>
+          </div>
+          <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+            <span class="text-xl">📚</span>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500">学员总数</p>
+            <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-students">-</p>
+          </div>
+          <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+            <span class="text-xl">👥</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 今日待办汇总 -->
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100 mb-8">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-800">📋 今日待办</h2>
+        <span class="text-sm text-gray-500" id="todo-date"></span>
+      </div>
+      <div id="todo-summary" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- 动态填充 -->
+      </div>
+      <div id="todo-all-done" class="hidden text-center py-4">
+        <p class="text-3xl mb-2">🎉</p>
+        <p class="text-gray-600 font-medium">今日待办已全部完成，辛苦了！</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- 我的班级 -->
+      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-gray-800">📚 我的班级</h2>
+          <a href="classes.html" class="text-sm text-blue-600 hover:text-blue-700">管理班级 →</a>
+        </div>
+        <div id="class-list">
+          <div class="text-center py-8 text-gray-400">
+            <p class="text-3xl mb-2">📚</p>
+            <p class="text-sm">暂无班级</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 最近动态 -->
+      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-gray-800">🕐 最近动态</h2>
+        </div>
+        <div id="recent-activity">
+          <div class="text-center py-8 text-gray-400">
+            <p class="text-3xl mb-2">📭</p>
+            <p class="text-sm">暂无动态</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let currentSession = null;
+
+    // 页面初始化
+    window.addEventListener('load', async () => {
+      currentSession = await requireTeacher();
+      if (!currentSession) return;
+      renderNavbar(currentSession, 'dashboard');
+      document.getElementById('welcome-title').textContent = `${currentSession.name} 老师，您好`;
+      const now = new Date();
+      document.getElementById('todo-date').textContent = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
+      loadStats();
+      loadTodoSummary();
+      loadClasses();
+      loadRecentActivity();
+    });
+
+    // 加载统计数据（只保留班级数量和学员总数）
+    async function loadStats() {
+      try {
+        const [classRes, studentRes] = await Promise.all([
+          sb.from('classes').select('*', { count: 'exact', head: true }).eq('teacher_id', currentSession.user.id),
+          sb.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student')
+        ]);
+        document.getElementById('stat-classes').textContent = classRes.count || 0;
+        document.getElementById('stat-students').textContent = studentRes.count || 0;
+      } catch (error) {
+        console.error('加载统计数据失败:', error);
+      }
+    }
+
+    // 加载今日待办汇总
+    async function loadTodoSummary() {
+      try {
+        // 先获取当前老师的班级
+        const { data: myClasses } = await sb
+          .from('classes')
+          .select('id')
+          .eq('teacher_id', currentSession.user.id);
+        const classIds = (myClasses || []).map(c => c.id);
+
+        const [qRes, quizRes, refRes] = await Promise.all([
+          classIds.length > 0
+            ? sb.from('questions').select('*', { count: 'exact', head: true }).eq('status', 'open').in('class_id', classIds)
+            : Promise.resolve({ count: 0 }),
+          classIds.length > 0
+            ? sb.from('quiz_submissions').select('*', { count: 'exact', head: true }).is('score', null).in('class_id', classIds)
+            : Promise.resolve({ count: 0 }),
+          classIds.length > 0
+            ? sb.from('chapter_reflections').select('*', { count: 'exact', head: true }).not('content', 'eq', '').or('teacher_reply.is.null,teacher_reply.eq.').in('class_id', classIds)
+            : Promise.resolve({ count: 0 })
+        ]);
+        const qCount = qRes.count || 0;
+        const quizCount = quizRes.count || 0;
+        const refCount = refRes.count || 0;
+        const total = qCount + quizCount + refCount;
+
+        const container = document.getElementById('todo-summary');
+        const allDone = document.getElementById('todo-all-done');
+
+        if (total === 0) {
+          container.classList.add('hidden');
+          allDone.classList.remove('hidden');
+          return;
+        }
+
+        container.classList.remove('hidden');
+        allDone.classList.add('hidden');
+
+        const items = [
+          { icon: '💬', label: '待回复提问', count: qCount, color: 'orange', href: 'teacher-todo.html?tab=questions' },
+          { icon: '📝', label: '待批改测验', count: quizCount, color: 'blue', href: 'teacher-todo.html?tab=quizzes' },
+          { icon: '✍️', label: '待回复心得', count: refCount, color: 'purple', href: 'teacher-todo.html?tab=reflections' }
+        ];
+
+        container.innerHTML = items.map(item => `
+          <a href="${item.href}" class="flex items-center p-4 bg-white rounded-lg border border-${item.color}-100 hover:shadow-md transition ${item.count > 0 ? '' : 'opacity-50'}">
+            <span class="text-2xl mr-3">${item.icon}</span>
+            <div class="flex-1">
+              <p class="text-sm text-gray-600">${item.label}</p>
+              <p class="text-2xl font-bold text-${item.color}-600">${item.count}</p>
+            </div>
+            <span class="text-gray-400">→</span>
+          </a>
+        `).join('');
+      } catch (e) {
+        console.error('加载待办汇总失败:', e);
+      }
+    }
+
+    // 加载待回复提问
+    // 加载最近动态
+    async function loadRecentActivity() {
+      try {
+        const { data: myClasses } = await sb
+          .from('classes')
+          .select('id, name')
+          .eq('teacher_id', currentSession.user.id);
+        const classIds = (myClasses || []).map(c => c.id);
+        const classNameMap = {};
+        (myClasses || []).forEach(c => { classNameMap[c.id] = c.name; });
+
+        if (classIds.length === 0) return;
+
+        // 并行查询最近的打卡、心得、测验提交
+        const [checkinRes, reflectionRes, quizRes] = await Promise.all([
+          sb.from('study_logs').select('user_id, created_at, class_id, profiles(name)').in('class_id', classIds).order('created_at', { ascending: false }).limit(5),
+          sb.from('chapter_reflections').select('user_id, created_at, class_id, content, profiles(name)').in('class_id', classIds).order('created_at', { ascending: false }).limit(5),
+          sb.from('quiz_submissions').select('user_id, created_at, class_id, score, profiles(name)').in('class_id', classIds).order('created_at', { ascending: false }).limit(5)
+        ]);
+
+        // 合并并按时间排序
+        const activities = [];
+        (checkinRes.data || []).forEach(l => activities.push({ type: 'checkin', time: l.created_at, user: l.profiles?.name || '学员', classId: l.class_id, className: classNameMap[l.class_id] || '' }));
+        (reflectionRes.data || []).forEach(r => activities.push({ type: 'reflection', time: r.created_at, user: r.profiles?.name || '学员', classId: r.class_id, className: classNameMap[r.class_id] || '', content: r.content }));
+        (quizRes.data || []).forEach(q => activities.push({ type: 'quiz', time: q.created_at, user: q.profiles?.name || '学员', classId: q.class_id, className: classNameMap[q.class_id] || '', score: q.score }));
+
+        activities.sort((a, b) => new Date(b.time) - new Date(a.time));
+        const recent = activities.slice(0, 8);
+
+        const container = document.getElementById('recent-activity');
+        if (recent.length === 0) return;
+
+        const typeConfig = {
+          checkin: { icon: '✅', label: '打卡', color: 'text-green-600' },
+          reflection: { icon: '✍️', label: '写心得', color: 'text-purple-600' },
+          quiz: { icon: '📝', label: '完成测验', color: 'text-blue-600' }
+        };
+
+        container.innerHTML = recent.map(a => {
+          const cfg = typeConfig[a.type];
+          return `<div class="flex items-start p-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition">
+            <span class="text-lg mr-3 flex-shrink-0">${cfg.icon}</span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm text-gray-800"><span class="font-medium">${escapeHtml(a.user)}</span> <span class="${cfg.color}">${cfg.label}</span></p>
+              <p class="text-xs text-gray-400 mt-0.5">${a.className} · ${formatDate(a.time)}</p>
+            </div>
+          </div>`;
+        }).join('');
+      } catch (e) { console.error('加载最近动态失败:', e); }
+    }
+
+    // 加载班级列表
+    async function loadClasses() {
+      try {
+        const { data: classes, error } = await sb
+          .from('classes')
+          .select('id, name, description, status, created_at')
+          .eq('teacher_id', currentSession.user.id)
+          .order('created_at', { ascending: false })
+          .limit(6);
+        if (error) throw error;
+
+        const container = document.getElementById('class-list');
+        if (!classes || classes.length === 0) return;
+
+        const classIds = classes.map(c => c.id);
+
+        // 并行查询：学员数、待回复提问数、待批改测验数
+        const [membersRes, questionsRes, quizRes] = await Promise.all([
+          sb.from('class_members').select('class_id').in('class_id', classIds),
+          sb.from('questions').select('class_id').in('class_id', classIds).eq('status', 'open'),
+          sb.from('quiz_submissions').select('class_id').in('class_id', classIds).is('score', null)
+        ]);
+
+        const memberCount = {};
+        const pendingQuestions = {};
+        const pendingQuizzes = {};
+        (membersRes.data || []).forEach(m => { memberCount[m.class_id] = (memberCount[m.class_id] || 0) + 1; });
+        (questionsRes.data || []).forEach(q => { pendingQuestions[q.class_id] = (pendingQuestions[q.class_id] || 0) + 1; });
+        (quizRes.data || []).forEach(q => { pendingQuizzes[q.class_id] = (pendingQuizzes[q.class_id] || 0) + 1; });
+
+        container.innerHTML = classes.map(c => {
+          const pq = pendingQuestions[c.id] || 0;
+          const pqz = pendingQuizzes[c.id] || 0;
+          const hasTodo = pq > 0 || pqz > 0;
+          return `
+          <a href="class-detail.html?id=${c.id}" class="flex items-center justify-between p-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition">
+            <div class="flex items-center min-w-0">
+              <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+                <span class="text-lg">📚</span>
+              </div>
+              <div class="min-w-0">
+                <h3 class="font-medium text-gray-800 truncate">${escapeHtml(c.name)}</h3>
+                <p class="text-xs text-gray-500">${memberCount[c.id] || 0} 名学员</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0 ml-2">
+              ${hasTodo ? `
+                <div class="flex items-center gap-1">
+                  ${pq > 0 ? `<span class="px-1.5 py-0.5 text-xs bg-orange-100 text-orange-600 rounded-full font-medium">💬${pq}</span>` : ''}
+                  ${pqz > 0 ? `<span class="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-600 rounded-full font-medium">📝${pqz}</span>` : ''}
+                </div>
+              ` : ''}
+              <span class="px-2 py-1 text-xs rounded-full ${c.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">${c.status === 'active' ? '进行中' : '已结束'}</span>
+            </div>
+          </a>`;
+        }).join('');
+      } catch (e) { console.error('加载班级列表失败:', e); }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diff = now - d;
+      if (diff < 60000) return '刚刚';
+      if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+      if (diff < 604800000) return Math.floor(diff / 86400000) + '天前';
+      return `${d.getMonth() + 1}月${d.getDate()}日`;
+    }
+  </script>
+</body>
+</html>

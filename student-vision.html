@@ -1,1 +1,248 @@
-﻿<!DOCTYPE html><html lang="zh-CN"><head>  <meta charset="UTF-8">  <meta name="viewport" content="width=device-width, initial-scale=1.0">  <title>自我愿景 - 自牧平施教练班</title>  <script src="https://cdn.tailwindcss.com"></script>  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head><body class="bg-gray-50 min-h-screen">  <main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">    <!-- 页面标题 -->    <div class="mb-6">      <h1 class="text-2xl font-bold text-gray-800">🌟 我的自我愿景</h1>      <p class="text-gray-500 mt-1">描绘你想成为的样子，让目标更清晰</p>    </div>    <!-- 班级选择 -->    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">      <label class="block text-sm font-medium text-gray-700 mb-2">选择班级</label>      <select id="class-select" onchange="loadVision()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></select>    </div>    <!-- 愿景表单 -->    <div id="vision-form" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">      <!-- 文字部分 -->      <div class="mb-6">        <h2 class="text-lg font-semibold text-gray-800 mb-4">✍️ 文字描述</h2>        <div class="mb-4">          <label class="block text-sm font-medium text-gray-700 mb-2">            我想成为怎样的人 <span class="text-red-500">*</span>          </label>          <textarea id="self-description" rows="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="请描述你理想中的自己，包括性格、能力、生活状态等..."></textarea>        </div>        <div>          <label class="block text-sm font-medium text-gray-700 mb-2">            别人会看到的改变 <span class="text-red-500">*</span>          </label>          <textarea id="others-change" rows="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="当你成为理想中的自己时，别人会注意到你有什么变化..."></textarea>        </div>      </div>      <!-- 图片部分 -->      <div class="mb-6">        <h2 class="text-lg font-semibold text-gray-800 mb-4">🎨 愿景图画（选填）</h2>        <p class="text-sm text-gray-500 mb-4">可以用手画的方式描绘你的愿景，然后拍照上传。图画能帮你更直观地看到目标。</p>        <div id="upload-area" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition cursor-pointer" onclick="document.getElementById('image-input').click()">          <div id="upload-placeholder">            <p class="text-4xl mb-2">📷</p>            <p class="text-sm text-gray-500">点击上传手绘图</p>            <p class="text-xs text-gray-400 mt-1">支持 JPG、PNG，最大 5MB</p>          </div>          <img id="image-preview" class="hidden max-w-full mx-auto rounded-lg" alt="愿景图预览">        </div>        <input type="file" id="image-input" accept="image/*" class="hidden" onchange="onImageSelected(event)">        <button id="remove-image-btn" onclick="removeImage()" class="hidden mt-2 text-sm text-red-500 hover:text-red-700">移除图片</button>      </div>      <!-- 保存按钮 -->      <div class="flex justify-end">        <button onclick="saveVision()" id="save-btn" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition disabled:opacity-50">保存愿景</button>      </div>      <!-- 最后更新时间 -->      <p id="update-time" class="text-xs text-gray-400 text-center mt-4 hidden"></p>    </div>  </main>  <script src="js/supabase-client.js"></script>  <script src="js/auth.js"></script>  <script>    let currentSession = null;    let myClasses = [];    let currentVisionId = null;    let selectedImageFile = null;    let currentImageUrl = null;    window.addEventListener('load', async () => {      currentSession = await requireStudent();      if (!currentSession) return;      renderNavbar(currentSession, 'vision');      await loadMyClasses();    });    async function loadMyClasses() {      try {        const { data, error } = await sb          .from('class_members')          .select('class_id, classes(id, name, status)')          .eq('user_id', currentSession.user.id);        if (error) throw error;        myClasses = (data || []).map(d => d.classes).filter(c => c);        const select = document.getElementById('class-select');        if (myClasses.length === 0) {          select.innerHTML = '<option value="">你还没有加入任何班级</option>';          return;        }        select.innerHTML = myClasses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');        await loadVision();      } catch (e) { alert('加载班级失败：' + e.message); }    }    async function loadVision() {      const classId = parseInt(document.getElementById('class-select').value);      if (!classId) return;      try {        const { data, error } = await sb          .from('student_visions')          .select('*')          .eq('user_id', currentSession.user.id)          .eq('class_id', classId)          .maybeSingle();        if (error) throw error;        if (data) {          currentVisionId = data.id;          document.getElementById('self-description').value = data.self_description || '';          document.getElementById('others-change').value = data.others_change || '';          currentImageUrl = data.image_url || null;          if (currentImageUrl) {            document.getElementById('image-preview').src = currentImageUrl;            document.getElementById('image-preview').classList.remove('hidden');            document.getElementById('upload-placeholder').classList.add('hidden');            document.getElementById('remove-image-btn').classList.remove('hidden');          } else {            resetImageArea();          }          document.getElementById('update-time').textContent = '最后更新：' + formatDateTime(new Date(data.updated_at));          document.getElementById('update-time').classList.remove('hidden');        } else {          currentVisionId = null;          document.getElementById('self-description').value = '';          document.getElementById('others-change').value = '';          resetImageArea();          document.getElementById('update-time').classList.add('hidden');        }      } catch (e) { console.error('加载愿景失败:', e); }    }    function resetImageArea() {      currentImageUrl = null;      selectedImageFile = null;      document.getElementById('image-preview').classList.add('hidden');      document.getElementById('image-preview').src = '';      document.getElementById('upload-placeholder').classList.remove('hidden');      document.getElementById('remove-image-btn').classList.add('hidden');      document.getElementById('image-input').value = '';    }    function onImageSelected(event) {      const file = event.target.files[0];      if (!file) return;      if (file.size > 5 * 1024 * 1024) {        alert('图片大小不能超过5MB');        return;      }      selectedImageFile = file;      const reader = new FileReader();      reader.onload = (e) => {        document.getElementById('image-preview').src = e.target.result;        document.getElementById('image-preview').classList.remove('hidden');        document.getElementById('upload-placeholder').classList.add('hidden');        document.getElementById('remove-image-btn').classList.remove('hidden');      };      reader.readAsDataURL(file);    }    function removeImage() {      if (confirm('确定要移除图片吗？')) {        selectedImageFile = null;        currentImageUrl = null;        document.getElementById('image-preview').classList.add('hidden');        document.getElementById('image-preview').src = '';        document.getElementById('upload-placeholder').classList.remove('hidden');        document.getElementById('remove-image-btn').classList.add('hidden');        document.getElementById('image-input').value = '';      }    }    async function saveVision() {      const classId = parseInt(document.getElementById('class-select').value);      const selfDescription = document.getElementById('self-description').value.trim();      const othersChange = document.getElementById('others-change').value.trim();      if (!classId) { alert('请选择班级'); return; }      if (!selfDescription) { alert('请填写"我想成为怎样的人"'); return; }      if (!othersChange) { alert('请填写"别人会看到的改变"'); return; }      const btn = document.getElementById('save-btn');      btn.disabled = true; btn.textContent = '保存中...';      try {        let imageUrl = currentImageUrl;        // 如果有新图片，上传        if (selectedImageFile) {          const ext = selectedImageFile.name.split('.').pop() || 'jpg';          const path = `visions/${currentSession.user.id}/${Date.now()}.${ext}`;          const { error: uploadError } = await sb.storage.from('resources').upload(path, selectedImageFile);          if (uploadError) throw uploadError;          const { data: urlData } = sb.storage.from('resources').getPublicUrl(path);          imageUrl = urlData.publicUrl;        }        if (currentVisionId) {          // 更新          const { error } = await sb.from('student_visions').update({            self_description: selfDescription,            others_change: othersChange,            image_url: imageUrl,            updated_at: new Date().toISOString()          }).eq('id', currentVisionId);          if (error) throw error;        } else {          // 新建          const { error } = await sb.from('student_visions').insert({            user_id: currentSession.user.id,            class_id: classId,            self_description: selfDescription,            others_change: othersChange,            image_url: imageUrl          });          if (error) throw error;        }        selectedImageFile = null;        await loadVision();        alert('愿景保存成功！');      } catch (e) { alert('保存失败：' + e.message); }      finally { btn.disabled = false; btn.textContent = '保存愿景'; }    }    function formatDateTime(date) {      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;    }    function escapeHtml(text) {      const div = document.createElement('div');      div.textContent = text;      return div.innerHTML;    }  </script></body></html>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>自我愿景 - 自牧平施教练班</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- 页面标题 -->
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-gray-800">🌟 我的自我愿景</h1>
+      <p class="text-gray-500 mt-1">描绘你想成为的样子，让目标更清晰</p>
+    </div>
+
+    <!-- 班级选择 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+      <label class="block text-sm font-medium text-gray-700 mb-2">选择班级</label>
+      <select id="class-select" onchange="loadVision()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></select>
+    </div>
+
+    <!-- 愿景表单 -->
+    <div id="vision-form" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <!-- 文字部分 -->
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">✍️ 文字描述</h2>
+
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            我想成为怎样的人 <span class="text-red-500">*</span>
+          </label>
+          <textarea id="self-description" rows="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="请描述你理想中的自己，包括性格、能力、生活状态等..."></textarea>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            别人会看到的改变 <span class="text-red-500">*</span>
+          </label>
+          <textarea id="others-change" rows="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="当你成为理想中的自己时，别人会注意到你有什么变化..."></textarea>
+        </div>
+      </div>
+
+      <!-- 图片部分 -->
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">🎨 愿景图画（选填）</h2>
+        <p class="text-sm text-gray-500 mb-4">可以用手画的方式描绘你的愿景，然后拍照上传。图画能帮你更直观地看到目标。</p>
+
+        <div id="upload-area" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition cursor-pointer" onclick="document.getElementById('image-input').click()">
+          <div id="upload-placeholder">
+            <p class="text-4xl mb-2">📷</p>
+            <p class="text-sm text-gray-500">点击上传手绘图</p>
+            <p class="text-xs text-gray-400 mt-1">支持 JPG、PNG，最大 5MB</p>
+          </div>
+          <img id="image-preview" class="hidden max-w-full mx-auto rounded-lg" alt="愿景图预览">
+        </div>
+        <input type="file" id="image-input" accept="image/*" class="hidden" onchange="onImageSelected(event)">
+        <button id="remove-image-btn" onclick="removeImage()" class="hidden mt-2 text-sm text-red-500 hover:text-red-700">移除图片</button>
+      </div>
+
+      <!-- 保存按钮 -->
+      <div class="flex justify-end">
+        <button onclick="saveVision()" id="save-btn" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition disabled:opacity-50">保存愿景</button>
+      </div>
+
+      <!-- 最后更新时间 -->
+      <p id="update-time" class="text-xs text-gray-400 text-center mt-4 hidden"></p>
+    </div>
+  </main>
+
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let currentSession = null;
+    let myClasses = [];
+    let currentVisionId = null;
+    let selectedImageFile = null;
+    let currentImageUrl = null;
+
+    window.addEventListener('load', async () => {
+      currentSession = await requireStudent();
+      if (!currentSession) return;
+      renderNavbar(currentSession, 'vision');
+      await loadMyClasses();
+    });
+
+    async function loadMyClasses() {
+      try {
+        const { data, error } = await sb
+          .from('class_members')
+          .select('class_id, classes(id, name, status)')
+          .eq('user_id', currentSession.user.id);
+        if (error) throw error;
+        myClasses = (data || []).map(d => d.classes).filter(c => c);
+        const select = document.getElementById('class-select');
+        if (myClasses.length === 0) {
+          select.innerHTML = '<option value="">你还没有加入任何班级</option>';
+          return;
+        }
+        select.innerHTML = myClasses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+        await loadVision();
+      } catch (e) { alert('加载班级失败：' + e.message); }
+    }
+
+    async function loadVision() {
+      const classId = parseInt(document.getElementById('class-select').value);
+      if (!classId) return;
+
+      try {
+        const { data, error } = await sb
+          .from('student_visions')
+          .select('*')
+          .eq('user_id', currentSession.user.id)
+          .eq('class_id', classId)
+          .maybeSingle();
+        if (error) throw error;
+
+        if (data) {
+          currentVisionId = data.id;
+          document.getElementById('self-description').value = data.self_description || '';
+          document.getElementById('others-change').value = data.others_change || '';
+          currentImageUrl = data.image_url || null;
+          if (currentImageUrl) {
+            document.getElementById('image-preview').src = currentImageUrl;
+            document.getElementById('image-preview').classList.remove('hidden');
+            document.getElementById('upload-placeholder').classList.add('hidden');
+            document.getElementById('remove-image-btn').classList.remove('hidden');
+          } else {
+            resetImageArea();
+          }
+          document.getElementById('update-time').textContent = '最后更新：' + formatDateTime(new Date(data.updated_at));
+          document.getElementById('update-time').classList.remove('hidden');
+        } else {
+          currentVisionId = null;
+          document.getElementById('self-description').value = '';
+          document.getElementById('others-change').value = '';
+          resetImageArea();
+          document.getElementById('update-time').classList.add('hidden');
+        }
+      } catch (e) { console.error('加载愿景失败:', e); }
+    }
+
+    function resetImageArea() {
+      currentImageUrl = null;
+      selectedImageFile = null;
+      document.getElementById('image-preview').classList.add('hidden');
+      document.getElementById('image-preview').src = '';
+      document.getElementById('upload-placeholder').classList.remove('hidden');
+      document.getElementById('remove-image-btn').classList.add('hidden');
+      document.getElementById('image-input').value = '';
+    }
+
+    function onImageSelected(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) {
+        alert('图片大小不能超过5MB');
+        return;
+      }
+      selectedImageFile = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        document.getElementById('image-preview').src = e.target.result;
+        document.getElementById('image-preview').classList.remove('hidden');
+        document.getElementById('upload-placeholder').classList.add('hidden');
+        document.getElementById('remove-image-btn').classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function removeImage() {
+      if (confirm('确定要移除图片吗？')) {
+        selectedImageFile = null;
+        currentImageUrl = null;
+        document.getElementById('image-preview').classList.add('hidden');
+        document.getElementById('image-preview').src = '';
+        document.getElementById('upload-placeholder').classList.remove('hidden');
+        document.getElementById('remove-image-btn').classList.add('hidden');
+        document.getElementById('image-input').value = '';
+      }
+    }
+
+    async function saveVision() {
+      const classId = parseInt(document.getElementById('class-select').value);
+      const selfDescription = document.getElementById('self-description').value.trim();
+      const othersChange = document.getElementById('others-change').value.trim();
+
+      if (!classId) { alert('请选择班级'); return; }
+      if (!selfDescription) { alert('请填写"我想成为怎样的人"'); return; }
+      if (!othersChange) { alert('请填写"别人会看到的改变"'); return; }
+
+      const btn = document.getElementById('save-btn');
+      btn.disabled = true; btn.textContent = '保存中...';
+
+      try {
+        let imageUrl = currentImageUrl;
+
+        // 如果有新图片，上传
+        if (selectedImageFile) {
+          const ext = selectedImageFile.name.split('.').pop() || 'jpg';
+          const path = `visions/${currentSession.user.id}/${Date.now()}.${ext}`;
+          const { error: uploadError } = await sb.storage.from('resources').upload(path, selectedImageFile);
+          if (uploadError) throw uploadError;
+          const { data: urlData } = sb.storage.from('resources').getPublicUrl(path);
+          imageUrl = urlData.publicUrl;
+        }
+
+        if (currentVisionId) {
+          // 更新
+          const { error } = await sb.from('student_visions').update({
+            self_description: selfDescription,
+            others_change: othersChange,
+            image_url: imageUrl,
+            updated_at: new Date().toISOString()
+          }).eq('id', currentVisionId);
+          if (error) throw error;
+        } else {
+          // 新建
+          const { error } = await sb.from('student_visions').insert({
+            user_id: currentSession.user.id,
+            class_id: classId,
+            self_description: selfDescription,
+            others_change: othersChange,
+            image_url: imageUrl
+          });
+          if (error) throw error;
+        }
+
+        selectedImageFile = null;
+        await loadVision();
+        alert('愿景保存成功！');
+      } catch (e) { alert('保存失败：' + e.message); }
+      finally { btn.disabled = false; btn.textContent = '保存愿景'; }
+    }
+
+    function formatDateTime(date) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

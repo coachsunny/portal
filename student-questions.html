@@ -1,1 +1,212 @@
-﻿<!DOCTYPE html><html lang="zh-CN"><head>  <meta charset="UTF-8">  <meta name="viewport" content="width=device-width, initial-scale=1.0">  <title>我的提问 - 自牧平施教练班</title>  <script src="https://cdn.tailwindcss.com"></script>  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head><body class="bg-gray-50 min-h-screen">  <main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">    <!-- 班级选择器 -->    <div class="mb-6">      <label class="block text-sm font-medium text-gray-700 mb-2">选择班级</label>      <select id="class-select" onchange="onClassChange()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">        <option value="">加载中...</option>      </select>    </div>    <!-- 发起提问按钮 -->    <div class="mb-6 flex justify-end">      <button onclick="openAskModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center">        <span class="mr-2">➕</span> 发起提问      </button>    </div>    <!-- 提问列表 -->    <div id="question-list" class="space-y-4"></div>    <div id="empty-questions" class="hidden text-center py-12 bg-white rounded-xl border border-gray-100">      <p class="text-4xl mb-3">💬</p>      <p class="text-gray-500">还没有提问</p>      <p class="text-gray-400 text-sm mt-1">点击右上角「发起提问」向老师提问</p>    </div>  </main>  <!-- 提问弹窗（新建/编辑共用） -->  <div id="ask-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">      <div class="p-6 border-b"><h3 class="text-lg font-semibold text-gray-800" id="ask-modal-title">发起提问</h3></div>      <div class="p-6">        <label class="block text-sm font-medium text-gray-700 mb-2">问题内容</label>        <textarea id="ask-content" rows="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="请输入你想问的问题..."></textarea>      </div>      <div class="p-6 border-t flex justify-end space-x-3">        <button onclick="closeAskModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>        <button onclick="submitQuestion()" id="ask-submit-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">提交提问</button>      </div>    </div>  </div>  <script src="js/supabase-client.js"></script>  <script src="js/auth.js"></script>  <script>    let currentSession = null;    let myClasses = [];    let currentClassId = null;    let editingQuestionId = null;    window.addEventListener('load', async () => {      currentSession = await requireStudent();      if (!currentSession) return;      renderNavbar(currentSession, 'questions');      /* 先显示未读红点，加载完问题后再标记已读      loadUnreadCount(currentSession.user.id)*/;      await loadMyClasses();    });    async function loadMyClasses() {      try {        const { data: members, error } = await sb          .from('class_members')          .select('class_id, classes(id, name, description)')          .eq('user_id', currentSession.user.id)          .order('joined_at', { ascending: true });        if (error) throw error;        myClasses = (members || []).map(m => m.classes).filter(c => c);        const select = document.getElementById('class-select');        if (myClasses.length === 0) {          select.innerHTML = '<option value="">您还没有加入任何班级</option>';          select.disabled = true;          return;        }        select.innerHTML = myClasses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');        /* 优先读取上次选择的班级，没有则默认第一个        const savedClassId = localStorage.getItem('selected_class_' + currentSession.user.id)*/;        currentClassId = (savedClassId && myClasses.some(c => c.id == savedClassId)) ? savedClassId : myClasses[0].id;        select.value = currentClassId;        await loadQuestions();      } catch (e) {        console.error('加载班级失败:', e);        alert('加载班级失败：' + e.message);      }    }    function onClassChange() {      currentClassId = document.getElementById('class-select').value;      if (currentClassId) {        localStorage.setItem('selected_class_' + currentSession.user.id, currentClassId);        loadQuestions();      }    }    async function loadQuestions() {      if (!currentClassId) return;      /* 显示加载状态      document.getElementById('question-list').innerHTML = '<div class="flex flex-col items-center justify-center py-16 bg-white rounded-xl border border-gray-100"><div class="w-10 h-10 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div><p class="text-sm text-gray-400 mt-3">加载中...</p></div>'*/;      document.getElementById('empty-questions').classList.add('hidden');      try {        const { data: questions, error } = await sb          .from('questions')          .select('*')          .eq('class_id', currentClassId)          .eq('user_id', currentSession.user.id)          .order('created_at', { ascending: false });        if (error) throw error;        const container = document.getElementById('question-list');        const empty = document.getElementById('empty-questions');        if (!questions || questions.length === 0) {          container.innerHTML = '';          empty.classList.remove('hidden');          return;        }        empty.classList.add('hidden');        container.innerHTML = questions.map(q => {          const isAnswered = q.status === 'answered';          return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">            <div class="p-5">              <div class="flex items-center justify-between mb-3">                <span class="text-xs text-gray-400">${formatDate(q.created_at)}</span>                <div class="flex items-center space-x-2">                  ${!isAnswered ? `<button onclick="openEditModal(${q.id}, '${escapeHtml(q.content).replace(/'/g, "\\'")}')" class="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 hover:bg-blue-50 rounded transition">✏️ 修改</button>` : ''}                  <span class="text-xs px-2 py-1 rounded ${isAnswered ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${isAnswered ? '已回复' : '待回复'}</span>                </div>              </div>              <div class="bg-gray-50 rounded-lg p-3 mb-3">                <p class="text-xs text-gray-500 mb-1">我的提问</p>                <p class="text-sm text-gray-700 whitespace-pre-wrap">${escapeHtml(q.content)}</p>              </div>              ${q.teacher_reply ? `<div class="bg-blue-50 rounded-lg p-3"><p class="text-xs text-blue-500 font-medium mb-1">老师回复（${formatDate(q.replied_at)}）</p><p class="text-sm text-blue-700 whitespace-pre-wrap">${escapeHtml(q.teacher_reply)}</p></div>` : ''}            </div>          </div>`;        }).join('');        /* 学员进入页面查看后，自动将所有已回复的提问标记为已读        markQuestionsAsRead(currentSession.user.id)*/;      } catch (e) {        console.error('加载提问失败:', e);        alert('加载提问失败：' + e.message);      }    }    function openAskModal() {      if (!currentClassId) { alert('请先选择班级'); return; }      editingQuestionId = null;      document.getElementById('ask-modal-title').textContent = '发起提问';      document.getElementById('ask-submit-btn').textContent = '提交提问';      document.getElementById('ask-content').value = '';      document.getElementById('ask-modal').classList.remove('hidden');    }    function openEditModal(id, content) {      editingQuestionId = id;      document.getElementById('ask-modal-title').textContent = '修改提问';      document.getElementById('ask-submit-btn').textContent = '保存修改';      document.getElementById('ask-content').value = content;      document.getElementById('ask-modal').classList.remove('hidden');    }    function closeAskModal() {      document.getElementById('ask-modal').classList.add('hidden');      editingQuestionId = null;    }    async function submitQuestion() {      const content = document.getElementById('ask-content').value.trim();      if (!content) { alert('请输入问题内容'); return; }      const btn = document.getElementById('ask-submit-btn'); btn.disabled = true; btn.textContent = '提交中...';      try {        if (editingQuestionId) {          /* 编辑模式          const { error */} = await sb.from('questions').update({ content }).eq('id', editingQuestionId);          if (error) throw error;          alert('修改成功！');        } else {          /* 新建模式          const { error */} = await sb.from('questions').insert({ class_id: parseInt(currentClassId), user_id: currentSession.user.id, content });          if (error) throw error;          alert('提问提交成功！老师回复后会在这里显示。');        }        closeAskModal(); loadQuestions();      } catch (e) { alert('提交失败：' + e.message); }      finally { btn.disabled = false; btn.textContent = editingQuestionId ? '保存修改' : '提交提问'; }    }    function escapeHtml(text) {      const d = document.createElement('div');      d.textContent = text;      return d.innerHTML;    }    function formatDate(s) {      if (!s) return '-';      return new Date(s).toLocaleDateString('zh-CN');    }  </script></body></html>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的提问 - 自牧平施教练班</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- 班级选择器 -->
+    <div class="mb-6">
+      <label class="block text-sm font-medium text-gray-700 mb-2">选择班级</label>
+      <select id="class-select" onchange="onClassChange()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+        <option value="">加载中...</option>
+      </select>
+    </div>
+
+    <!-- 发起提问按钮 -->
+    <div class="mb-6 flex justify-end">
+      <button onclick="openAskModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center">
+        <span class="mr-2">➕</span> 发起提问
+      </button>
+    </div>
+
+    <!-- 提问列表 -->
+    <div id="question-list" class="space-y-4"></div>
+    <div id="empty-questions" class="hidden text-center py-12 bg-white rounded-xl border border-gray-100">
+      <p class="text-4xl mb-3">💬</p>
+      <p class="text-gray-500">还没有提问</p>
+      <p class="text-gray-400 text-sm mt-1">点击右上角「发起提问」向老师提问</p>
+    </div>
+  </main>
+
+  <!-- 提问弹窗（新建/编辑共用） -->
+  <div id="ask-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
+      <div class="p-6 border-b"><h3 class="text-lg font-semibold text-gray-800" id="ask-modal-title">发起提问</h3></div>
+      <div class="p-6">
+        <label class="block text-sm font-medium text-gray-700 mb-2">问题内容</label>
+        <textarea id="ask-content" rows="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="请输入你想问的问题..."></textarea>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeAskModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="submitQuestion()" id="ask-submit-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">提交提问</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let currentSession = null;
+    let myClasses = [];
+    let currentClassId = null;
+    let editingQuestionId = null;
+
+    window.addEventListener('load', async () => {
+      currentSession = await requireStudent();
+      if (!currentSession) return;
+      renderNavbar(currentSession, 'questions');
+      // 先显示未读红点，加载完问题后再标记已读
+      loadUnreadCount(currentSession.user.id);
+      await loadMyClasses();
+    });
+
+    async function loadMyClasses() {
+      try {
+        const { data: members, error } = await sb
+          .from('class_members')
+          .select('class_id, classes(id, name, description)')
+          .eq('user_id', currentSession.user.id)
+          .order('joined_at', { ascending: true });
+        if (error) throw error;
+
+        myClasses = (members || []).map(m => m.classes).filter(c => c);
+        const select = document.getElementById('class-select');
+
+        if (myClasses.length === 0) {
+          select.innerHTML = '<option value="">您还没有加入任何班级</option>';
+          select.disabled = true;
+          return;
+        }
+
+        select.innerHTML = myClasses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+        // 优先读取上次选择的班级，没有则默认第一个
+        const savedClassId = localStorage.getItem('selected_class_' + currentSession.user.id);
+        currentClassId = (savedClassId && myClasses.some(c => c.id == savedClassId)) ? savedClassId : myClasses[0].id;
+        select.value = currentClassId;
+        await loadQuestions();
+      } catch (e) {
+        console.error('加载班级失败:', e);
+        alert('加载班级失败：' + e.message);
+      }
+    }
+
+    function onClassChange() {
+      currentClassId = document.getElementById('class-select').value;
+      if (currentClassId) {
+        localStorage.setItem('selected_class_' + currentSession.user.id, currentClassId);
+        loadQuestions();
+      }
+    }
+
+    async function loadQuestions() {
+      if (!currentClassId) return;
+      // 显示加载状态
+      document.getElementById('question-list').innerHTML = '<div class="flex flex-col items-center justify-center py-16 bg-white rounded-xl border border-gray-100"><div class="w-10 h-10 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div><p class="text-sm text-gray-400 mt-3">加载中...</p></div>';
+      document.getElementById('empty-questions').classList.add('hidden');
+      try {
+        const { data: questions, error } = await sb
+          .from('questions')
+          .select('*')
+          .eq('class_id', currentClassId)
+          .eq('user_id', currentSession.user.id)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+
+        const container = document.getElementById('question-list');
+        const empty = document.getElementById('empty-questions');
+
+        if (!questions || questions.length === 0) {
+          container.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+        empty.classList.add('hidden');
+
+        container.innerHTML = questions.map(q => {
+          const isAnswered = q.status === 'answered';
+          return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="p-5">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs text-gray-400">${formatDate(q.created_at)}</span>
+                <div class="flex items-center space-x-2">
+                  ${!isAnswered ? `<button onclick="openEditModal(${q.id}, '${escapeHtml(q.content).replace(/'/g, "\\'")}')" class="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 hover:bg-blue-50 rounded transition">✏️ 修改</button>` : ''}
+                  <span class="text-xs px-2 py-1 rounded ${isAnswered ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${isAnswered ? '已回复' : '待回复'}</span>
+                </div>
+              </div>
+              <div class="bg-gray-50 rounded-lg p-3 mb-3">
+                <p class="text-xs text-gray-500 mb-1">我的提问</p>
+                <p class="text-sm text-gray-700 whitespace-pre-wrap">${escapeHtml(q.content)}</p>
+              </div>
+              ${q.teacher_reply ? `<div class="bg-blue-50 rounded-lg p-3"><p class="text-xs text-blue-500 font-medium mb-1">老师回复（${formatDate(q.replied_at)}）</p><p class="text-sm text-blue-700 whitespace-pre-wrap">${escapeHtml(q.teacher_reply)}</p></div>` : ''}
+            </div>
+          </div>`;
+        }).join('');
+        // 学员进入页面查看后，自动将所有已回复的提问标记为已读
+        markQuestionsAsRead(currentSession.user.id);
+      } catch (e) {
+        console.error('加载提问失败:', e);
+        alert('加载提问失败：' + e.message);
+      }
+    }
+
+    function openAskModal() {
+      if (!currentClassId) { alert('请先选择班级'); return; }
+      editingQuestionId = null;
+      document.getElementById('ask-modal-title').textContent = '发起提问';
+      document.getElementById('ask-submit-btn').textContent = '提交提问';
+      document.getElementById('ask-content').value = '';
+      document.getElementById('ask-modal').classList.remove('hidden');
+    }
+
+    function openEditModal(id, content) {
+      editingQuestionId = id;
+      document.getElementById('ask-modal-title').textContent = '修改提问';
+      document.getElementById('ask-submit-btn').textContent = '保存修改';
+      document.getElementById('ask-content').value = content;
+      document.getElementById('ask-modal').classList.remove('hidden');
+    }
+
+    function closeAskModal() {
+      document.getElementById('ask-modal').classList.add('hidden');
+      editingQuestionId = null;
+    }
+
+    async function submitQuestion() {
+      const content = document.getElementById('ask-content').value.trim();
+      if (!content) { alert('请输入问题内容'); return; }
+      const btn = document.getElementById('ask-submit-btn'); btn.disabled = true; btn.textContent = '提交中...';
+      try {
+        if (editingQuestionId) {
+          // 编辑模式
+          const { error } = await sb.from('questions').update({ content }).eq('id', editingQuestionId);
+          if (error) throw error;
+          alert('修改成功！');
+        } else {
+          // 新建模式
+          const { error } = await sb.from('questions').insert({ class_id: parseInt(currentClassId), user_id: currentSession.user.id, content });
+          if (error) throw error;
+          alert('提问提交成功！老师回复后会在这里显示。');
+        }
+        closeAskModal(); loadQuestions();
+      } catch (e) { alert('提交失败：' + e.message); }
+      finally { btn.disabled = false; btn.textContent = editingQuestionId ? '保存修改' : '提交提问'; }
+    }
+
+    function escapeHtml(text) {
+      const d = document.createElement('div');
+      d.textContent = text;
+      return d.innerHTML;
+    }
+
+    function formatDate(s) {
+      if (!s) return '-';
+      return new Date(s).toLocaleDateString('zh-CN');
+    }
+  </script>
+</body>
+</html>

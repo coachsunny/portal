@@ -1,1 +1,518 @@
-﻿<!DOCTYPE html><html lang="zh-CN"><head>  <meta charset="UTF-8">  <meta name="viewport" content="width=device-width, initial-scale=1.0">  <title>老师待办处理 - 自牧平施教练班</title>  <script src="https://cdn.tailwindcss.com"></script>  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head><body class="bg-gray-50 min-h-screen">  <!-- 导航栏由 auth.js 动态渲染 -->  <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">    <!-- 页面标题 -->    <div class="mb-6">      <h1 class="text-2xl font-bold text-gray-800">📋 待办处理</h1>      <p class="text-gray-500 mt-1">集中处理所有班级的待办事项</p>    </div>    <!-- 标签切换 -->    <div class="flex border-b border-gray-200 mb-6">      <button onclick="switchTab('questions')" id="tab-questions" class="px-4 py-2 text-sm font-medium border-b-2 border-blue-500 text-blue-600">        💬 待回复提问 <span id="count-questions" class="ml-1 px-1.5 py-0.5 text-xs bg-orange-100 text-orange-600 rounded-full">0</span>      </button>      <button onclick="switchTab('quizzes')" id="tab-quizzes" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">        📝 待批改测验 <span id="count-quizzes" class="ml-1 px-1.5 py-0.5 text-xs bg-blue-100 text-blue-600 rounded-full">0</span>      </button>      <button onclick="switchTab('reflections')" id="tab-reflections" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">        ✍️ 待回复心得 <span id="count-reflections" class="ml-1 px-1.5 py-0.5 text-xs bg-purple-100 text-purple-600 rounded-full">0</span>      </button>    </div>    <!-- 待回复提问列表 -->    <div id="panel-questions" class="space-y-3">      <div class="text-center py-12 text-gray-400">        <p class="text-4xl mb-2">✅</p>        <p>暂无待回复提问</p>      </div>    </div>    <!-- 待批改测验列表 -->    <div id="panel-quizzes" class="space-y-3 hidden">      <div class="text-center py-12 text-gray-400">        <p class="text-4xl mb-2">✅</p>        <p>暂无待批改测验</p>      </div>    </div>    <!-- 待回复心得列表 -->    <div id="panel-reflections" class="space-y-3 hidden">      <div class="text-center py-12 text-gray-400">        <p class="text-4xl mb-2">✅</p>        <p>暂无待回复心得</p>      </div>    </div>  </main>  <!-- 批改测验弹窗 -->  <div id="grade-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">    <div class="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">      <div class="p-6 border-b border-gray-100">        <h3 class="text-lg font-semibold text-gray-800">批改测验</h3>        <p class="text-sm text-gray-500 mt-1" id="grade-student-info"></p>      </div>      <div class="p-6 space-y-4">        <div>          <label class="block text-sm font-medium text-gray-700 mb-1">题目</label>          <p class="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg" id="grade-question"></p>        </div>        <div>          <label class="block text-sm font-medium text-gray-700 mb-1">学员答案</label>          <p class="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg whitespace-pre-wrap" id="grade-answer"></p>        </div>        <div>          <label class="block text-sm font-medium text-gray-700 mb-1">评分</label>          <div class="flex gap-3">            <label class="flex items-center cursor-pointer">              <input type="radio" name="grade-score" value="1" class="mr-2">              <span class="text-sm text-green-600 font-medium">✅ 合格</span>            </label>            <label class="flex items-center cursor-pointer">              <input type="radio" name="grade-score" value="0" class="mr-2">              <span class="text-sm text-red-600 font-medium">❌ 不合格</span>            </label>          </div>        </div>        <div>          <label class="block text-sm font-medium text-gray-700 mb-1">老师评语（选填）</label>          <textarea id="grade-comment" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="给学员的反馈..."></textarea>        </div>      </div>      <div class="p-6 border-t border-gray-100 flex justify-end gap-3">        <button onclick="closeGradeModal()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">取消</button>        <button onclick="submitGrade()" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">提交批改</button>      </div>    </div>  </div>  <!-- 回复心得弹窗 -->  <div id="reply-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">    <div class="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">      <div class="p-6 border-b border-gray-100">        <h3 class="text-lg font-semibold text-gray-800">回复心得</h3>        <p class="text-sm text-gray-500 mt-1" id="reply-student-info"></p>      </div>      <div class="p-6 space-y-4">        <div>          <label class="block text-sm font-medium text-gray-700 mb-1">章节</label>          <p class="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg" id="reply-chapter"></p>        </div>        <div>          <label class="block text-sm font-medium text-gray-700 mb-1">学员心得</label>          <p class="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg whitespace-pre-wrap" id="reply-content"></p>        </div>        <div>          <label class="block text-sm font-medium text-gray-700 mb-1">老师回复</label>          <div class="flex items-center gap-2 mb-2 flex-wrap">            <span class="text-xs text-gray-500">快速模板：</span>            <button onclick="insertTodoReplyTemplate('encourage')" class="text-xs px-2 py-1 bg-green-50 text-green-600 rounded hover:bg-green-100 transition">👍 鼓励肯定</button>            <button onclick="insertTodoReplyTemplate('reflect')" class="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition">🤔 引导反思</button>            <button onclick="insertTodoReplyTemplate('action')" class="text-xs px-2 py-1 bg-orange-50 text-orange-600 rounded hover:bg-orange-100 transition">🎯 行动建议</button>            <button onclick="insertTodoReplyTemplate('question')" class="text-xs px-2 py-1 bg-purple-50 text-purple-600 rounded hover:bg-purple-100 transition">💡 深度提问</button>          </div>          <textarea id="reply-text" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="写下你的回复...（可点击上方模板快速插入）"></textarea>        </div>      </div>      <div class="p-6 border-t border-gray-100 flex justify-end gap-3">        <button onclick="closeReplyModal()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">取消</button>        <button onclick="submitReply()" class="px-4 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700">提交回复</button>      </div>    </div>  </div>  <script src="js/supabase-client.js"></script>  <script src="js/auth.js"></script>  <script>    let currentSession = null;    let currentTab = 'questions';    let myClassIds = [];    let myClassMap = {};    let gradingItem = null;    let replyingItem = null;    /* 页面初始化    window.addEventListener('load', async () => {      currentSession = await requireTeacher()*/;      if (!currentSession) return;      renderNavbar(currentSession, 'todo');      /* 获取URL参数的tab      const urlParams = new URLSearchParams(window.location.search)*/;      const tab = urlParams.get('tab');      if (tab && ['questions', 'quizzes', 'reflections'].includes(tab)) {        currentTab = tab;      }      /* 加载当前老师的班级      await loadMyClasses()*/;      /* 加载所有待办      await loadAllTodos()*/;      /* 切换到对应tab      switchTab(currentTab)*/;    });    /* 加载当前老师的班级    async function loadMyClasses() {      const { data: classes */} = await sb        .from('classes')        .select('id, name')        .eq('teacher_id', currentSession.user.id);      myClassIds = (classes || []).map(c => c.id);      myClassMap = {};      (classes || []).forEach(c => { myClassMap[c.id] = c.name; });    }    /* 加载所有待办    async function loadAllTodos() {      await Promise.all([        loadQuestions(),        loadQuizzes(),        loadReflections()      ])*/;    }    /* 切换标签    function switchTab(tab) {      currentTab = tab*/;      ['questions', 'quizzes', 'reflections'].forEach(t => {        const tabBtn = document.getElementById(`tab-${t}`);        const panel = document.getElementById(`panel-${t}`);        if (t === tab) {          tabBtn.className = 'px-4 py-2 text-sm font-medium border-b-2 border-blue-500 text-blue-600';          panel.classList.remove('hidden');        } else {          tabBtn.className = 'px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700';          panel.classList.add('hidden');        }      });    }    /* 加载待回复提问    async function loadQuestions() {      const container = document.getElementById('panel-questions')*/;      if (myClassIds.length === 0) {        container.innerHTML = emptyState('暂无班级');        document.getElementById('count-questions').textContent = '0';        return;      }      const { data: questions, error } = await sb        .from('questions')        .select('id, content, created_at, user_id, class_id, profiles(name)')        .eq('status', 'open')        .in('class_id', myClassIds)        .order('created_at', { ascending: false });      document.getElementById('count-questions').textContent = (questions || []).length;      if (!questions || questions.length === 0) {        container.innerHTML = emptyState('暂无待回复提问');        return;      }      container.innerHTML = questions.map(q => `        <div class="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">          <div class="flex items-start justify-between">            <div class="flex-1 min-w-0">              <div class="flex items-center gap-2 mb-1">                <span class="text-sm font-medium text-gray-800">${escapeHtml(q.profiles?.name || '学员')}</span>                <span class="text-xs text-gray-400">${myClassMap[q.class_id] || '未知班级'}</span>                <span class="text-xs text-gray-400">${formatDate(q.created_at)}</span>              </div>              <p class="text-sm text-gray-600">${escapeHtml(q.content)}</p>            </div>            <a href="class-detail.html?id=${q.class_id}&tab=questions" class="ml-4 px-3 py-1.5 text-xs bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex-shrink-0">去回复</a>          </div>        </div>      `).join('');    }    /* 加载待批改测验    async function loadQuizzes() {      const container = document.getElementById('panel-quizzes')*/;      if (myClassIds.length === 0) {        container.innerHTML = emptyState('暂无班级');        document.getElementById('count-quizzes').textContent = '0';        return;      }      const { data: submissions, error } = await sb        .from('quiz_submissions')        .select('id, quiz_id, class_id, user_id, answer, submitted_at, profiles(name), quizzes(question_text)')        .is('score', null)        .in('class_id', myClassIds)        .order('submitted_at', { ascending: false });      document.getElementById('count-quizzes').textContent = (submissions || []).length;      if (!submissions || submissions.length === 0) {        container.innerHTML = emptyState('暂无待批改测验');        return;      }      container.innerHTML = submissions.map(s => `        <div class="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">          <div class="flex items-start justify-between">            <div class="flex-1 min-w-0">              <div class="flex items-center gap-2 mb-1">                <span class="text-sm font-medium text-gray-800">${escapeHtml(s.profiles?.name || '学员')}</span>                <span class="text-xs text-gray-400">${myClassMap[s.class_id] || '未知班级'}</span>                <span class="text-xs text-gray-400">${formatDate(s.submitted_at)}</span>              </div>              <p class="text-sm text-gray-600 font-medium mb-1">${escapeHtml(s.quizzes?.question_text || '题目')}</p>              <p class="text-sm text-gray-500 truncate">${escapeHtml(s.answer || '（未填写答案）')}</p>            </div>            <button onclick="openGradeModal(${s.id}, '${escapeJs(s.profiles?.name || '学员')}', '${escapeJs(myClassMap[s.class_id] || '')}', '${escapeJs(s.quizzes?.question_text || '')}', '${escapeJs(s.answer || '')}')" class="ml-4 px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex-shrink-0">批改</button>          </div>        </div>      `).join('');    }    /* 加载待回复心得    async function loadReflections() {      const container = document.getElementById('panel-reflections')*/;      if (myClassIds.length === 0) {        container.innerHTML = emptyState('暂无班级');        document.getElementById('count-reflections').textContent = '0';        return;      }      try {        /* 先不关联表，避免关联查询RLS问题        const { data: reflections, error */} = await sb          .from('chapter_reflections')          .select('id, user_id, class_id, chapter_id, content, created_at, teacher_reply')          .not('content', 'eq', '')          .or('teacher_reply.is.null,teacher_reply.eq.')          .in('class_id', myClassIds)          .order('created_at', { ascending: false });        if (error) {          console.error('心得查询错误:', error);          container.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 rounded-lg">            <p class="text-red-600 font-medium">查询失败: ${error.message}</p>          </div>`;          document.getElementById('count-reflections').textContent = '0';          return;        }        document.getElementById('count-reflections').textContent = (reflections || []).length;        if (!reflections || reflections.length === 0) {          container.innerHTML = emptyState('暂无待回复心得');          return;        }        /* 批量查询学员姓名和章节标题        const userIds = [...new Set(reflections.map(r => r.user_id))]*/;        const chapterIds = [...new Set(reflections.map(r => r.chapter_id))];                const [{ data: profiles }, { data: chapters }] = await Promise.all([          userIds.length > 0 ? sb.from('profiles').select('id, name').in('id', userIds) : Promise.resolve({ data: [] }),          chapterIds.length > 0 ? sb.from('chapters').select('id, title').in('id', chapterIds) : Promise.resolve({ data: [] })        ]);                const nameMap = {};        (profiles || []).forEach(p => { nameMap[p.id] = p.name; });        const titleMap = {};        (chapters || []).forEach(c => { titleMap[c.id] = c.title; });        container.innerHTML = reflections.map(r => `          <div class="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">            <div class="flex items-start justify-between">              <div class="flex-1 min-w-0">                <div class="flex items-center gap-2 mb-1">                  <span class="text-sm font-medium text-gray-800">${escapeHtml(nameMap[r.user_id] || '学员')}</span>                  <span class="text-xs text-gray-400">${myClassMap[r.class_id] || '未知班级'}</span>                  <span class="text-xs text-gray-400">${formatDate(r.created_at)}</span>                </div>                <p class="text-sm text-gray-600 font-medium mb-1">${escapeHtml(titleMap[r.chapter_id] || '章节')}</p>                <p class="text-sm text-gray-500 line-clamp-2">${escapeHtml(r.content)}</p>              </div>              <button onclick="openReplyModal(${r.id}, '${escapeJs(nameMap[r.user_id] || '学员')}', '${escapeJs(myClassMap[r.class_id] || '')}', '${escapeJs(titleMap[r.chapter_id] || '')}', '${escapeJs(r.content)}')" class="ml-4 px-3 py-1.5 text-xs bg-purple-500 text-white rounded-lg hover:bg-purple-600 flex-shrink-0">回复</button>            </div>          </div>      `).join('');      } catch (e) {        console.error('加载心得异常:', e);        container.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 rounded-lg">          <p class="text-red-600 font-medium">加载失败: ${e.message}</p>        </div>`;        document.getElementById('count-reflections').textContent = '0';      }    }    /* 打开批改弹窗    function openGradeModal(id, studentName, className, question, answer) {      gradingItem = { id, studentName, className, question, answer */};      document.getElementById('grade-student-info').textContent = `${studentName} · ${className}`;      document.getElementById('grade-question').textContent = question;      document.getElementById('grade-answer').textContent = answer;      document.getElementById('grade-comment').value = '';      document.querySelectorAll('input[name="grade-score"]').forEach(r => r.checked = false);      document.getElementById('grade-modal').classList.remove('hidden');      document.getElementById('grade-modal').classList.add('flex');    }    /* 关闭批改弹窗    function closeGradeModal() {      gradingItem = null*/;      document.getElementById('grade-modal').classList.add('hidden');      document.getElementById('grade-modal').classList.remove('flex');    }    /* 提交批改    async function submitGrade() {      const scoreEl = document.querySelector('input[name="grade-score"]:checked')*/;      if (!scoreEl) {        alert('请选择评分');        return;      }      const score = parseInt(scoreEl.value);      const comment = document.getElementById('grade-comment').value.trim();      try {        const { error } = await sb          .from('quiz_submissions')          .update({ score, teacher_comment: comment || null, graded_at: new Date().toISOString() })          .eq('id', gradingItem.id);        if (error) throw error;        closeGradeModal();        await loadQuizzes();        switchTab('quizzes');      } catch (e) {        alert('批改失败：' + e.message);      }    }    /* 打开回复弹窗    function openReplyModal(id, studentName, className, chapter, content) {      replyingItem = { id, studentName, className, chapter, content */};      document.getElementById('reply-student-info').textContent = `${studentName} · ${className}`;      document.getElementById('reply-chapter').textContent = chapter;      document.getElementById('reply-content').textContent = content;      document.getElementById('reply-text').value = '';      document.getElementById('reply-modal').classList.remove('hidden');      document.getElementById('reply-modal').classList.add('flex');    }    /* 关闭回复弹窗    function closeReplyModal() {      replyingItem = null*/;      document.getElementById('reply-modal').classList.add('hidden');      document.getElementById('reply-modal').classList.remove('flex');    }    /* 心得回复模板（基于五步法：看见→共情→提问→价值→行动）    const todoReplyTemplates = {      encourage: `我看到你在这一章的学习中非常用心，特别是你提到的______，说明你真的在认真思考和觉察。这种自我觉察的能力非常宝贵，它是成长的第一步。继续保持这份真诚和勇气，你会越来越清晰自己想要什么。相信你自己，你已经在进步的路上了！`,      reflect: `你提到______，这让我很好奇——你觉得是什么让你有这样的感受？这个感受在提醒你什么？如果换一个角度看这件事，会不会有不同的发现？试着想象一下，如果是你的好朋友遇到同样的情况，你会怎么对TA说？`,      action: `很棒的觉察！既然你已经意识到______，接下来可以尝试一个小行动：1. 本周内尝试______2. 记录下你的感受和变化3. 下次我们一起复盘不用追求完美，先迈出一小步就好。试试看，一周后我们再聊聊感受如何？`,      question: `你说的______很有意思，我想进一步了解：1. 这背后对你来说真正重要的是什么？2. 如果这个问题解决了，你的生活会有什么不同？3. 你内心深处真正渴望的是什么？不用急着回答，可以慢慢想。有时候好的问题比答案更重要。`    */};    function insertTodoReplyTemplate(type) {      const textarea = document.getElementById('reply-text');      if (!textarea) return;      const template = todoReplyTemplates[type];      if (!template) return;      if (textarea.value.trim()) {        if (confirm('当前已有回复内容，是否替换为模板？\n\n点击「确定」替换，「取消」追加到末尾。')) {          textarea.value = template;        } else {          textarea.value += '\n\n' + template;        }      } else {        textarea.value = template;      }      textarea.focus();    }    /* 提交回复    async function submitReply() {      const reply = document.getElementById('reply-text').value.trim()*/;      if (!reply) {        alert('请输入回复内容');        return;      }      try {        const { error } = await sb          .from('chapter_reflections')          .update({ teacher_reply: reply, replied_at: new Date().toISOString() })          .eq('id', replyingItem.id);        if (error) throw error;        closeReplyModal();        await loadReflections();        switchTab('reflections');      } catch (e) {        alert('回复失败：' + e.message);      }    }    /* 空状态    function emptyState(text) {      return `<div class="text-center py-12 text-gray-400">        <p class="text-4xl mb-2">✅</p>        <p>${text*/}</p>      </div>`;    }    /* 工具函数    function escapeHtml(text) {      const div = document.createElement('div')*/;      div.textContent = text || '';      return div.innerHTML;    }    function escapeJs(text) {      return (text || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');    }    function formatDate(dateStr) {      if (!dateStr) return '';      const d = new Date(dateStr);      const now = new Date();      const diff = now - d;      if (diff < 60000) return '刚刚';      if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';      if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';      if (diff < 604800000) return Math.floor(diff / 86400000) + '天前';      return `${d.getMonth() + 1}月${d.getDate()}日`;    }  </script></body></html>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>老师待办处理 - 自牧平施教练班</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <!-- 导航栏由 auth.js 动态渲染 -->
+
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- 页面标题 -->
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-gray-800">📋 待办处理</h1>
+      <p class="text-gray-500 mt-1">集中处理所有班级的待办事项</p>
+    </div>
+
+    <!-- 标签切换 -->
+    <div class="flex border-b border-gray-200 mb-6">
+      <button onclick="switchTab('questions')" id="tab-questions" class="px-4 py-2 text-sm font-medium border-b-2 border-blue-500 text-blue-600">
+        💬 待回复提问 <span id="count-questions" class="ml-1 px-1.5 py-0.5 text-xs bg-orange-100 text-orange-600 rounded-full">0</span>
+      </button>
+      <button onclick="switchTab('quizzes')" id="tab-quizzes" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+        📝 待批改测验 <span id="count-quizzes" class="ml-1 px-1.5 py-0.5 text-xs bg-blue-100 text-blue-600 rounded-full">0</span>
+      </button>
+      <button onclick="switchTab('reflections')" id="tab-reflections" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+        ✍️ 待回复心得 <span id="count-reflections" class="ml-1 px-1.5 py-0.5 text-xs bg-purple-100 text-purple-600 rounded-full">0</span>
+      </button>
+    </div>
+
+    <!-- 待回复提问列表 -->
+    <div id="panel-questions" class="space-y-3">
+      <div class="text-center py-12 text-gray-400">
+        <p class="text-4xl mb-2">✅</p>
+        <p>暂无待回复提问</p>
+      </div>
+    </div>
+
+    <!-- 待批改测验列表 -->
+    <div id="panel-quizzes" class="space-y-3 hidden">
+      <div class="text-center py-12 text-gray-400">
+        <p class="text-4xl mb-2">✅</p>
+        <p>暂无待批改测验</p>
+      </div>
+    </div>
+
+    <!-- 待回复心得列表 -->
+    <div id="panel-reflections" class="space-y-3 hidden">
+      <div class="text-center py-12 text-gray-400">
+        <p class="text-4xl mb-2">✅</p>
+        <p>暂无待回复心得</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- 批改测验弹窗 -->
+  <div id="grade-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+      <div class="p-6 border-b border-gray-100">
+        <h3 class="text-lg font-semibold text-gray-800">批改测验</h3>
+        <p class="text-sm text-gray-500 mt-1" id="grade-student-info"></p>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">题目</label>
+          <p class="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg" id="grade-question"></p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">学员答案</label>
+          <p class="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg whitespace-pre-wrap" id="grade-answer"></p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">评分</label>
+          <div class="flex gap-3">
+            <label class="flex items-center cursor-pointer">
+              <input type="radio" name="grade-score" value="1" class="mr-2">
+              <span class="text-sm text-green-600 font-medium">✅ 合格</span>
+            </label>
+            <label class="flex items-center cursor-pointer">
+              <input type="radio" name="grade-score" value="0" class="mr-2">
+              <span class="text-sm text-red-600 font-medium">❌ 不合格</span>
+            </label>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">老师评语（选填）</label>
+          <textarea id="grade-comment" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="给学员的反馈..."></textarea>
+        </div>
+      </div>
+      <div class="p-6 border-t border-gray-100 flex justify-end gap-3">
+        <button onclick="closeGradeModal()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">取消</button>
+        <button onclick="submitGrade()" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">提交批改</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 回复心得弹窗 -->
+  <div id="reply-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+      <div class="p-6 border-b border-gray-100">
+        <h3 class="text-lg font-semibold text-gray-800">回复心得</h3>
+        <p class="text-sm text-gray-500 mt-1" id="reply-student-info"></p>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">章节</label>
+          <p class="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg" id="reply-chapter"></p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">学员心得</label>
+          <p class="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg whitespace-pre-wrap" id="reply-content"></p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">老师回复</label>
+          <div class="flex items-center gap-2 mb-2 flex-wrap">
+            <span class="text-xs text-gray-500">快速模板：</span>
+            <button onclick="insertTodoReplyTemplate('encourage')" class="text-xs px-2 py-1 bg-green-50 text-green-600 rounded hover:bg-green-100 transition">👍 鼓励肯定</button>
+            <button onclick="insertTodoReplyTemplate('reflect')" class="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition">🤔 引导反思</button>
+            <button onclick="insertTodoReplyTemplate('action')" class="text-xs px-2 py-1 bg-orange-50 text-orange-600 rounded hover:bg-orange-100 transition">🎯 行动建议</button>
+            <button onclick="insertTodoReplyTemplate('question')" class="text-xs px-2 py-1 bg-purple-50 text-purple-600 rounded hover:bg-purple-100 transition">💡 深度提问</button>
+          </div>
+          <textarea id="reply-text" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="写下你的回复...（可点击上方模板快速插入）"></textarea>
+        </div>
+      </div>
+      <div class="p-6 border-t border-gray-100 flex justify-end gap-3">
+        <button onclick="closeReplyModal()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">取消</button>
+        <button onclick="submitReply()" class="px-4 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700">提交回复</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let currentSession = null;
+    let currentTab = 'questions';
+    let myClassIds = [];
+    let myClassMap = {};
+    let gradingItem = null;
+    let replyingItem = null;
+
+    // 页面初始化
+    window.addEventListener('load', async () => {
+      currentSession = await requireTeacher();
+      if (!currentSession) return;
+      renderNavbar(currentSession, 'todo');
+
+      // 获取URL参数的tab
+      const urlParams = new URLSearchParams(window.location.search);
+      const tab = urlParams.get('tab');
+      if (tab && ['questions', 'quizzes', 'reflections'].includes(tab)) {
+        currentTab = tab;
+      }
+
+      // 加载当前老师的班级
+      await loadMyClasses();
+
+      // 加载所有待办
+      await loadAllTodos();
+
+      // 切换到对应tab
+      switchTab(currentTab);
+    });
+
+    // 加载当前老师的班级
+    async function loadMyClasses() {
+      const { data: classes } = await sb
+        .from('classes')
+        .select('id, name')
+        .eq('teacher_id', currentSession.user.id);
+      myClassIds = (classes || []).map(c => c.id);
+      myClassMap = {};
+      (classes || []).forEach(c => { myClassMap[c.id] = c.name; });
+    }
+
+    // 加载所有待办
+    async function loadAllTodos() {
+      await Promise.all([
+        loadQuestions(),
+        loadQuizzes(),
+        loadReflections()
+      ]);
+    }
+
+    // 切换标签
+    function switchTab(tab) {
+      currentTab = tab;
+      ['questions', 'quizzes', 'reflections'].forEach(t => {
+        const tabBtn = document.getElementById(`tab-${t}`);
+        const panel = document.getElementById(`panel-${t}`);
+        if (t === tab) {
+          tabBtn.className = 'px-4 py-2 text-sm font-medium border-b-2 border-blue-500 text-blue-600';
+          panel.classList.remove('hidden');
+        } else {
+          tabBtn.className = 'px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700';
+          panel.classList.add('hidden');
+        }
+      });
+    }
+
+    // 加载待回复提问
+    async function loadQuestions() {
+      const container = document.getElementById('panel-questions');
+      if (myClassIds.length === 0) {
+        container.innerHTML = emptyState('暂无班级');
+        document.getElementById('count-questions').textContent = '0';
+        return;
+      }
+
+      const { data: questions, error } = await sb
+        .from('questions')
+        .select('id, content, created_at, user_id, class_id, profiles(name)')
+        .eq('status', 'open')
+        .in('class_id', myClassIds)
+        .order('created_at', { ascending: false });
+
+      document.getElementById('count-questions').textContent = (questions || []).length;
+
+      if (!questions || questions.length === 0) {
+        container.innerHTML = emptyState('暂无待回复提问');
+        return;
+      }
+
+      container.innerHTML = questions.map(q => `
+        <div class="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
+          <div class="flex items-start justify-between">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-sm font-medium text-gray-800">${escapeHtml(q.profiles?.name || '学员')}</span>
+                <span class="text-xs text-gray-400">${myClassMap[q.class_id] || '未知班级'}</span>
+                <span class="text-xs text-gray-400">${formatDate(q.created_at)}</span>
+              </div>
+              <p class="text-sm text-gray-600">${escapeHtml(q.content)}</p>
+            </div>
+            <a href="class-detail.html?id=${q.class_id}&tab=questions" class="ml-4 px-3 py-1.5 text-xs bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex-shrink-0">去回复</a>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // 加载待批改测验
+    async function loadQuizzes() {
+      const container = document.getElementById('panel-quizzes');
+      if (myClassIds.length === 0) {
+        container.innerHTML = emptyState('暂无班级');
+        document.getElementById('count-quizzes').textContent = '0';
+        return;
+      }
+
+      const { data: submissions, error } = await sb
+        .from('quiz_submissions')
+        .select('id, quiz_id, class_id, user_id, answer, submitted_at, profiles(name), quizzes(question_text)')
+        .is('score', null)
+        .in('class_id', myClassIds)
+        .order('submitted_at', { ascending: false });
+
+      document.getElementById('count-quizzes').textContent = (submissions || []).length;
+
+      if (!submissions || submissions.length === 0) {
+        container.innerHTML = emptyState('暂无待批改测验');
+        return;
+      }
+
+      container.innerHTML = submissions.map(s => `
+        <div class="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
+          <div class="flex items-start justify-between">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-sm font-medium text-gray-800">${escapeHtml(s.profiles?.name || '学员')}</span>
+                <span class="text-xs text-gray-400">${myClassMap[s.class_id] || '未知班级'}</span>
+                <span class="text-xs text-gray-400">${formatDate(s.submitted_at)}</span>
+              </div>
+              <p class="text-sm text-gray-600 font-medium mb-1">${escapeHtml(s.quizzes?.question_text || '题目')}</p>
+              <p class="text-sm text-gray-500 truncate">${escapeHtml(s.answer || '（未填写答案）')}</p>
+            </div>
+            <button onclick="openGradeModal(${s.id}, '${escapeJs(s.profiles?.name || '学员')}', '${escapeJs(myClassMap[s.class_id] || '')}', '${escapeJs(s.quizzes?.question_text || '')}', '${escapeJs(s.answer || '')}')" class="ml-4 px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex-shrink-0">批改</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // 加载待回复心得
+    async function loadReflections() {
+      const container = document.getElementById('panel-reflections');
+      if (myClassIds.length === 0) {
+        container.innerHTML = emptyState('暂无班级');
+        document.getElementById('count-reflections').textContent = '0';
+        return;
+      }
+
+      try {
+        // 先不关联表，避免关联查询RLS问题
+        const { data: reflections, error } = await sb
+          .from('chapter_reflections')
+          .select('id, user_id, class_id, chapter_id, content, created_at, teacher_reply')
+          .not('content', 'eq', '')
+          .or('teacher_reply.is.null,teacher_reply.eq.')
+          .in('class_id', myClassIds)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('心得查询错误:', error);
+          container.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p class="text-red-600 font-medium">查询失败: ${error.message}</p>
+          </div>`;
+          document.getElementById('count-reflections').textContent = '0';
+          return;
+        }
+
+        document.getElementById('count-reflections').textContent = (reflections || []).length;
+
+        if (!reflections || reflections.length === 0) {
+          container.innerHTML = emptyState('暂无待回复心得');
+          return;
+        }
+
+        // 批量查询学员姓名和章节标题
+        const userIds = [...new Set(reflections.map(r => r.user_id))];
+        const chapterIds = [...new Set(reflections.map(r => r.chapter_id))];
+        
+        const [{ data: profiles }, { data: chapters }] = await Promise.all([
+          userIds.length > 0 ? sb.from('profiles').select('id, name').in('id', userIds) : Promise.resolve({ data: [] }),
+          chapterIds.length > 0 ? sb.from('chapters').select('id, title').in('id', chapterIds) : Promise.resolve({ data: [] })
+        ]);
+        
+        const nameMap = {};
+        (profiles || []).forEach(p => { nameMap[p.id] = p.name; });
+        const titleMap = {};
+        (chapters || []).forEach(c => { titleMap[c.id] = c.title; });
+
+        container.innerHTML = reflections.map(r => `
+          <div class="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
+            <div class="flex items-start justify-between">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-sm font-medium text-gray-800">${escapeHtml(nameMap[r.user_id] || '学员')}</span>
+                  <span class="text-xs text-gray-400">${myClassMap[r.class_id] || '未知班级'}</span>
+                  <span class="text-xs text-gray-400">${formatDate(r.created_at)}</span>
+                </div>
+                <p class="text-sm text-gray-600 font-medium mb-1">${escapeHtml(titleMap[r.chapter_id] || '章节')}</p>
+                <p class="text-sm text-gray-500 line-clamp-2">${escapeHtml(r.content)}</p>
+              </div>
+              <button onclick="openReplyModal(${r.id}, '${escapeJs(nameMap[r.user_id] || '学员')}', '${escapeJs(myClassMap[r.class_id] || '')}', '${escapeJs(titleMap[r.chapter_id] || '')}', '${escapeJs(r.content)}')" class="ml-4 px-3 py-1.5 text-xs bg-purple-500 text-white rounded-lg hover:bg-purple-600 flex-shrink-0">回复</button>
+            </div>
+          </div>
+      `).join('');
+      } catch (e) {
+        console.error('加载心得异常:', e);
+        container.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p class="text-red-600 font-medium">加载失败: ${e.message}</p>
+        </div>`;
+        document.getElementById('count-reflections').textContent = '0';
+      }
+    }
+
+    // 打开批改弹窗
+    function openGradeModal(id, studentName, className, question, answer) {
+      gradingItem = { id, studentName, className, question, answer };
+      document.getElementById('grade-student-info').textContent = `${studentName} · ${className}`;
+      document.getElementById('grade-question').textContent = question;
+      document.getElementById('grade-answer').textContent = answer;
+      document.getElementById('grade-comment').value = '';
+      document.querySelectorAll('input[name="grade-score"]').forEach(r => r.checked = false);
+      document.getElementById('grade-modal').classList.remove('hidden');
+      document.getElementById('grade-modal').classList.add('flex');
+    }
+
+    // 关闭批改弹窗
+    function closeGradeModal() {
+      gradingItem = null;
+      document.getElementById('grade-modal').classList.add('hidden');
+      document.getElementById('grade-modal').classList.remove('flex');
+    }
+
+    // 提交批改
+    async function submitGrade() {
+      const scoreEl = document.querySelector('input[name="grade-score"]:checked');
+      if (!scoreEl) {
+        alert('请选择评分');
+        return;
+      }
+      const score = parseInt(scoreEl.value);
+      const comment = document.getElementById('grade-comment').value.trim();
+
+      try {
+        const { error } = await sb
+          .from('quiz_submissions')
+          .update({ score, teacher_comment: comment || null, graded_at: new Date().toISOString() })
+          .eq('id', gradingItem.id);
+        if (error) throw error;
+        closeGradeModal();
+        await loadQuizzes();
+        switchTab('quizzes');
+      } catch (e) {
+        alert('批改失败：' + e.message);
+      }
+    }
+
+    // 打开回复弹窗
+    function openReplyModal(id, studentName, className, chapter, content) {
+      replyingItem = { id, studentName, className, chapter, content };
+      document.getElementById('reply-student-info').textContent = `${studentName} · ${className}`;
+      document.getElementById('reply-chapter').textContent = chapter;
+      document.getElementById('reply-content').textContent = content;
+      document.getElementById('reply-text').value = '';
+      document.getElementById('reply-modal').classList.remove('hidden');
+      document.getElementById('reply-modal').classList.add('flex');
+    }
+
+    // 关闭回复弹窗
+    function closeReplyModal() {
+      replyingItem = null;
+      document.getElementById('reply-modal').classList.add('hidden');
+      document.getElementById('reply-modal').classList.remove('flex');
+    }
+
+    // 心得回复模板（基于五步法：看见→共情→提问→价值→行动）
+    const todoReplyTemplates = {
+      encourage: `我看到你在这一章的学习中非常用心，特别是你提到的______，说明你真的在认真思考和觉察。
+
+这种自我觉察的能力非常宝贵，它是成长的第一步。继续保持这份真诚和勇气，你会越来越清晰自己想要什么。
+
+相信你自己，你已经在进步的路上了！`,
+      reflect: `你提到______，这让我很好奇——
+
+你觉得是什么让你有这样的感受？这个感受在提醒你什么？
+
+如果换一个角度看这件事，会不会有不同的发现？试着想象一下，如果是你的好朋友遇到同样的情况，你会怎么对TA说？`,
+      action: `很棒的觉察！既然你已经意识到______，接下来可以尝试一个小行动：
+
+1. 本周内尝试______
+2. 记录下你的感受和变化
+3. 下次我们一起复盘
+
+不用追求完美，先迈出一小步就好。试试看，一周后我们再聊聊感受如何？`,
+      question: `你说的______很有意思，我想进一步了解：
+
+1. 这背后对你来说真正重要的是什么？
+2. 如果这个问题解决了，你的生活会有什么不同？
+3. 你内心深处真正渴望的是什么？
+
+不用急着回答，可以慢慢想。有时候好的问题比答案更重要。`
+    };
+
+    function insertTodoReplyTemplate(type) {
+      const textarea = document.getElementById('reply-text');
+      if (!textarea) return;
+      const template = todoReplyTemplates[type];
+      if (!template) return;
+      if (textarea.value.trim()) {
+        if (confirm('当前已有回复内容，是否替换为模板？\n\n点击「确定」替换，「取消」追加到末尾。')) {
+          textarea.value = template;
+        } else {
+          textarea.value += '\n\n' + template;
+        }
+      } else {
+        textarea.value = template;
+      }
+      textarea.focus();
+    }
+
+    // 提交回复
+    async function submitReply() {
+      const reply = document.getElementById('reply-text').value.trim();
+      if (!reply) {
+        alert('请输入回复内容');
+        return;
+      }
+
+      try {
+        const { error } = await sb
+          .from('chapter_reflections')
+          .update({ teacher_reply: reply, replied_at: new Date().toISOString() })
+          .eq('id', replyingItem.id);
+        if (error) throw error;
+        closeReplyModal();
+        await loadReflections();
+        switchTab('reflections');
+      } catch (e) {
+        alert('回复失败：' + e.message);
+      }
+    }
+
+    // 空状态
+    function emptyState(text) {
+      return `<div class="text-center py-12 text-gray-400">
+        <p class="text-4xl mb-2">✅</p>
+        <p>${text}</p>
+      </div>`;
+    }
+
+    // 工具函数
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text || '';
+      return div.innerHTML;
+    }
+
+    function escapeJs(text) {
+      return (text || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diff = now - d;
+      if (diff < 60000) return '刚刚';
+      if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+      if (diff < 604800000) return Math.floor(diff / 86400000) + '天前';
+      return `${d.getMonth() + 1}月${d.getDate()}日`;
+    }
+  </script>
+</body>
+</html>

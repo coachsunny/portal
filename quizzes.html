@@ -1,1 +1,207 @@
-﻿<!DOCTYPE html><html lang="zh-CN"><head>  <meta charset="UTF-8">  <meta name="viewport" content="width=device-width, initial-scale=1.0">  <title>题库管理 - 自牧平施教练班</title>  <script src="https://cdn.tailwindcss.com"></script>  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head><body class="bg-gray-50 min-h-screen">  <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">    <!-- 页面标题 -->    <div class="mb-6">      <h1 class="text-2xl font-bold text-gray-800">📝 测验题库</h1>      <p class="text-gray-500 mt-1">全局题目库，各班级章节可从中挑选题目组成测验</p>    </div>    <!-- 工具栏 -->    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6 flex flex-wrap items-center gap-3">      <div class="flex-1 min-w-[200px]">        <input type="text" id="quiz-search" oninput="renderQuizList()" placeholder="搜索题目..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">      </div>      <select id="filter-category" onchange="renderQuizList()" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">        <option value="all">全部分类</option>      </select>      <button onclick="openQuizModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center">        <span class="mr-2">➕</span> 新增题目      </button>    </div>    <!-- 题目列表 -->    <div id="quiz-list" class="space-y-3"></div>    <div id="empty-state" class="hidden text-center py-16 bg-white rounded-xl border border-gray-100">      <p class="text-5xl mb-4">📋</p>      <p class="text-gray-500">题库还没有题目</p>      <p class="text-gray-400 text-sm mt-1">点击右上角「新增题目」开始</p>    </div>  </main>  <!-- 新增/编辑题目弹窗 -->  <div id="quiz-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">      <div class="p-6 border-b">        <h3 class="text-lg font-semibold text-gray-800" id="quiz-modal-title">新增题目</h3>      </div>      <div class="p-6 space-y-4">        <div>          <label class="block text-sm font-medium text-gray-700 mb-2">题目内容 *</label>          <textarea id="quiz-question" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="输入测验题目..."></textarea>        </div>        <div>          <label class="block text-sm font-medium text-gray-700 mb-2">分类/章节</label>          <input type="text" id="quiz-category" list="category-list" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="例如：第一章 什么是教练">          <datalist id="category-list"></datalist>        </div>        <div>          <label class="block text-sm font-medium text-gray-700 mb-2">排序（选填）</label>          <input type="number" id="quiz-sort-order" value="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">        </div>      </div>      <div class="p-6 border-t flex justify-end space-x-3">        <button onclick="closeQuizModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>        <button onclick="saveQuiz()" id="quiz-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">保存</button>      </div>    </div>  </div>  <script src="js/supabase-client.js"></script>  <script src="js/auth.js"></script>  <script>    let currentSession = null;    let allQuizzes = [];    let editingQuizId = null;    window.addEventListener('load', async () => {      currentSession = await requireTeacher();      if (!currentSession) return;      renderNavbar(currentSession, 'quizzes');      await loadQuizzes();    });    async function loadQuizzes() {      try {        const { data: quizzes, error } = await sb.from('quizzes').select('*').order('category', { ascending: true }).order('sort_order', { ascending: true });        if (error) throw error;        allQuizzes = quizzes || [];        updateCategoryFilter();        renderQuizList();      } catch (e) { console.error('加载题库失败:', e); alert('加载题库失败：' + e.message); }    }    function updateCategoryFilter() {      const categories = [...new Set(allQuizzes.map(q => q.category).filter(c => c))];      const select = document.getElementById('filter-category');      const datalist = document.getElementById('category-list');      select.innerHTML = '<option value="all">全部分类</option>' + categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');      datalist.innerHTML = categories.map(c => `<option value="${escapeHtml(c)}">`).join('');    }    function renderQuizList() {      const container = document.getElementById('quiz-list');      const empty = document.getElementById('empty-state');      const keyword = document.getElementById('quiz-search').value.toLowerCase();      const categoryFilter = document.getElementById('filter-category').value;      let filtered = allQuizzes.filter(q => !keyword || q.question_text.toLowerCase().includes(keyword));      if (categoryFilter !== 'all') filtered = filtered.filter(q => q.category === categoryFilter);      if (filtered.length === 0) { container.innerHTML = ''; empty.classList.remove('hidden'); return; }      empty.classList.add('hidden');      // 按分类分组      const grouped = {};      filtered.forEach(q => {        const cat = q.category || '未分类';        if (!grouped[cat]) grouped[cat] = [];        grouped[cat].push(q);      });      container.innerHTML = Object.keys(grouped).map(cat => `        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">          <div class="px-4 py-3 bg-gray-50 border-b">            <h3 class="text-sm font-semibold text-gray-700">${escapeHtml(cat)} <span class="text-gray-400 font-normal">(${grouped[cat].length} 题)</span></h3>          </div>          <div class="divide-y divide-gray-100">            ${grouped[cat].map(q => `              <div class="flex items-start justify-between p-4 hover:bg-gray-50 transition">                <div class="flex-1 min-w-0">                  <p class="text-sm text-gray-800 whitespace-pre-wrap">${escapeHtml(q.question_text)}</p>                </div>                <div class="flex items-center space-x-2 flex-shrink-0 ml-4">                  <button onclick="editQuiz(${q.id})" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">✏️ 编辑</button>                  <button onclick="deleteQuiz(${q.id})" class="px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 rounded-lg transition">🗑️ 删除</button>                </div>              </div>            `).join('')}          </div>        </div>      `).join('');    }    function openQuizModal() {      editingQuizId = null;      document.getElementById('quiz-modal-title').textContent = '新增题目';      document.getElementById('quiz-question').value = '';      document.getElementById('quiz-category').value = '';      document.getElementById('quiz-sort-order').value = '0';      document.getElementById('quiz-modal').classList.remove('hidden');    }    function editQuiz(id) {      const q = allQuizzes.find(x => x.id === id);      if (!q) return;      editingQuizId = id;      document.getElementById('quiz-modal-title').textContent = '编辑题目';      document.getElementById('quiz-question').value = q.question_text;      document.getElementById('quiz-category').value = q.category || '';      document.getElementById('quiz-sort-order').value = q.sort_order || 0;      document.getElementById('quiz-modal').classList.remove('hidden');    }    function closeQuizModal() {      document.getElementById('quiz-modal').classList.add('hidden');      editingQuizId = null;    }    async function saveQuiz() {      const questionText = document.getElementById('quiz-question').value.trim();      const category = document.getElementById('quiz-category').value.trim();      const sortOrder = parseInt(document.getElementById('quiz-sort-order').value) || 0;      if (!questionText) { alert('请输入题目内容'); return; }      const btn = document.getElementById('quiz-save-btn');      btn.disabled = true; btn.textContent = '保存中...';      try {        if (editingQuizId) {          const { error } = await sb.from('quizzes').update({ question_text: questionText, category: category || null, sort_order: sortOrder }).eq('id', editingQuizId);          if (error) throw error;        } else {          const { error } = await sb.from('quizzes').insert({ question_text: questionText, category: category || null, sort_order: sortOrder });          if (error) throw error;        }        closeQuizModal();        await loadQuizzes();      } catch (e) { alert('保存失败：' + e.message); }      finally { btn.disabled = false; btn.textContent = '保存'; }    }    async function deleteQuiz(id) {      if (!confirm('确定要删除这个题目吗？所有班级对该题目的引用和学员答题记录都会被删除，且无法恢复。')) return;      try {        const { error } = await sb.from('quizzes').delete().eq('id', id);        if (error) throw error;        await loadQuizzes();      } catch (e) { alert('删除失败：' + e.message); }    }    function escapeHtml(text) {      const div = document.createElement('div');      div.textContent = text;      return div.innerHTML;    }  </script></body></html>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>题库管理 - 自牧平施教练班</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- 页面标题 -->
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-gray-800">📝 测验题库</h1>
+      <p class="text-gray-500 mt-1">全局题目库，各班级章节可从中挑选题目组成测验</p>
+    </div>
+
+    <!-- 工具栏 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6 flex flex-wrap items-center gap-3">
+      <div class="flex-1 min-w-[200px]">
+        <input type="text" id="quiz-search" oninput="renderQuizList()" placeholder="搜索题目..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <select id="filter-category" onchange="renderQuizList()" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+        <option value="all">全部分类</option>
+      </select>
+      <button onclick="openQuizModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center">
+        <span class="mr-2">➕</span> 新增题目
+      </button>
+    </div>
+
+    <!-- 题目列表 -->
+    <div id="quiz-list" class="space-y-3"></div>
+    <div id="empty-state" class="hidden text-center py-16 bg-white rounded-xl border border-gray-100">
+      <p class="text-5xl mb-4">📋</p>
+      <p class="text-gray-500">题库还没有题目</p>
+      <p class="text-gray-400 text-sm mt-1">点击右上角「新增题目」开始</p>
+    </div>
+  </main>
+
+  <!-- 新增/编辑题目弹窗 -->
+  <div id="quiz-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
+      <div class="p-6 border-b">
+        <h3 class="text-lg font-semibold text-gray-800" id="quiz-modal-title">新增题目</h3>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">题目内容 *</label>
+          <textarea id="quiz-question" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="输入测验题目..."></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">分类/章节</label>
+          <input type="text" id="quiz-category" list="category-list" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="例如：第一章 什么是教练">
+          <datalist id="category-list"></datalist>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">排序（选填）</label>
+          <input type="number" id="quiz-sort-order" value="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeQuizModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="saveQuiz()" id="quiz-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let currentSession = null;
+    let allQuizzes = [];
+    let editingQuizId = null;
+
+    window.addEventListener('load', async () => {
+      currentSession = await requireTeacher();
+      if (!currentSession) return;
+      renderNavbar(currentSession, 'quizzes');
+      await loadQuizzes();
+    });
+
+    async function loadQuizzes() {
+      try {
+        const { data: quizzes, error } = await sb.from('quizzes').select('*').order('category', { ascending: true }).order('sort_order', { ascending: true });
+        if (error) throw error;
+        allQuizzes = quizzes || [];
+        updateCategoryFilter();
+        renderQuizList();
+      } catch (e) { console.error('加载题库失败:', e); alert('加载题库失败：' + e.message); }
+    }
+
+    function updateCategoryFilter() {
+      const categories = [...new Set(allQuizzes.map(q => q.category).filter(c => c))];
+      const select = document.getElementById('filter-category');
+      const datalist = document.getElementById('category-list');
+      select.innerHTML = '<option value="all">全部分类</option>' + categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+      datalist.innerHTML = categories.map(c => `<option value="${escapeHtml(c)}">`).join('');
+    }
+
+    function renderQuizList() {
+      const container = document.getElementById('quiz-list');
+      const empty = document.getElementById('empty-state');
+      const keyword = document.getElementById('quiz-search').value.toLowerCase();
+      const categoryFilter = document.getElementById('filter-category').value;
+
+      let filtered = allQuizzes.filter(q => !keyword || q.question_text.toLowerCase().includes(keyword));
+      if (categoryFilter !== 'all') filtered = filtered.filter(q => q.category === categoryFilter);
+
+      if (filtered.length === 0) { container.innerHTML = ''; empty.classList.remove('hidden'); return; }
+      empty.classList.add('hidden');
+
+      // 按分类分组
+      const grouped = {};
+      filtered.forEach(q => {
+        const cat = q.category || '未分类';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(q);
+      });
+
+      container.innerHTML = Object.keys(grouped).map(cat => `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div class="px-4 py-3 bg-gray-50 border-b">
+            <h3 class="text-sm font-semibold text-gray-700">${escapeHtml(cat)} <span class="text-gray-400 font-normal">(${grouped[cat].length} 题)</span></h3>
+          </div>
+          <div class="divide-y divide-gray-100">
+            ${grouped[cat].map(q => `
+              <div class="flex items-start justify-between p-4 hover:bg-gray-50 transition">
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm text-gray-800 whitespace-pre-wrap">${escapeHtml(q.question_text)}</p>
+                </div>
+                <div class="flex items-center space-x-2 flex-shrink-0 ml-4">
+                  <button onclick="editQuiz(${q.id})" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">✏️ 编辑</button>
+                  <button onclick="deleteQuiz(${q.id})" class="px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 rounded-lg transition">🗑️ 删除</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openQuizModal() {
+      editingQuizId = null;
+      document.getElementById('quiz-modal-title').textContent = '新增题目';
+      document.getElementById('quiz-question').value = '';
+      document.getElementById('quiz-category').value = '';
+      document.getElementById('quiz-sort-order').value = '0';
+      document.getElementById('quiz-modal').classList.remove('hidden');
+    }
+
+    function editQuiz(id) {
+      const q = allQuizzes.find(x => x.id === id);
+      if (!q) return;
+      editingQuizId = id;
+      document.getElementById('quiz-modal-title').textContent = '编辑题目';
+      document.getElementById('quiz-question').value = q.question_text;
+      document.getElementById('quiz-category').value = q.category || '';
+      document.getElementById('quiz-sort-order').value = q.sort_order || 0;
+      document.getElementById('quiz-modal').classList.remove('hidden');
+    }
+
+    function closeQuizModal() {
+      document.getElementById('quiz-modal').classList.add('hidden');
+      editingQuizId = null;
+    }
+
+    async function saveQuiz() {
+      const questionText = document.getElementById('quiz-question').value.trim();
+      const category = document.getElementById('quiz-category').value.trim();
+      const sortOrder = parseInt(document.getElementById('quiz-sort-order').value) || 0;
+
+      if (!questionText) { alert('请输入题目内容'); return; }
+
+      const btn = document.getElementById('quiz-save-btn');
+      btn.disabled = true; btn.textContent = '保存中...';
+
+      try {
+        if (editingQuizId) {
+          const { error } = await sb.from('quizzes').update({ question_text: questionText, category: category || null, sort_order: sortOrder }).eq('id', editingQuizId);
+          if (error) throw error;
+        } else {
+          const { error } = await sb.from('quizzes').insert({ question_text: questionText, category: category || null, sort_order: sortOrder });
+          if (error) throw error;
+        }
+        closeQuizModal();
+        await loadQuizzes();
+      } catch (e) { alert('保存失败：' + e.message); }
+      finally { btn.disabled = false; btn.textContent = '保存'; }
+    }
+
+    async function deleteQuiz(id) {
+      if (!confirm('确定要删除这个题目吗？所有班级对该题目的引用和学员答题记录都会被删除，且无法恢复。')) return;
+      try {
+        const { error } = await sb.from('quizzes').delete().eq('id', id);
+        if (error) throw error;
+        await loadQuizzes();
+      } catch (e) { alert('删除失败：' + e.message); }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

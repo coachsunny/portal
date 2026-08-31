@@ -1,6 +1,7 @@
 // ============================================
 // Supabase 客户端配置
 // ============================================
+
 const SUPABASE_URL = 'https://subwcjqahjbgkdrocyoz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_g8JbxP_AvORrvkQntqMbSA_HOOlrsP-';
 

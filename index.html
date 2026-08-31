@@ -85,7 +85,7 @@
       // 登录成功，获取用户角色并跳转
       messageEl.textContent = '登录成功，正在加载用户信息...';
       messageEl.className = 'mt-4 text-sm text-center text-green-600';
-      
+
       try {
         // 查询用户角色
         const { data: profile, error: profileError } = await sb
@@ -93,7 +93,7 @@
           .select('name, role')
           .eq('id', data.user.id)
           .single();
-        
+
         if (profileError || !profile) {
           console.error('profile查询失败:', {
             userId: data.user.id,
@@ -103,9 +103,9 @@
           const errMsg = profileError ? profileError.message : '返回空数据';
           throw new Error('未找到用户资料：' + errMsg + '（用户ID: ' + data.user.id + '）');
         }
-        
+
         messageEl.textContent = `欢迎 ${profile.name}，正在跳转...`;
-        
+
         // 按角色跳转
         setTimeout(() => {
           if (profile.role === 'teacher') {

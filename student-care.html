@@ -1,1 +1,169 @@
-﻿<!DOCTYPE html><html lang="zh-CN"><head>  <meta charset="UTF-8">  <meta name="viewport" content="width=device-width, initial-scale=1.0">  <title>老师关怀 - 自牧平施教练班</title>  <script src="https://cdn.tailwindcss.com"></script>  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head><body class="bg-gray-50 min-h-screen">  <div id="navbar-container"></div>  <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">    <div class="mb-6">      <h1 class="text-2xl font-bold text-gray-800">💝 老师关怀</h1>      <p class="text-gray-500 mt-1">老师的关怀消息，你可以在这里回复</p>    </div>    <!-- 班级选择 -->    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">      <label class="block text-sm font-medium text-gray-700 mb-2">选择班级</label>      <select id="class-select" onchange="loadCareMessages()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">        <option value="">请选择班级</option>      </select>    </div>    <!-- 对话区域 -->    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">      <div id="chat-area" class="p-6 space-y-3 max-h-[60vh] overflow-y-auto">        <div class="text-center py-12 text-gray-400">          <p class="text-5xl mb-4">💌</p>          <p class="text-sm">请先选择班级查看关怀消息</p>        </div>      </div>      <div class="p-4 border-t border-gray-100 bg-gray-50">        <div class="flex gap-2">          <textarea id="reply-input" rows="2" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none" placeholder="输入回复内容..."></textarea>          <button onclick="sendReply()" class="px-4 py-2 bg-pink-500 text-white rounded-lg text-sm font-medium hover:bg-pink-600 transition self-end">发送</button>        </div>      </div>    </div>  </main>  <script src="js/supabase-client.js"></script>  <script src="js/auth.js"></script>  <script>    let currentSession = null;    let selectedClassId = null;    let selectedTeacherId = null;    window.addEventListener('load', async () => {      currentSession = await requireStudent();      if (!currentSession) return;      renderNavbar(currentSession, 'care');      loadClasses();    });    async function loadClasses() {      try {        const { data: memberships, error } = await sb          .from('class_members')          .select('class_id, classes(id, name, teacher_id)')          .eq('user_id', currentSession.user.id);        if (error) throw error;        const select = document.getElementById('class-select');        const classes = (memberships || []).map(m => m.classes).filter(c => c);                if (classes.length === 0) {          select.innerHTML = '<option value="">暂无班级</option>';          return;        }        select.innerHTML = '<option value="">请选择班级</option>' +           classes.map(c => `<option value="${c.id}" data-teacher="${c.teacher_id}">${escapeHtml(c.name)}</option>`).join('');        // 默认选中第一个班级        if (classes.length > 0) {          select.value = classes[0].id;          selectedClassId = classes[0].id;          selectedTeacherId = classes[0].teacher_id;          loadCareMessages();        }      } catch (e) {        console.error('加载班级失败:', e);      }    }    async function loadCareMessages() {      const select = document.getElementById('class-select');      selectedClassId = select.value;      const selectedOption = select.options[select.selectedIndex];      selectedTeacherId = selectedOption ? selectedOption.dataset.teacher : null;      if (!selectedClassId || !selectedTeacherId) {        document.getElementById('chat-area').innerHTML = `<div class="text-center py-12 text-gray-400"><p class="text-5xl mb-4">💌</p><p class="text-sm">请先选择班级查看关怀消息</p></div>`;        return;      }      try {        const { data: messages, error } = await sb          .from('care_messages')          .select('*')          .eq('student_id', currentSession.user.id)          .eq('teacher_id', selectedTeacherId)          .eq('class_id', selectedClassId)          .order('created_at', { ascending: true });        if (error) throw error;        const container = document.getElementById('chat-area');        if (!messages || messages.length === 0) {          container.innerHTML = `<div class="text-center py-12 text-gray-400"><p class="text-5xl mb-4">💌</p><p class="text-sm">暂无关怀消息</p></div>`;          return;        }        // 标记老师发送的消息为已读        const unreadIds = messages.filter(m => m.sender_role === 'teacher' && !m.is_read).map(m => m.id);        if (unreadIds.length > 0) {          await sb.from('care_messages').update({ is_read: true }).in('id', unreadIds);        }        container.innerHTML = messages.map(msg => {          const isTeacher = msg.sender_role === 'teacher';          return `<div class="flex ${isTeacher ? 'justify-start' : 'justify-end'}">            <div class="max-w-[75%] ${isTeacher ? 'bg-pink-50 border-pink-200' : 'bg-blue-50 border-blue-200'} border rounded-xl p-3">              <p class="text-xs ${isTeacher ? 'text-pink-600' : 'text-blue-600'} mb-1">${isTeacher ? '老师' : '我'}</p>              <p class="text-sm text-gray-700 whitespace-pre-wrap">${escapeHtml(msg.content)}</p>              <p class="text-xs text-gray-400 mt-1 text-right">${new Date(msg.created_at).toLocaleString('zh-CN')}</p>            </div>          </div>`;        }).join('');        container.scrollTop = container.scrollHeight;      } catch (e) {        console.error('加载关怀消息失败:', e);      }    }    async function sendReply() {      const input = document.getElementById('reply-input');      const content = input.value.trim();      if (!content) { alert('请输入回复内容'); return; }      if (!selectedClassId || !selectedTeacherId) { alert('请先选择班级'); return; }      try {        const { error } = await sb.from('care_messages').insert({          class_id: selectedClassId,          student_id: currentSession.user.id,          teacher_id: selectedTeacherId,          content: content,          sender_role: 'student'        });        if (error) throw error;        input.value = '';        loadCareMessages();      } catch (e) {        alert('发送失败：' + e.message);      }    }    function escapeHtml(s) {      if (!s) return '';      const div = document.createElement('div');      div.textContent = s;      return div.innerHTML;    }  </script></body></html>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>老师关怀 - 自牧平施教练班</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div id="navbar-container"></div>
+
+  <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-gray-800">💝 老师关怀</h1>
+      <p class="text-gray-500 mt-1">老师的关怀消息，你可以在这里回复</p>
+    </div>
+
+    <!-- 班级选择 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+      <label class="block text-sm font-medium text-gray-700 mb-2">选择班级</label>
+      <select id="class-select" onchange="loadCareMessages()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        <option value="">请选择班级</option>
+      </select>
+    </div>
+
+    <!-- 对话区域 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div id="chat-area" class="p-6 space-y-3 max-h-[60vh] overflow-y-auto">
+        <div class="text-center py-12 text-gray-400">
+          <p class="text-5xl mb-4">💌</p>
+          <p class="text-sm">请先选择班级查看关怀消息</p>
+        </div>
+      </div>
+      <div class="p-4 border-t border-gray-100 bg-gray-50">
+        <div class="flex gap-2">
+          <textarea id="reply-input" rows="2" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none" placeholder="输入回复内容..."></textarea>
+          <button onclick="sendReply()" class="px-4 py-2 bg-pink-500 text-white rounded-lg text-sm font-medium hover:bg-pink-600 transition self-end">发送</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let currentSession = null;
+    let selectedClassId = null;
+    let selectedTeacherId = null;
+
+    window.addEventListener('load', async () => {
+      currentSession = await requireStudent();
+      if (!currentSession) return;
+      renderNavbar(currentSession, 'care');
+      loadClasses();
+    });
+
+    async function loadClasses() {
+      try {
+        const { data: memberships, error } = await sb
+          .from('class_members')
+          .select('class_id, classes(id, name, teacher_id)')
+          .eq('user_id', currentSession.user.id);
+        if (error) throw error;
+
+        const select = document.getElementById('class-select');
+        const classes = (memberships || []).map(m => m.classes).filter(c => c);
+        
+        if (classes.length === 0) {
+          select.innerHTML = '<option value="">暂无班级</option>';
+          return;
+        }
+
+        select.innerHTML = '<option value="">请选择班级</option>' + 
+          classes.map(c => `<option value="${c.id}" data-teacher="${c.teacher_id}">${escapeHtml(c.name)}</option>`).join('');
+
+        // 默认选中第一个班级
+        if (classes.length > 0) {
+          select.value = classes[0].id;
+          selectedClassId = classes[0].id;
+          selectedTeacherId = classes[0].teacher_id;
+          loadCareMessages();
+        }
+      } catch (e) {
+        console.error('加载班级失败:', e);
+      }
+    }
+
+    async function loadCareMessages() {
+      const select = document.getElementById('class-select');
+      selectedClassId = select.value;
+      const selectedOption = select.options[select.selectedIndex];
+      selectedTeacherId = selectedOption ? selectedOption.dataset.teacher : null;
+
+      if (!selectedClassId || !selectedTeacherId) {
+        document.getElementById('chat-area').innerHTML = `<div class="text-center py-12 text-gray-400"><p class="text-5xl mb-4">💌</p><p class="text-sm">请先选择班级查看关怀消息</p></div>`;
+        return;
+      }
+
+      try {
+        const { data: messages, error } = await sb
+          .from('care_messages')
+          .select('*')
+          .eq('student_id', currentSession.user.id)
+          .eq('teacher_id', selectedTeacherId)
+          .eq('class_id', selectedClassId)
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+
+        const container = document.getElementById('chat-area');
+        if (!messages || messages.length === 0) {
+          container.innerHTML = `<div class="text-center py-12 text-gray-400"><p class="text-5xl mb-4">💌</p><p class="text-sm">暂无关怀消息</p></div>`;
+          return;
+        }
+
+        // 标记老师发送的消息为已读
+        const unreadIds = messages.filter(m => m.sender_role === 'teacher' && !m.is_read).map(m => m.id);
+        if (unreadIds.length > 0) {
+          await sb.from('care_messages').update({ is_read: true }).in('id', unreadIds);
+        }
+
+        container.innerHTML = messages.map(msg => {
+          const isTeacher = msg.sender_role === 'teacher';
+          return `<div class="flex ${isTeacher ? 'justify-start' : 'justify-end'}">
+            <div class="max-w-[75%] ${isTeacher ? 'bg-pink-50 border-pink-200' : 'bg-blue-50 border-blue-200'} border rounded-xl p-3">
+              <p class="text-xs ${isTeacher ? 'text-pink-600' : 'text-blue-600'} mb-1">${isTeacher ? '老师' : '我'}</p>
+              <p class="text-sm text-gray-700 whitespace-pre-wrap">${escapeHtml(msg.content)}</p>
+              <p class="text-xs text-gray-400 mt-1 text-right">${new Date(msg.created_at).toLocaleString('zh-CN')}</p>
+            </div>
+          </div>`;
+        }).join('');
+
+        container.scrollTop = container.scrollHeight;
+      } catch (e) {
+        console.error('加载关怀消息失败:', e);
+      }
+    }
+
+    async function sendReply() {
+      const input = document.getElementById('reply-input');
+      const content = input.value.trim();
+      if (!content) { alert('请输入回复内容'); return; }
+      if (!selectedClassId || !selectedTeacherId) { alert('请先选择班级'); return; }
+
+      try {
+        const { error } = await sb.from('care_messages').insert({
+          class_id: selectedClassId,
+          student_id: currentSession.user.id,
+          teacher_id: selectedTeacherId,
+          content: content,
+          sender_role: 'student'
+        });
+        if (error) throw error;
+        input.value = '';
+        loadCareMessages();
+      } catch (e) {
+        alert('发送失败：' + e.message);
+      }
+    }
+
+    function escapeHtml(s) {
+      if (!s) return '';
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
