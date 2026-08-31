@@ -90,7 +90,7 @@
   <script src="js/auth.js"></script>
   <script>
     let currentSession = null;
-    let isTeacher = false;
+    let isTeacherUser = false;
     let allTools = [];
     let deleteToolId = null;
 
@@ -99,10 +99,10 @@
       currentSession = await requireAuth();
       if (!currentSession) return;
       renderNavbar(currentSession, 'tools');
-      isTeacher = currentSession.role === 'teacher';
+      isTeacherUser = currentSession.role === 'teacher';
       
       // 老师显示管理按钮
-      if (isTeacher) {
+      if (isTeacherUser) {
         document.getElementById('manage-btn').classList.remove('hidden');
       }
       
@@ -115,7 +115,7 @@
         let query = sb.from('tools').select('*').order('sort_order', { ascending: true });
         
         // 学员只看活跃的工具
-        if (!isTeacher) {
+        if (!isTeacherUser) {
           query = query.eq('is_active', true);
         }
         
@@ -143,7 +143,7 @@
       emptyState.classList.add('hidden');
       grid.innerHTML = allTools.map(tool => `
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition group relative">
-          ${isTeacher ? `
+          ${isTeacherUser ? `
             <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition flex gap-1">
               <button onclick="editTool(${tool.id})" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="编辑">✏️</button>
               <button onclick="deleteTool(${tool.id}, '${escapeHtml(tool.name)}')" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title="删除">🗑️</button>
