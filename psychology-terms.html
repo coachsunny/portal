@@ -119,7 +119,7 @@
 
     // 页面初始化
     window.addEventListener('load', async () => {
-      currentSession = await requireLogin();
+      currentSession = await requireAuth();
       if (!currentSession) return;
       
       // 检查是否是老师
