@@ -111,7 +111,7 @@
   <script src="js/auth.js"></script>
   <script>
     let currentSession = null;
-    let isTeacher = false;
+    let userIsTeacher = false;
     let allTerms = [];
     let editingTermId = null;
     let deletingTermId = null;
@@ -123,8 +123,8 @@
       if (!currentSession) return;
       
       // 检查是否是老师
-      isTeacher = await isTeacherUser();
-      if (isTeacher) {
+      userIsTeacher = await isTeacherUser();
+      if (userIsTeacher) {
         document.getElementById('add-btn').classList.remove('hidden');
       }
       
@@ -273,7 +273,7 @@
                 ${term.lesson_reference ? `<p class="text-xs text-gray-400 mt-1">📖 ${term.lesson_reference}</p>` : ''}
               </div>
               <div class="flex items-center ml-3">
-                ${isTeacher ? `
+                ${userIsTeacher ? `
                   <button onclick="event.stopPropagation(); editTerm(${term.id})" class="p-1 text-gray-400 hover:text-blue-600 mr-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                   </button>
