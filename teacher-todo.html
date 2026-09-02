@@ -296,6 +296,7 @@
           .from('chapter_reflections')
           .select('id, user_id, class_id, chapter_id, content, created_at, teacher_reply')
           .not('content', 'eq', '')
+          .eq('share_with_teacher', true)
           .or('teacher_reply.is.null,teacher_reply.eq.')
           .in('class_id', myClassIds)
           .order('created_at', { ascending: false });

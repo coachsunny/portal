@@ -124,6 +124,11 @@
           </div>
         </div>
         <textarea id="reflection-content" rows="8" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500" placeholder="写下你的学习心得..."></textarea>
+        <div class="mt-3 flex items-center">
+          <input type="checkbox" id="share-with-teacher" class="w-4 h-4 text-amber-600 rounded" checked>
+          <label for="share-with-teacher" class="ml-2 text-sm text-gray-700">送给老师阅读</label>
+          <span class="ml-2 text-xs text-gray-400">（取消勾选则仅自己可见）</span>
+        </div>
       </div>
       <div class="p-6 border-t flex justify-end space-x-3">
         <button onclick="closeReflectionModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
@@ -384,7 +389,12 @@
                     <button onclick="openReflectionModal(${ch.id})" class="text-xs text-amber-600 hover:text-amber-700">编辑</button>
                   </div>
                   <p class="text-sm text-gray-700 whitespace-pre-wrap">${escapeHtml(reflection.content)}</p>
-                  <p class="text-xs text-gray-400 mt-2">最后更新：${formatDate(reflection.updated_at)}</p>
+                  <div class="flex items-center mt-2">
+                    <p class="text-xs text-gray-400">最后更新：${formatDate(reflection.updated_at)}</p>
+                    ${reflection.share_with_teacher === false 
+                      ? '<span class="ml-2 px-1.5 py-0.5 text-xs bg-gray-100 text-gray-500 rounded">🔒 仅自己可见</span>' 
+                      : '<span class="ml-2 px-1.5 py-0.5 text-xs bg-blue-50 text-blue-600 rounded">📤 已分享给老师</span>'}
+                  </div>
                   ${reflection.teacher_reply && reflection.teacher_reply.trim() ? `
                     <div class="mt-3 pt-3 border-t border-amber-200">
                       <p class="text-xs text-blue-600 font-medium mb-1">💬 老师回复 ${reflection.replied_at ? '· ' + formatDate(reflection.replied_at) : ''}</p>
@@ -660,6 +670,9 @@
       document.getElementById('reflection-modal-title').textContent = ch ? `学习心得 - ${ch.title}` : '学习心得';
       const existing = reflectionsByChapter[chapterId];
       document.getElementById('reflection-content').value = existing ? existing.content : '';
+      // 设置分享选项：已有心得取其值，新心得默认true
+      const shareCheckbox = document.getElementById('share-with-teacher');
+      shareCheckbox.checked = existing ? (existing.share_with_teacher !== false) : true;
       document.getElementById('reflection-modal').classList.remove('hidden');
       setTimeout(() => document.getElementById('reflection-content').focus(), 100);
     }
@@ -675,10 +688,11 @@
       const btn = document.getElementById('reflection-save-btn');
       btn.disabled = true; btn.textContent = '保存中...';
       try {
+        const shareWithTeacher = document.getElementById('share-with-teacher').checked;
         const existing = reflectionsByChapter[currentReflectionChapterId];
         if (existing) {
           const { error } = await sb.from('chapter_reflections')
-            .update({ content })
+            .update({ content, share_with_teacher: shareWithTeacher })
             .eq('id', existing.id);
           if (error) throw error;
         } else {
