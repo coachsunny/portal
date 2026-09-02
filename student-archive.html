@@ -83,7 +83,15 @@
         <div class="bg-amber-50 rounded-lg p-4 text-center">
           <p class="text-2xl font-bold text-amber-500" id="stat-question">0</p>
           <p class="text-xs text-gray-500 mt-1">提问次数</p>
+        
+        <div class="bg-teal-50 rounded-lg p-4 text-center">
+          <p class="text-2xl font-bold text-teal-500" id="stat-logins">0</p>
+          <p class="text-xs text-gray-500 mt-1">上线总次数</p>
         </div>
+        <div class="bg-indigo-50 rounded-lg p-4 text-center">
+          <p class="text-2xl font-bold text-indigo-500" id="stat-quiz-count">0</p>
+          <p class="text-xs text-gray-500 mt-1">测验完成(题)</p>
+        </div></div>
       </div>
     </div>
 
@@ -214,6 +222,8 @@
         }
         document.getElementById('stat-streak').textContent = streak;
         document.getElementById('stat-checkins').textContent = dateSet.size;
+        // 上线总次数（study_logs记录总数）
+        document.getElementById('stat-logins').textContent = logs.length;
 
         // 测验完成率
         const chapters = chaptersRes.data || [];
@@ -223,6 +233,8 @@
         // 先统计已提交的测验数
         const submittedQuizIds = new Set((quizSubRes.data || []).map(q => q.quiz_id));
         document.getElementById('stat-quiz-rate').textContent = submittedQuizIds.size + '份';
+        // 测验完成题数（绝对数量）
+        document.getElementById('stat-quiz-count').textContent = (quizSubRes.data || []).length;
 
         // 资源阅读
         const resources = resourcesRes.data || [];
