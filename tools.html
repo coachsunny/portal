@@ -141,7 +141,25 @@
       }
       
       emptyState.classList.add('hidden');
-      grid.innerHTML = allTools.map(tool => `
+      
+      // 内置工具：心理学名词生活化清单
+      const builtInCard = `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition group relative">
+          <a href="psychology-terms.html" class="block">
+            <div class="w-14 h-14 bg-gradient-to-br from-purple-100 to-pink-100 rounded-xl flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition">
+              📚
+            </div>
+            <h3 class="text-lg font-semibold text-gray-800 mb-2 group-hover:text-blue-600 transition">心理学名词生活化清单</h3>
+            <p class="text-sm text-gray-500 leading-relaxed">把学术语言翻译成日常场景，36个心理学名词边读边查边懂</p>
+            <div class="mt-4 flex items-center text-sm text-blue-600 font-medium">
+              <span>打开工具</span>
+              <span class="ml-1 group-hover:translate-x-1 transition">→</span>
+            </div>
+          </a>
+        </div>
+      `;
+      
+      grid.innerHTML = builtInCard + allTools.map(tool => ``
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition group relative">
           ${isTeacherUser ? `
             <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition flex gap-1">

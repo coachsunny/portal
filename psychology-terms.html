@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>心理学名词生活化清单 - 自牧平施教练班</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <!-- 导航栏由 auth.js 动态渲染 -->
+
+  <main class="max-w-5xl mx-auto px-4 py-8">
+    <!-- 页面标题 -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800">📚 心理学名词生活化清单</h1>
+        <p class="text-gray-500 mt-1">把学术语言翻译成日常场景，边读教材、边查边懂</p>
+      </div>
+      <button id="add-btn" onclick="openTermModal()" class="hidden bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center">
+        <span class="mr-2">➕</span> 新增名词
+      </button>
+    </div>
+
+    <!-- 搜索和筛选 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+      <div class="flex flex-wrap gap-3">
+        <div class="flex-1 min-w-[200px]">
+          <input type="text" id="search-input" oninput="renderTerms()" placeholder="搜索名词或解释..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        <select id="category-filter" onchange="renderTerms()" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+          <option value="all">全部分类</option>
+        </select>
+      </div>
+      <!-- 分类标签 -->
+      <div id="category-tabs" class="flex flex-wrap gap-2 mt-3"></div>
+    </div>
+
+    <!-- 统计信息 -->
+    <div class="mb-4 text-sm text-gray-500">
+      共 <span id="total-count" class="font-semibold text-gray-700">0</span> 个名词
+    </div>
+
+    <!-- 名词列表 -->
+    <div id="terms-list" class="space-y-3"></div>
+
+    <!-- 空状态 -->
+    <div id="empty-state" class="hidden text-center py-16 bg-white rounded-xl border border-gray-100">
+      <p class="text-5xl mb-4">🔍</p>
+      <p class="text-gray-500">没有找到匹配的名词</p>
+      <p class="text-gray-400 text-sm mt-1">试试其他关键词或分类</p>
+    </div>
+  </main>
+
+  <!-- 新增/编辑名词弹窗 -->
+  <div id="term-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div class="p-6 border-b">
+        <h3 id="modal-title" class="text-lg font-semibold text-gray-800">新增名词</h3>
+      </div>
+      <div class="p-6 space-y-4">
+        <input type="hidden" id="term-id">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">名词名称 *</label>
+          <input type="text" id="term-name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="如：马斯洛需求层次理论">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">分类 *</label>
+          <select id="term-category" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+            <option value="一、经典心理学理论与模型">一、经典心理学理论与模型</option>
+            <option value="二、脑科学与生理基础">二、脑科学与生理基础</option>
+            <option value="三、常见心理状态与能力">三、常见心理状态与能力</option>
+            <option value="四、教练常用工具与专有名词">四、教练常用工具与专有名词</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">出现课次</label>
+          <input type="text" id="term-lesson" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="如：第 2 课《产生意识》">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">生活化解释 *</label>
+          <textarea id="term-explanation" rows="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="用生活化的语言解释这个名词..."></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">排序（数字越小越靠前）</label>
+          <input type="number" id="term-sort" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="0">
+        </div>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeTermModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="saveTerm()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 确认删除弹窗 -->
+  <div id="delete-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm">
+      <div class="p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-2">确认删除</h3>
+        <p class="text-gray-600 text-sm">确定要删除名词「<span id="delete-term-name"></span>」吗？此操作不可撤销。</p>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeDeleteModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="confirmDelete()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let currentSession = null;
+    let isTeacher = false;
+    let allTerms = [];
+    let editingTermId = null;
+    let deletingTermId = null;
+    let activeCategory = 'all';
+
+    // 页面初始化
+    window.addEventListener('load', async () => {
+      currentSession = await requireLogin();
+      if (!currentSession) return;
+      
+      // 检查是否是老师
+      isTeacher = await isTeacherUser();
+      if (isTeacher) {
+        document.getElementById('add-btn').classList.remove('hidden');
+      }
+      
+      renderNavbar(currentSession, 'tools');
+      await loadTerms();
+    });
+
+    // 检查是否是老师
+    async function isTeacherUser() {
+      try {
+        const { data, error } = await sb
+          .from('profiles')
+          .select('role')
+          .eq('id', currentSession.user.id)
+          .single();
+        if (error) return false;
+        return data.role === 'teacher';
+      } catch (e) {
+        return false;
+      }
+    }
+
+    // 加载所有名词
+    async function loadTerms() {
+      try {
+        const { data, error } = await sb
+          .from('psychology_terms')
+          .select('*')
+          .order('sort_order', { ascending: true })
+          .order('id', { ascending: true });
+        
+        if (error) throw error;
+        allTerms = data || [];
+        
+        // 更新分类筛选下拉
+        updateCategoryFilter();
+        // 更新分类标签
+        renderCategoryTabs();
+        // 渲染列表
+        renderTerms();
+      } catch (e) {
+        console.error('加载名词失败:', e);
+        alert('加载失败：' + e.message);
+      }
+    }
+
+    // 更新分类筛选下拉
+    function updateCategoryFilter() {
+      const categories = [...new Set(allTerms.map(t => t.category))];
+      const select = document.getElementById('category-filter');
+      select.innerHTML = '<option value="all">全部分类</option>' + 
+        categories.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+
+    // 渲染分类标签
+    function renderCategoryTabs() {
+      const categories = [...new Set(allTerms.map(t => t.category))];
+      const container = document.getElementById('category-tabs');
+      
+      const tabs = [{ value: 'all', label: '全部' }, ...categories.map(c => ({ value: c, label: c }))];
+      
+      container.innerHTML = tabs.map(tab => `
+        <button onclick="filterByCategory('${tab.value}')" 
+          class="px-3 py-1 rounded-full text-sm transition ${activeCategory === tab.value ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">
+          ${tab.label}
+        </button>
+      `).join('');
+    }
+
+    // 按分类筛选
+    function filterByCategory(category) {
+      activeCategory = category;
+      document.getElementById('category-filter').value = category;
+      renderCategoryTabs();
+      renderTerms();
+    }
+
+    // 渲染名词列表
+    function renderTerms() {
+      const searchText = document.getElementById('search-input').value.toLowerCase();
+      const categoryFilter = document.getElementById('category-filter').value;
+      
+      let filtered = allTerms;
+      
+      // 分类筛选
+      if (categoryFilter !== 'all') {
+        filtered = filtered.filter(t => t.category === categoryFilter);
+      }
+      
+      // 搜索筛选
+      if (searchText) {
+        filtered = filtered.filter(t => 
+          t.term.toLowerCase().includes(searchText) ||
+          t.explanation.toLowerCase().includes(searchText) ||
+          (t.lesson_reference && t.lesson_reference.toLowerCase().includes(searchText))
+        );
+      }
+      
+      document.getElementById('total-count').textContent = filtered.length;
+      
+      const list = document.getElementById('terms-list');
+      const emptyState = document.getElementById('empty-state');
+      
+      if (filtered.length === 0) {
+        list.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+      
+      emptyState.classList.add('hidden');
+      
+      // 按分类分组
+      const grouped = {};
+      for (const term of filtered) {
+        if (!grouped[term.category]) grouped[term.category] = [];
+        grouped[term.category].push(term);
+      }
+      
+      let html = '';
+      for (const [category, terms] of Object.entries(grouped)) {
+        html += `
+          <div class="mb-6">
+            <h2 class="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+              <span class="w-1 h-5 bg-blue-500 rounded mr-2"></span>
+              ${category}
+              <span class="text-sm font-normal text-gray-400 ml-2">(${terms.length}个)</span>
+            </h2>
+            <div class="space-y-2">
+              ${terms.map(term => renderTermCard(term)).join('')}
+            </div>
+          </div>
+        `;
+      }
+      
+      list.innerHTML = html;
+    }
+
+    // 渲染单个名词卡片
+    function renderTermCard(term) {
+      return `
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div class="p-4 cursor-pointer hover:bg-gray-50 transition" onclick="toggleTerm(${term.id})">
+            <div class="flex items-start justify-between">
+              <div class="flex-1 min-w-0">
+                <h3 class="font-semibold text-gray-800">${term.term}</h3>
+                ${term.lesson_reference ? `<p class="text-xs text-gray-400 mt-1">📖 ${term.lesson_reference}</p>` : ''}
+              </div>
+              <div class="flex items-center ml-3">
+                ${isTeacher ? `
+                  <button onclick="event.stopPropagation(); editTerm(${term.id})" class="p-1 text-gray-400 hover:text-blue-600 mr-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                  </button>
+                  <button onclick="event.stopPropagation(); openDeleteModal(${term.id}, '${term.term.replace(/'/g, "\\'")}')" class="p-1 text-gray-400 hover:text-red-600">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                  </button>
+                ` : ''}
+                <svg id="arrow-${term.id}" class="w-5 h-5 text-gray-400 ml-2 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+              </div>
+            </div>
+          </div>
+          <div id="detail-${term.id}" class="hidden border-t border-gray-100 bg-gray-50 p-4">
+            <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">${term.explanation}</p>
+          </div>
+        </div>
+      `;
+    }
+
+    // 展开/收起名词详情
+    function toggleTerm(id) {
+      const detail = document.getElementById(`detail-${id}`);
+      const arrow = document.getElementById(`arrow-${id}`);
+      if (detail.classList.contains('hidden')) {
+        detail.classList.remove('hidden');
+        arrow.style.transform = 'rotate(180deg)';
+      } else {
+        detail.classList.add('hidden');
+        arrow.style.transform = 'rotate(0deg)';
+      }
+    }
+
+    // 打开新增/编辑弹窗
+    function openTermModal() {
+      editingTermId = null;
+      document.getElementById('modal-title').textContent = '新增名词';
+      document.getElementById('term-id').value = '';
+      document.getElementById('term-name').value = '';
+      document.getElementById('term-category').value = '一、经典心理学理论与模型';
+      document.getElementById('term-lesson').value = '';
+      document.getElementById('term-explanation').value = '';
+      document.getElementById('term-sort').value = '0';
+      document.getElementById('term-modal').classList.remove('hidden');
+    }
+
+    // 编辑名词
+    function editTerm(id) {
+      const term = allTerms.find(t => t.id === id);
+      if (!term) return;
+      
+      editingTermId = id;
+      document.getElementById('modal-title').textContent = '编辑名词';
+      document.getElementById('term-id').value = term.id;
+      document.getElementById('term-name').value = term.term;
+      document.getElementById('term-category').value = term.category;
+      document.getElementById('term-lesson').value = term.lesson_reference || '';
+      document.getElementById('term-explanation').value = term.explanation;
+      document.getElementById('term-sort').value = term.sort_order || 0;
+      document.getElementById('term-modal').classList.remove('hidden');
+    }
+
+    // 关闭弹窗
+    function closeTermModal() {
+      document.getElementById('term-modal').classList.add('hidden');
+      editingTermId = null;
+    }
+
+    // 保存名词
+    async function saveTerm() {
+      const name = document.getElementById('term-name').value.trim();
+      const category = document.getElementById('term-category').value;
+      const lesson = document.getElementById('term-lesson').value.trim();
+      const explanation = document.getElementById('term-explanation').value.trim();
+      const sortOrder = parseInt(document.getElementById('term-sort').value) || 0;
+      
+      if (!name) { alert('请输入名词名称'); return; }
+      if (!explanation) { alert('请输入生活化解释'); return; }
+      
+      try {
+        const data = {
+          term: name,
+          category: category,
+          lesson_reference: lesson,
+          explanation: explanation,
+          sort_order: sortOrder
+        };
+        
+        if (editingTermId) {
+          const { error } = await sb.from('psychology_terms').update(data).eq('id', editingTermId);
+          if (error) throw error;
+        } else {
+          const { error } = await sb.from('psychology_terms').insert(data);
+          if (error) throw error;
+        }
+        
+        closeTermModal();
+        await loadTerms();
+        alert('保存成功！');
+      } catch (e) {
+        console.error('保存失败:', e);
+        alert('保存失败：' + e.message);
+      }
+    }
+
+    // 打开删除确认弹窗
+    function openDeleteModal(id, name) {
+      deletingTermId = id;
+      document.getElementById('delete-term-name').textContent = name;
+      document.getElementById('delete-modal').classList.remove('hidden');
+    }
+
+    // 关闭删除弹窗
+    function closeDeleteModal() {
+      document.getElementById('delete-modal').classList.add('hidden');
+      deletingTermId = null;
+    }
+
+    // 确认删除
+    async function confirmDelete() {
+      if (!deletingTermId) return;
+      
+      try {
+        const { error } = await sb.from('psychology_terms').delete().eq('id', deletingTermId);
+        if (error) throw error;
+        
+        closeDeleteModal();
+        await loadTerms();
+        alert('删除成功！');
+      } catch (e) {
+        console.error('删除失败:', e);
+        alert('删除失败：' + e.message);
+      }
+    }
+  </script>
+</body>
+</html>
