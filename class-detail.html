@@ -2241,6 +2241,7 @@
     let currentGradeValue = null;
     let pickerChapterId = null;
     let pickerSelectedIds = new Set();
+    let existingQuizIds = new Set();
     let allLibraryQuizzes = [];
 
     async function loadQuizzes() {
@@ -2383,7 +2384,7 @@
         // 标记已在本章节的题目
         const { data: existing, error: ee } = await sb.from('chapter_quizzes').select('quiz_id').eq('chapter_id', chapterId);
         if (ee) throw ee;
-        (existing || []).forEach(e => pickerSelectedIds.add(e.quiz_id));
+        (existing || []).forEach(e => { pickerSelectedIds.add(e.quiz_id); existingQuizIds.add(e.quiz_id); });
         renderQuizPickerList();
       } catch (e) { alert('加载题库失败：' + e.message); }
     }
@@ -2392,6 +2393,7 @@
       document.getElementById('quiz-picker-modal').classList.add('hidden');
       pickerChapterId = null;
       pickerSelectedIds = new Set();
+      existingQuizIds = new Set();
     }
 
     function renderQuizPickerList() {
@@ -2439,7 +2441,15 @@
       const btn = document.getElementById('quiz-picker-add-btn');
       btn.disabled = true; btn.textContent = '添加中...';
       try {
-        const records = Array.from(pickerSelectedIds).map(qid => ({ chapter_id: pickerChapterId, quiz_id: qid, sort_order: 0 }));
+        // 过滤掉已存在的题目，只插入新选择的题目
+        const newQuizIds = Array.from(pickerSelectedIds).filter(qid => !existingQuizIds.has(qid));
+        if (newQuizIds.length === 0) {
+          alert('所选题目都已在本章节中，无需重复添加');
+          closeQuizPickerModal();
+          loadQuizzes();
+          return;
+        }
+        const records = newQuizIds.map(qid => ({ chapter_id: pickerChapterId, quiz_id: qid, sort_order: 0 }));
         const { error } = await sb.from('chapter_quizzes').insert(records);
         if (error) throw error;
         closeQuizPickerModal();
