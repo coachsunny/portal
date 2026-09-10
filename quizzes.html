@@ -50,7 +50,7 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">分类/章节</label>
-          <input type="text" id="quiz-category" list="category-list" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="例如：第一章 什么是教练">
+          <input type="text" id="quiz-category" list="category-list" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="选择班级章节或输入自定义分类">
           <datalist id="category-list"></datalist>
         </div>
         <div>
@@ -71,12 +71,14 @@
     let currentSession = null;
     let allQuizzes = [];
     let editingQuizId = null;
+    let allChapters = [];
+    let allClasses = [];
 
     window.addEventListener('load', async () => {
       currentSession = await requireTeacher();
       if (!currentSession) return;
       renderNavbar(currentSession, 'quizzes');
-      await loadQuizzes();
+      await Promise.all([loadQuizzes(), loadClassesAndChapters()]);
     });
 
     async function loadQuizzes() {
@@ -89,12 +91,33 @@
       } catch (e) { console.error('加载题库失败:', e); alert('加载题库失败：' + e.message); }
     }
 
+    async function loadClassesAndChapters() {
+      try {
+        const { data: classes, error: classError } = await sb.from('classes').select('id, name').order('name', { ascending: true });
+        if (classError) throw classError;
+        allClasses = classes || [];
+
+        const { data: chapters, error: chapterError } = await sb.from('chapters').select('id, class_id, title, sort_order').order('class_id', { ascending: true }).order('sort_order', { ascending: true });
+        if (chapterError) throw chapterError;
+        allChapters = chapters || [];
+
+        updateCategoryFilter();
+      } catch (e) { console.error('加载班级和章节失败:', e); }
+    }
+
     function updateCategoryFilter() {
-      const categories = [...new Set(allQuizzes.map(q => q.category).filter(c => c))];
+      const quizCategories = [...new Set(allQuizzes.map(q => q.category).filter(c => c))];
+      const classMap = {};
+      allClasses.forEach(c => classMap[c.id] = c.name);
+      const chapterCategories = allChapters.map(ch => {
+        const className = classMap[ch.class_id] || '未知班级';
+        return `${className} - ${ch.title}`;
+      });
+      const allCategories = [...new Set([...chapterCategories, ...quizCategories])];
       const select = document.getElementById('filter-category');
       const datalist = document.getElementById('category-list');
-      select.innerHTML = '<option value="all">全部分类</option>' + categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-      datalist.innerHTML = categories.map(c => `<option value="${escapeHtml(c)}">`).join('');
+      select.innerHTML = '<option value="all">全部分类</option>' + allCategories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+      datalist.innerHTML = allCategories.map(c => `<option value="${escapeHtml(c)}">`).join('');
     }
 
     function renderQuizList() {
