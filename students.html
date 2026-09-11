@@ -376,6 +376,7 @@
                 ` : ''}
                 <button onclick="openEditModal('${s.id}')" class="px-2 py-1 text-green-500 hover:bg-green-50 rounded transition" title="编辑学员">✏️</button>
                 <button onclick="openAddClassModal('${s.id}')" class="px-2 py-1 text-purple-500 hover:bg-purple-50 rounded transition" title="添加到班级">➕</button>
+                <button onclick="deleteStudent('${s.id}')" class="px-2 py-1 text-red-500 hover:bg-red-50 rounded transition" title="删除账号">🗑️</button>
               </div>
             </td>
           </tr>
@@ -649,6 +650,63 @@
 
     function closeSuccessModal() {
       document.getElementById('success-modal').classList.add('hidden');
+    }
+
+    // ========== 删除学员 ==========
+    async function deleteStudent(studentId) {
+      const student = allStudents.find(s => s.id === studentId);
+      if (!student) return;
+      
+      const confirmMsg = '⚠️ 确定要删除学员「' + student.name + '」的账号吗？\n\n删除后将无法恢复，包括：\n- 学员基本信息\n- 班级成员关系\n- 学习打卡记录\n- 章节心得\n- 测验答题记录\n- 提问记录\n- 资源阅读记录\n\n【注意】Auth系统中的登录账号需要在Supabase后台手动删除。\n\n此操作不可撤销，请确认！';
+      
+      if (!confirm(confirmMsg)) return;
+      
+      // 二次确认
+      if (!confirm('再次确认：真的要删除「' + student.name + '」吗？此操作不可恢复！')) return;
+      
+      try {
+        // 1. 删除班级成员关系
+        await sb.from('class_members').delete().eq('user_id', studentId);
+        
+        // 2. 删除学习打卡记录
+        await sb.from('study_logs').delete().eq('user_id', studentId);
+        
+        // 3. 删除章节心得
+        await sb.from('chapter_reflections').delete().eq('user_id', studentId);
+        
+        // 4. 删除测验答题记录
+        await sb.from('quiz_submissions').delete().eq('user_id', studentId);
+        
+        // 5. 删除提问记录
+        await sb.from('questions').delete().eq('user_id', studentId);
+        
+        // 6. 删除资源阅读记录
+        await sb.from('resource_reads').delete().eq('user_id', studentId);
+        
+        // 7. 删除公告已读记录
+        await sb.from('announcement_reads').delete().eq('user_id', studentId);
+        
+        // 8. 删除学员期末评价
+        await sb.from('student_evaluations').delete().eq('user_id', studentId);
+        
+        // 9. 删除学员月度目标
+        await sb.from('student_monthly_goals').delete().eq('user_id', studentId);
+        
+        // 10. 删除老师关怀消息
+        await sb.from('care_messages').delete().or('student_id.eq.' + studentId + ',teacher_id.eq.' + studentId);
+        
+        // 11. 删除学员私人备注
+        await sb.from('student_notes').delete().eq('student_id', studentId);
+        
+        // 12. 最后删除profile
+        const { error } = await sb.from('profiles').delete().eq('id', studentId);
+        if (error) throw error;
+        
+        alert('学员账号已删除！\n\n【提醒】Auth系统中的登录账号还需要在Supabase后台手动删除。');
+        await loadStudents();
+      } catch (e) {
+        alert('删除失败：' + e.message + '\n\n请检查数据库RLS策略是否允许删除操作。');
+      }
     }
 
     // ========== 工具函数 ==========
