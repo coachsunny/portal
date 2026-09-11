@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学员管理 - 自牧平施教练班</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div id="navbar-container"></div>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- 页面标题 -->
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800">👥 学员管理</h1>
+        <p class="text-gray-500 text-sm mt-1">管理所有学员账号，包括不在班级中的学员</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <select id="class-filter" onchange="renderTable()" class="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          <option value="">全部班级</option>
+          <option value="none">无班级</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 统计概览 -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <p class="text-2xl font-bold text-gray-800" id="total-students">0</p>
+        <p class="text-xs text-gray-500 mt-1">学员总数</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <p class="text-2xl font-bold text-blue-500" id="active-students">0</p>
+        <p class="text-xs text-gray-500 mt-1">有班级学员</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <p class="text-2xl font-bold text-orange-500" id="no-class-students">0</p>
+        <p class="text-xs text-gray-500 mt-1">无班级学员</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <p class="text-2xl font-bold text-red-500" id="expired-students">0</p>
+        <p class="text-xs text-gray-500 mt-1">已过期/即将过期</p>
+      </div>
+    </div>
+
+    <!-- 搜索栏 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex-1 min-w-[200px]">
+          <input type="text" id="search-input" oninput="renderTable()" placeholder="搜索学员姓名或邮箱..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        <button onclick="openAddStudentModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1">
+          <span>➕</span> 新增学员
+        </button>
+      </div>
+    </div>
+
+    <!-- 学员列表 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学员</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">邮箱</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">所属班级</th>
+              <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">有效期</th>
+              <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">创建时间</th>
+              <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+            </tr>
+          </thead>
+          <tbody id="student-table-body" class="divide-y divide-gray-100">
+            <tr><td colspan="6" class="px-6 py-12 text-center text-gray-400">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- 编辑学员弹窗 -->
+  <div id="edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
+      <div class="p-6 border-b">
+        <h3 class="text-lg font-semibold text-gray-800" id="edit-modal-title">编辑学员</h3>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">学员姓名 *</label>
+          <input type="text" id="edit-name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">邮箱</label>
+          <input type="email" id="edit-email" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">初始密码</label>
+          <div class="flex items-center gap-2">
+            <input type="text" id="edit-password" readonly class="flex-1 px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600">
+            <button onclick="copyCurrentPassword()" class="px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition text-sm font-medium">📋 复制</button>
+            <button onclick="resetPassword()" class="px-3 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition text-sm font-medium">🔄 重置</button>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">学习资格有效期</label>
+          <div class="flex items-center gap-2">
+            <input type="date" id="edit-expiry" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <button onclick="setExpiryTwoYears()" class="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition text-sm font-medium whitespace-nowrap">+2年</button>
+            <button onclick="clearExpiry()" class="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition text-sm font-medium whitespace-nowrap">永久</button>
+          </div>
+          <p class="text-xs text-gray-400 mt-1">留空或点击"永久"表示不限期；60天内过期会提醒学员</p>
+        </div>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeEditModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="saveStudent()" id="save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 添加到班级弹窗 -->
+  <div id="add-class-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+      <div class="p-6 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">添加到班级</h3>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">选择班级 *</label>
+          <select id="add-class-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <option value="">请选择班级</option>
+          </select>
+        </div>
+        <p class="text-xs text-gray-400">学员将被添加到所选班级，可以同时属于多个班级</p>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeAddClassModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="confirmAddClass()" id="add-class-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">确认添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新增学员弹窗 -->
+  <div id="add-student-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
+      <div class="p-6 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">新增学员</h3>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">学员姓名 *</label>
+          <input type="text" id="new-name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="输入学员姓名">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">邮箱（选填）</label>
+          <input type="email" id="new-email" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="输入邮箱，用于登录">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">添加到班级（选填）</label>
+          <select id="new-class-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <option value="">暂不添加到班级</option>
+          </select>
+        </div>
+        <div class="bg-blue-50 rounded-lg p-3">
+          <p class="text-xs text-blue-600">系统将自动生成随机密码，创建后会显示给您复制给学员。有效期默认为2年。</p>
+        </div>
+      </div>
+      <div class="p-6 border-t flex justify-end space-x-3">
+        <button onclick="closeAddStudentModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">取消</button>
+        <button onclick="createStudent()" id="create-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">创建学员</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 创建成功弹窗 -->
+  <div id="success-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+      <div class="p-6 border-b">
+        <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+          <span class="text-green-500">✅</span> 创建成功
+        </h3>
+      </div>
+      <div class="p-6 space-y-4">
+        <div class="bg-green-50 rounded-lg p-4">
+          <p class="text-sm text-gray-700 mb-2">学员账号已创建，请将以下信息复制给学员：</p>
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between">
+              <span class="text-gray-500">姓名：</span>
+              <span class="font-medium text-gray-800" id="success-name"></span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-500">邮箱：</span>
+              <span class="font-medium text-gray-800" id="success-email"></span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-gray-500">密码：</span>
+              <div class="flex items-center gap-2">
+                <span class="font-mono font-bold text-blue-600" id="success-password"></span>
+                <button onclick="copySuccessPassword()" class="px-2 py-1 bg-blue-100 text-blue-600 rounded text-xs hover:bg-blue-200 transition">📋 复制</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="text-xs text-gray-400">提示：学员首次登录后建议修改密码。您可以随时在学员管理中查看或重置密码。</p>
+      </div>
+      <div class="p-6 border-t flex justify-end">
+        <button onclick="closeSuccessModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">完成</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let currentSession = null;
+    let allStudents = [];
+    let allClasses = [];
+    let editingStudentId = null;
+    let addClassStudentId = null;
+
+    window.addEventListener('load', async () => {
+      currentSession = await requireTeacher();
+      if (!currentSession) return;
+      renderNavbar(currentSession, 'students');
+      await Promise.all([loadClasses(), loadStudents()]);
+    });
+
+    // 加载班级列表
+    async function loadClasses() {
+      try {
+        const { data: classes, error } = await sb.from('classes').select('id, name, status').order('name', { ascending: true });
+        if (error) throw error;
+        allClasses = classes || [];
+        
+        // 更新班级筛选下拉框
+        const filterSelect = document.getElementById('class-filter');
+        const activeClasses = allClasses.filter(c => c.status === 'active' || !c.status);
+        filterSelect.innerHTML = '<option value="">全部班级</option><option value="none">无班级</option>' + 
+          activeClasses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+        
+        // 更新添加到班级下拉框
+        const addClassSelect = document.getElementById('add-class-select');
+        addClassSelect.innerHTML = '<option value="">请选择班级</option>' + 
+          activeClasses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+        
+        // 更新新增学员班级下拉框
+        const newClassSelect = document.getElementById('new-class-select');
+        newClassSelect.innerHTML = '<option value="">暂不添加到班级</option>' + 
+          activeClasses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+      } catch (e) { console.error('加载班级失败:', e); }
+    }
+
+    // 加载所有学员
+    async function loadStudents() {
+      try {
+        // 加载所有学员profile
+        const { data: profiles, error } = await sb.from('profiles').select('*').eq('role', 'student').order('created_at', { ascending: false });
+        if (error) throw error;
+        
+        // 加载所有班级成员关系
+        const { data: members, error: memberError } = await sb.from('class_members').select('user_id, class_id, joined_at');
+        if (memberError) throw memberError;
+        
+        // 构建学员班级映射
+        const classMap = {};
+        allClasses.forEach(c => classMap[c.id] = c.name);
+        
+        const studentClassMap = {};
+        (members || []).forEach(m => {
+          if (!studentClassMap[m.user_id]) studentClassMap[m.user_id] = [];
+          studentClassMap[m.user_id].push({
+            class_id: m.class_id,
+            class_name: classMap[m.class_id] || '未知班级',
+            joined_at: m.joined_at
+          });
+        });
+        
+        // 合并学员数据
+        allStudents = (profiles || []).map(p => ({
+          ...p,
+          classes: studentClassMap[p.id] || []
+        }));
+        
+        updateStats();
+        renderTable();
+      } catch (e) { 
+        console.error('加载学员失败:', e); 
+        alert('加载学员失败：' + e.message);
+      }
+    }
+
+    // 更新统计数据
+    function updateStats() {
+      const total = allStudents.length;
+      const withClass = allStudents.filter(s => s.classes.length > 0).length;
+      const noClass = total - withClass;
+      
+      const now = new Date();
+      const sixtyDays = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
+      const expired = allStudents.filter(s => {
+        if (!s.membership_expires_at) return false;
+        return new Date(s.membership_expires_at) < sixtyDays;
+      }).length;
+      
+      document.getElementById('total-students').textContent = total;
+      document.getElementById('active-students').textContent = withClass;
+      document.getElementById('no-class-students').textContent = noClass;
+      document.getElementById('expired-students').textContent = expired;
+    }
+
+    // 渲染学员表格
+    function renderTable() {
+      const container = document.getElementById('student-table-body');
+      const keyword = document.getElementById('search-input').value.toLowerCase();
+      const classFilter = document.getElementById('class-filter').value;
+      
+      let filtered = allStudents;
+      
+      // 搜索过滤
+      if (keyword) {
+        filtered = filtered.filter(s => 
+          (s.name && s.name.toLowerCase().includes(keyword)) ||
+          (s.email && s.email.toLowerCase().includes(keyword))
+        );
+      }
+      
+      // 班级过滤
+      if (classFilter === 'none') {
+        filtered = filtered.filter(s => s.classes.length === 0);
+      } else if (classFilter) {
+        filtered = filtered.filter(s => s.classes.some(c => c.class_id == classFilter));
+      }
+      
+      if (filtered.length === 0) {
+        container.innerHTML = '<tr><td colspan="6" class="px-6 py-12 text-center text-gray-400">没有找到匹配的学员</td></tr>';
+        return;
+      }
+      
+      container.innerHTML = filtered.map(s => {
+        const expiryStatus = getExpiryStatus(s.membership_expires_at);
+        const classNames = s.classes.length > 0 
+          ? s.classes.map(c => `<span class="inline-block px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-xs mr-1 mb-1">${escapeHtml(c.class_name)}</span>`).join('')
+          : '<span class="text-gray-400 text-xs">无班级</span>';
+        
+        return `
+          <tr class="hover:bg-gray-50 transition">
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="flex items-center">
+                <div class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium mr-3">
+                  ${s.name ? s.name.charAt(0) : '?'}
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-gray-900">${escapeHtml(s.name || '未命名')}</p>
+                </div>
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              ${s.email ? escapeHtml(s.email) : '<span class="text-gray-400">未设置</span>'}
+            </td>
+            <td class="px-6 py-4">
+              <div class="flex flex-wrap">${classNames}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-center">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${expiryStatus.class}">
+                ${expiryStatus.text}
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+              ${s.created_at ? formatDate(s.created_at) : '-'}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-center text-sm">
+              <div class="flex items-center justify-center gap-1">
+                ${s.classes.length > 0 ? `
+                  <a href="student-detail.html?user_id=${s.id}&class_id=${s.classes[0].class_id}" class="px-2 py-1 text-blue-500 hover:bg-blue-50 rounded transition" title="查看详情">👁️</a>
+                ` : ''}
+                <button onclick="openEditModal('${s.id}')" class="px-2 py-1 text-green-500 hover:bg-green-50 rounded transition" title="编辑学员">✏️</button>
+                <button onclick="openAddClassModal('${s.id}')" class="px-2 py-1 text-purple-500 hover:bg-purple-50 rounded transition" title="添加到班级">➕</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // 获取有效期状态
+    function getExpiryStatus(expiryDate) {
+      if (!expiryDate) {
+        return { text: '永久有效', class: 'bg-gray-100 text-gray-600' };
+      }
+      const now = new Date();
+      const expiry = new Date(expiryDate);
+      const sixtyDays = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
+      
+      if (expiry < now) {
+        return { text: '已过期', class: 'bg-red-100 text-red-600' };
+      } else if (expiry < sixtyDays) {
+        return { text: '即将过期', class: 'bg-orange-100 text-orange-600' };
+      } else {
+        return { text: '正常', class: 'bg-green-100 text-green-600' };
+      }
+    }
+
+    // 格式化日期
+    function formatDate(dateStr) {
+      const d = new Date(dateStr);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    // 生成随机密码
+    function generatePassword() {
+      const chars = 'abcdefghijkmnpqrstuvwxyz23456789';
+      let password = '';
+      for (let i = 0; i < 8; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return password;
+    }
+
+    // ========== 编辑学员 ==========
+    function openEditModal(studentId) {
+      const student = allStudents.find(s => s.id === studentId);
+      if (!student) return;
+      
+      editingStudentId = studentId;
+      document.getElementById('edit-modal-title').textContent = `编辑学员 - ${student.name}`;
+      document.getElementById('edit-name').value = student.name || '';
+      document.getElementById('edit-email').value = student.email || '';
+      document.getElementById('edit-password').value = student.initial_password || '未设置';
+      
+      if (student.membership_expires_at) {
+        const d = new Date(student.membership_expires_at);
+        document.getElementById('edit-expiry').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      } else {
+        document.getElementById('edit-expiry').value = '';
+      }
+      
+      document.getElementById('edit-modal').classList.remove('hidden');
+    }
+
+    function closeEditModal() {
+      document.getElementById('edit-modal').classList.add('hidden');
+      editingStudentId = null;
+    }
+
+    function copyCurrentPassword() {
+      const password = document.getElementById('edit-password').value;
+      if (password && password !== '未设置') {
+        navigator.clipboard.writeText(password).then(() => {
+          alert('密码已复制到剪贴板');
+        });
+      } else {
+        alert('该学员没有设置初始密码');
+      }
+    }
+
+    async function resetPassword() {
+      if (!confirm('确定要重置该学员的密码吗？重置后旧密码将失效。')) return;
+      
+      const newPassword = generatePassword();
+      try {
+        // 更新Auth系统密码
+        const { error: authError } = await sb.auth.admin.updateUserById(editingStudentId, { password: newPassword });
+        if (authError) {
+          // 如果admin API不可用，尝试其他方式
+          console.warn('Auth admin update failed, only updating profile:', authError.message);
+        }
+        
+        // 更新profile中的初始密码
+        const { error } = await sb.from('profiles').update({ initial_password: newPassword }).eq('id', editingStudentId);
+        if (error) throw error;
+        
+        document.getElementById('edit-password').value = newPassword;
+        alert('密码已重置为：' + newPassword + '\n请复制给学员');
+      } catch (e) {
+        alert('重置密码失败：' + e.message);
+      }
+    }
+
+    function setExpiryTwoYears() {
+      const d = new Date();
+      d.setFullYear(d.getFullYear() + 2);
+      document.getElementById('edit-expiry').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function clearExpiry() {
+      document.getElementById('edit-expiry').value = '';
+    }
+
+    async function saveStudent() {
+      const name = document.getElementById('edit-name').value.trim();
+      const email = document.getElementById('edit-email').value.trim();
+      const expiry = document.getElementById('edit-expiry').value;
+      
+      if (!name) { alert('请输入学员姓名'); return; }
+      
+      const btn = document.getElementById('save-btn');
+      btn.disabled = true; btn.textContent = '保存中...';
+      
+      try {
+        const updateData = { name: name };
+        if (email) updateData.email = email;
+        updateData.membership_expires_at = expiry ? new Date(expiry).toISOString() : null;
+        
+        const { error } = await sb.from('profiles').update(updateData).eq('id', editingStudentId);
+        if (error) throw error;
+        
+        closeEditModal();
+        await loadStudents();
+        alert('学员信息已更新');
+      } catch (e) {
+        alert('保存失败：' + e.message);
+      } finally {
+        btn.disabled = false; btn.textContent = '保存';
+      }
+    }
+
+    // ========== 添加到班级 ==========
+    function openAddClassModal(studentId) {
+      addClassStudentId = studentId;
+      const student = allStudents.find(s => s.id === studentId);
+      if (student) {
+        document.querySelector('#add-class-modal .text-lg').textContent = `添加到班级 - ${student.name}`;
+      }
+      document.getElementById('add-class-select').value = '';
+      document.getElementById('add-class-modal').classList.remove('hidden');
+    }
+
+    function closeAddClassModal() {
+      document.getElementById('add-class-modal').classList.add('hidden');
+      addClassStudentId = null;
+    }
+
+    async function confirmAddClass() {
+      const classId = document.getElementById('add-class-select').value;
+      if (!classId) { alert('请选择班级'); return; }
+      
+      const btn = document.getElementById('add-class-btn');
+      btn.disabled = true; btn.textContent = '添加中...';
+      
+      try {
+        // 检查是否已经在班级中
+        const student = allStudents.find(s => s.id === addClassStudentId);
+        if (student && student.classes.some(c => c.class_id == classId)) {
+          alert('该学员已经在此班级中');
+          return;
+        }
+        
+        const { error } = await sb.from('class_members').insert({
+          user_id: addClassStudentId,
+          class_id: parseInt(classId),
+          joined_at: new Date().toISOString()
+        });
+        if (error) throw error;
+        
+        closeAddClassModal();
+        await loadStudents();
+        alert('学员已添加到班级');
+      } catch (e) {
+        alert('添加失败：' + e.message);
+      } finally {
+        btn.disabled = false; btn.textContent = '确认添加';
+      }
+    }
+
+    // ========== 新增学员 ==========
+    function openAddStudentModal() {
+      document.getElementById('new-name').value = '';
+      document.getElementById('new-email').value = '';
+      document.getElementById('new-class-select').value = '';
+      document.getElementById('add-student-modal').classList.remove('hidden');
+    }
+
+    function closeAddStudentModal() {
+      document.getElementById('add-student-modal').classList.add('hidden');
+    }
+
+    async function createStudent() {
+      const name = document.getElementById('new-name').value.trim();
+      const email = document.getElementById('new-email').value.trim();
+      const classId = document.getElementById('new-class-select').value;
+      
+      if (!name) { alert('请输入学员姓名'); return; }
+      
+      const btn = document.getElementById('create-btn');
+      btn.disabled = true; btn.textContent = '创建中...';
+      
+      try {
+        const password = generatePassword();
+        const expiryDate = new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString();
+        
+        let userId;
+        
+        if (email) {
+          // 使用邮箱创建Auth用户
+          const { data: authData, error: authError } = await sb.auth.signUp({
+            email: email,
+            password: password
+          });
+          if (authError) throw authError;
+          userId = authData.user.id;
+        } else {
+          // 没有邮箱时，直接创建profile（需要手动创建UUID）
+          userId = crypto.randomUUID();
+        }
+        
+        // 创建profile
+        const { error: profileError } = await sb.from('profiles').insert({
+          id: userId,
+          name: name,
+          role: 'student',
+          initial_password: password,
+          membership_expires_at: expiryDate,
+          email: email || null
+        });
+        if (profileError) throw profileError;
+        
+        // 添加到班级
+        if (classId) {
+          const { error: memberError } = await sb.from('class_members').insert({
+            user_id: userId,
+            class_id: parseInt(classId),
+            joined_at: new Date().toISOString()
+          });
+          if (memberError) throw memberError;
+        }
+        
+        // 显示成功信息
+        closeAddStudentModal();
+        document.getElementById('success-name').textContent = name;
+        document.getElementById('success-email').textContent = email || '（未设置邮箱，无法登录）';
+        document.getElementById('success-password').textContent = password;
+        document.getElementById('success-modal').classList.remove('hidden');
+        
+        await loadStudents();
+      } catch (e) {
+        alert('创建学员失败：' + e.message);
+      } finally {
+        btn.disabled = false; btn.textContent = '创建学员';
+      }
+    }
+
+    function copySuccessPassword() {
+      const password = document.getElementById('success-password').textContent;
+      navigator.clipboard.writeText(password).then(() => {
+        alert('密码已复制到剪贴板');
+      });
+    }
+
+    function closeSuccessModal() {
+      document.getElementById('success-modal').classList.add('hidden');
+    }
+
+    // ========== 工具函数 ==========
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

@@ -158,6 +158,7 @@ function renderNavbar(session, currentPage) {
     { id: 'todo', label: '待办处理', href: 'teacher-todo.html' },
     { id: 'classes', label: '班级管理', href: 'classes.html' },
     { id: 'student-stats', label: '学员状态', href: 'student-stats.html' },
+    { id: 'students', label: '学员管理', href: 'students.html' },
     { id: 'resources', label: '资源管理', href: 'resources.html' },
     { id: 'quizzes', label: '测验管理', href: 'quizzes.html' },
     { id: 'tools', label: '工具', href: 'tools.html' },
