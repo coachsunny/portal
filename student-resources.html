@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -6,6 +6,7 @@
   <title>学习资源 - 自牧平施教练班</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/pdfjs/pdf.min.js"></script>
 </head>
 <body class="bg-gray-50 min-h-screen">
   <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -465,6 +466,7 @@
           </div>
           <div class="flex-shrink-0 ml-4">
             ${isPdf && r.file_url ? `<a href="${r.file_url}" target="_blank" onclick="markResourceRead(${r.id})" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition inline-flex items-center"><span class="mr-1">👁️</span> 查看</a>` : ''}
+            ${isPdf && r.file_url ? `<button onclick="startPdfReading(${r.id}, '${r.file_url}', '${r.title}')" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition inline-flex items-center ml-2"><span class="mr-1">🔊</span> 朗读</button>` : ''}
             ${!isPdf && r.file_url ? `<button onclick="markResourceRead(${r.id}); copyVideoLink('${r.file_url}', '${r.extraction_code || ''}')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition inline-flex items-center"><span class="mr-1">📋</span> 复制链接</button>` : ''}
           </div>
         </div>`;
@@ -798,6 +800,249 @@
       if (!s) return '-';
       return new Date(s).toLocaleDateString('zh-CN');
     }
+  
+    // ========== PDF语音朗读功能 ==========
+    let pdfjsLib = window['pdfjs-dist/build/pdf'];
+    if (pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'js/pdfjs/pdf.worker.min.js';
+    }
+    
+    let readerState = {
+      isReading: false,
+      isPaused: false,
+      currentResourceId: null,
+      currentPdfUrl: null,
+      currentTitle: '',
+      pdfDoc: null,
+      totalPages: 0,
+      currentPage: 0,
+      pagesText: [],
+      currentTextIndex: 0,
+      allSentences: [],
+      currentSentenceIndex: 0,
+      utterance: null,
+      rate: 1.0
+    };
+    
+    // 开始PDF朗读
+    async function startPdfReading(resourceId, pdfUrl, title) {
+      try {
+        // 停止之前的朗读
+        stopReadingInternal();
+        
+        readerState.currentResourceId = resourceId;
+        readerState.currentPdfUrl = pdfUrl;
+        readerState.currentTitle = title;
+        
+        // 显示面板
+        document.getElementById('pdf-reader-panel').classList.remove('hidden');
+        document.getElementById('reader-title').textContent = title;
+        document.getElementById('reader-current-text').textContent = '正在加载PDF...';
+        document.getElementById('reader-page-info').textContent = '加载中...';
+        
+        // 标记资源已读
+        markResourceRead(resourceId);
+        
+        // 加载PDF
+        const loadingTask = pdfjsLib.getDocument(pdfUrl);
+        readerState.pdfDoc = await loadingTask.promise;
+        readerState.totalPages = readerState.pdfDoc.numPages;
+        readerState.pagesText = [];
+        
+        document.getElementById('reader-page-info').textContent = '共 ' + readerState.totalPages + ' 页，正在提取文本...';
+        
+        // 提取所有页面的文本
+        for (let i = 1; i <= readerState.totalPages; i++) {
+          const page = await readerState.pdfDoc.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map(item => item.str).join(' ');
+          readerState.pagesText.push(pageText);
+          
+          // 更新进度
+          const progress = (i / readerState.totalPages) * 30; // 提取文本占30%进度
+          document.getElementById('reader-progress').style.width = progress + '%';
+          document.getElementById('reader-page-info').textContent = '提取文本 ' + i + '/' + readerState.totalPages + ' 页';
+        }
+        
+        // 将所有文本分割成句子
+        const fullText = readerState.pagesText.join(' ');
+        readerState.allSentences = fullText.split(/[。！？.!?\n]+/).filter(s => s.trim().length > 0);
+        readerState.currentSentenceIndex = 0;
+        
+        document.getElementById('reader-page-info').textContent = '共 ' + readerState.totalPages + ' 页，' + readerState.allSentences.length + ' 个段落';
+        
+        // 开始朗读
+        readerState.isReading = true;
+        readerState.isPaused = false;
+        document.getElementById('play-pause-btn').innerHTML = '⏸️ 暂停';
+        
+        readNextSentence();
+      } catch (e) {
+        console.error('PDF朗读失败:', e);
+        document.getElementById('reader-current-text').textContent = '加载失败：' + e.message;
+        setTimeout(() => closePdfReader(), 3000);
+      }
+    }
+    
+    // 朗读下一个句子
+    function readNextSentence() {
+      if (!readerState.isReading || readerState.isPaused) return;
+      
+      if (readerState.currentSentenceIndex >= readerState.allSentences.length) {
+        // 朗读完成
+        readerState.isReading = false;
+        document.getElementById('reader-current-text').textContent = '✅ 朗读完成！';
+        document.getElementById('play-pause-btn').innerHTML = '▶️ 播放';
+        document.getElementById('reader-progress').style.width = '100%';
+        return;
+      }
+      
+      const sentence = readerState.allSentences[readerState.currentSentenceIndex].trim();
+      
+      // 更新显示
+      document.getElementById('reader-current-text').textContent = sentence;
+      
+      // 更新进度
+      const progress = 30 + (readerState.currentSentenceIndex / readerState.allSentences.length) * 70;
+      document.getElementById('reader-progress').style.width = progress + '%';
+      
+      // 创建语音朗读
+      readerState.utterance = new SpeechSynthesisUtterance(sentence);
+      readerState.utterance.lang = 'zh-CN';
+      readerState.utterance.rate = readerState.rate;
+      readerState.utterance.pitch = 1.0;
+      
+      // 朗读结束后继续下一个
+      readerState.utterance.onend = function() {
+        readerState.currentSentenceIndex++;
+        readNextSentence();
+      };
+      
+      // 朗读出错
+      readerState.utterance.onerror = function(e) {
+        console.error('朗读出错:', e);
+        readerState.currentSentenceIndex++;
+        readNextSentence();
+      };
+      
+      // 开始朗读
+      window.speechSynthesis.speak(readerState.utterance);
+    }
+    
+    // 播放/暂停切换
+    function togglePlayPause() {
+      if (!readerState.isReading) {
+        // 重新开始
+        readerState.isReading = true;
+        readerState.isPaused = false;
+        document.getElementById('play-pause-btn').innerHTML = '⏸️ 暂停';
+        readNextSentence();
+        return;
+      }
+      
+      if (readerState.isPaused) {
+        // 继续播放
+        readerState.isPaused = false;
+        window.speechSynthesis.resume();
+        document.getElementById('play-pause-btn').innerHTML = '⏸️ 暂停';
+      } else {
+        // 暂停
+        readerState.isPaused = true;
+        window.speechSynthesis.pause();
+        document.getElementById('play-pause-btn').innerHTML = '▶️ 播放';
+      }
+    }
+    
+    // 停止朗读（内部函数，不关闭面板）
+    function stopReadingInternal() {
+      window.speechSynthesis.cancel();
+      readerState.isReading = false;
+      readerState.isPaused = false;
+      readerState.utterance = null;
+      if (readerState.pdfDoc) {
+        readerState.pdfDoc.destroy();
+        readerState.pdfDoc = null;
+      }
+    }
+    
+    // 停止朗读（用户点击）
+    function stopReading() {
+      stopReadingInternal();
+      document.getElementById('play-pause-btn').innerHTML = '▶️ 播放';
+      document.getElementById('reader-current-text').textContent = '已停止';
+      document.getElementById('reader-progress').style.width = '0%';
+    }
+    
+    // 关闭朗读面板
+    function closePdfReader() {
+      stopReadingInternal();
+      document.getElementById('pdf-reader-panel').classList.add('hidden');
+      readerState.currentResourceId = null;
+      readerState.currentSentenceIndex = 0;
+      readerState.allSentences = [];
+    }
+    
+    // 改变语速
+    function changeRate() {
+      readerState.rate = parseFloat(document.getElementById('reader-rate').value);
+      document.getElementById('reader-rate-value').textContent = readerState.rate.toFixed(1) + 'x';
+      
+      // 如果正在朗读，重新开始当前句子
+      if (readerState.isReading && !readerState.isPaused) {
+        window.speechSynthesis.cancel();
+        readNextSentence();
+      }
+    }
+    
+    // 页面卸载时停止朗读
+    window.addEventListener('beforeunload', function() {
+      stopReadingInternal();
+    });
   </script>
+  <!-- PDF朗读控制面板 -->
+  <div id="pdf-reader-panel" class="hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
+    <div class="max-w-4xl mx-auto px-4 py-3">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center flex-1 min-w-0">
+          <span class="text-purple-600 text-lg mr-2">🔊</span>
+          <span id="reader-title" class="text-sm font-medium text-gray-800 truncate">正在朗读...</span>
+        </div>
+        <button onclick="closePdfReader()" class="ml-2 text-gray-400 hover:text-gray-600 transition">✕</button>
+      </div>
+      
+      <!-- 进度条 -->
+      <div class="w-full bg-gray-200 rounded-full h-1 mb-2">
+        <div id="reader-progress" class="bg-purple-600 h-1 rounded-full transition-all" style="width: 0%"></div>
+      </div>
+      
+      <!-- 当前朗读文本 -->
+      <div class="bg-gray-50 rounded-lg p-2 mb-2 max-h-20 overflow-y-auto">
+        <p id="reader-current-text" class="text-sm text-gray-600">准备朗读...</p>
+      </div>
+      
+      <!-- 控制按钮 -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <button onclick="togglePlayPause()" id="play-pause-btn" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition">
+            ⏸️ 暂停
+          </button>
+          <button onclick="stopReading()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm rounded-lg transition">
+            ⏹️ 停止
+          </button>
+        </div>
+        
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-gray-500">语速</span>
+          <input type="range" id="reader-rate" min="0.5" max="2" step="0.1" value="1" onchange="changeRate()" class="w-24">
+          <span id="reader-rate-value" class="text-xs text-gray-600 w-8">1.0x</span>
+        </div>
+        
+        <div class="text-xs text-gray-400">
+          <span id="reader-page-info">第 0 / 0 页</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
