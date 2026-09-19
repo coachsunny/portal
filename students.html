@@ -456,32 +456,18 @@
     }
 
     async function resetPassword() {
-      if (!confirm('确定要重置该学员的密码吗？重置后旧密码将失效。')) return;
+      if (!confirm('确定要生成新密码吗？')) return;
       
       const newPassword = generatePassword();
       try {
-        // 通过API更新Auth系统密码
-        const resetResponse = await fetch('/api/auth/reset-password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: editingStudentId,
-            newPassword: newPassword
-          })
-        });
-        const resetData = await resetResponse.json();
-        if (!resetResponse.ok) {
-          throw new Error(resetData.error || '重置密码失败');
-        }
-        
         // 更新profile中的初始密码
         const { error } = await sb.from('profiles').update({ initial_password: newPassword }).eq('id', editingStudentId);
         if (error) throw error;
         
         document.getElementById('edit-password').value = newPassword;
-        alert('密码已重置为：' + newPassword + '\n请复制给学员');
+        alert('新密码已生成：' + newPassword + '\n\n请按以下步骤操作：\n1. 复制这个密码\n2. 打开 Supabase 后台 → Authentication → Users\n3. 点击该学员进入详情页\n4. 找到「Reset Password」或「Send password recovery」\n5. 手动设置为这个密码\n\n然后把密码告诉学员。');
       } catch (e) {
-        alert('重置密码失败：' + e.message);
+        alert('生成新密码失败：' + e.message);
       }
     }
 
@@ -600,21 +586,13 @@
         let userId;
         
         if (email) {
-          // 使用API创建Auth用户（通过Cloudflare Pages Function）
-          const createResponse = await fetch('/api/auth/create-user', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: email,
-              password: password,
-              name: name
-            })
+          // 使用邮箱创建Auth用户
+          const { data: authData, error: authError } = await sb.auth.signUp({
+            email: email,
+            password: password
           });
-          const createData = await createResponse.json();
-          if (!createResponse.ok) {
-            throw new Error(createData.error || '创建用户失败');
-          }
-          userId = createData.userId;
+          if (authError) throw authError;
+          userId = authData.user.id;
         } else {
           // 没有邮箱时，直接创建profile（需要手动创建UUID）
           userId = crypto.randomUUID();
