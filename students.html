@@ -460,11 +460,18 @@
       
       const newPassword = generatePassword();
       try {
-        // 更新Auth系统密码
-        const { error: authError } = await sb.auth.admin.updateUserById(editingStudentId, { password: newPassword });
-        if (authError) {
-          // 如果admin API不可用，尝试其他方式
-          console.warn('Auth admin update failed, only updating profile:', authError.message);
+        // 通过API更新Auth系统密码
+        const resetResponse = await fetch('/api/auth/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: editingStudentId,
+            newPassword: newPassword
+          })
+        });
+        const resetData = await resetResponse.json();
+        if (!resetResponse.ok) {
+          throw new Error(resetData.error || '重置密码失败');
         }
         
         // 更新profile中的初始密码
@@ -593,13 +600,21 @@
         let userId;
         
         if (email) {
-          // 使用邮箱创建Auth用户
-          const { data: authData, error: authError } = await sb.auth.signUp({
-            email: email,
-            password: password
+          // 使用API创建Auth用户（通过Cloudflare Pages Function）
+          const createResponse = await fetch('/api/auth/create-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: email,
+              password: password,
+              name: name
+            })
           });
-          if (authError) throw authError;
-          userId = authData.user.id;
+          const createData = await createResponse.json();
+          if (!createResponse.ok) {
+            throw new Error(createData.error || '创建用户失败');
+          }
+          userId = createData.userId;
         } else {
           // 没有邮箱时，直接创建profile（需要手动创建UUID）
           userId = crypto.randomUUID();
