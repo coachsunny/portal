@@ -460,6 +460,17 @@
       
       const newPassword = '123';
       try {
+        // 调用RPC函数重置Auth系统密码
+        const { data, error: rpcError } = await sb.rpc('admin_reset_password', {
+          target_user_id: editingStudentId,
+          new_password: newPassword
+        });
+        
+        if (rpcError) throw rpcError;
+        if (data && data.success === false) {
+          throw new Error(data.error || '重置密码失败');
+        }
+        
         // 更新profile中的初始密码
         const { error } = await sb.from('profiles').update({ initial_password: newPassword }).eq('id', editingStudentId);
         if (error) throw error;
