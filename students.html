@@ -456,18 +456,18 @@
     }
 
     async function resetPassword() {
-      if (!confirm('确定要生成新密码吗？')) return;
+      if (!confirm('确定要重置该学员的密码为 123 吗？')) return;
       
-      const newPassword = generatePassword();
+      const newPassword = '123';
       try {
         // 更新profile中的初始密码
         const { error } = await sb.from('profiles').update({ initial_password: newPassword }).eq('id', editingStudentId);
         if (error) throw error;
         
         document.getElementById('edit-password').value = newPassword;
-        alert('新密码已生成：' + newPassword + '\n\n请按以下步骤操作：\n1. 复制这个密码\n2. 打开 Supabase 后台 → Authentication → Users\n3. 点击该学员进入详情页\n4. 找到「Reset Password」或「Send password recovery」\n5. 手动设置为这个密码\n\n然后把密码告诉学员。');
+        alert('密码已重置为：123\n\n请告诉学员：\n1. 用密码 123 登录\n2. 登录后请立即修改密码');
       } catch (e) {
-        alert('生成新密码失败：' + e.message);
+        alert('重置密码失败：' + e.message);
       }
     }
 
@@ -580,7 +580,7 @@
       btn.disabled = true; btn.textContent = '创建中...';
       
       try {
-        const password = generatePassword();
+        const password = '123'; // 预设密码，学员首次登录后自行修改
         const expiryDate = new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString();
         
         let userId;
