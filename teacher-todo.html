@@ -255,7 +255,7 @@
 
       const { data: submissions, error } = await sb
         .from('quiz_submissions')
-        .select('id, quiz_id, class_id, user_id, answer, submitted_at, profiles(name), quizzes(question_text)')
+        .select('id, quiz_id, class_id, user_id, answer, submitted_at, profiles(name), quizzes(question_text, category)')
         .is('score', null)
         .in('class_id', myClassIds)
         .order('submitted_at', { ascending: false });
@@ -279,7 +279,7 @@
               <p class="text-sm text-gray-600 font-medium mb-1">${escapeHtml(s.quizzes?.question_text || '题目')}</p>
               <p class="text-sm text-gray-500 truncate">${escapeHtml(s.answer || '（未填写答案）')}</p>
             </div>
-            <button onclick="openGradeModal(${s.id}, '${escapeJs(s.profiles?.name || '学员')}', '${escapeJs(myClassMap[s.class_id] || '')}', '${escapeJs(s.quizzes?.chapters?.title || '')}', '${escapeJs(s.quizzes?.question_text || '')}', '${escapeJs(s.answer || '')}')" class="ml-4 px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex-shrink-0">批改</button>
+            <button onclick="openGradeModal(${s.id}, '${escapeJs(s.profiles?.name || '学员')}', '${escapeJs(myClassMap[s.class_id] || '')}', '${escapeJs(s.quizzes?.category || '')}', '${escapeJs(s.quizzes?.question_text || '')}', '${escapeJs(s.answer || '')}')" class="ml-4 px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex-shrink-0">批改</button>
           </div>
         </div>
       `).join('');
