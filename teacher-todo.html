@@ -255,7 +255,7 @@
 
       const { data: submissions, error } = await sb
         .from('quiz_submissions')
-        .select('id, quiz_id, class_id, user_id, answer, submitted_at, profiles(name), quizzes(question_text, chapter_id, chapters(title))')
+        .select('id, quiz_id, class_id, user_id, answer, submitted_at, profiles(name), quizzes(question_text)')
         .is('score', null)
         .in('class_id', myClassIds)
         .order('submitted_at', { ascending: false });
