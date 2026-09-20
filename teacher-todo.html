@@ -63,7 +63,11 @@
         <p class="text-sm text-gray-500 mt-1" id="grade-student-info"></p>
       </div>
       <div class="p-6 space-y-4">
-        <div>
+                <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">所属章节</label>
+          <p class="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg" id="grade-chapter"></p>
+        </div>
+<div>
           <label class="block text-sm font-medium text-gray-700 mb-1">题目</label>
           <p class="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg" id="grade-question"></p>
         </div>
@@ -251,7 +255,7 @@
 
       const { data: submissions, error } = await sb
         .from('quiz_submissions')
-        .select('id, quiz_id, class_id, user_id, answer, submitted_at, profiles(name), quizzes(question_text)')
+        .select('id, quiz_id, class_id, user_id, answer, submitted_at, profiles(name), quizzes(question_text, chapter_id, chapters(title))')
         .is('score', null)
         .in('class_id', myClassIds)
         .order('submitted_at', { ascending: false });
@@ -275,7 +279,7 @@
               <p class="text-sm text-gray-600 font-medium mb-1">${escapeHtml(s.quizzes?.question_text || '题目')}</p>
               <p class="text-sm text-gray-500 truncate">${escapeHtml(s.answer || '（未填写答案）')}</p>
             </div>
-            <button onclick="openGradeModal(${s.id}, '${escapeJs(s.profiles?.name || '学员')}', '${escapeJs(myClassMap[s.class_id] || '')}', '${escapeJs(s.quizzes?.question_text || '')}', '${escapeJs(s.answer || '')}')" class="ml-4 px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex-shrink-0">批改</button>
+            <button onclick="openGradeModal(${s.id}, '${escapeJs(s.profiles?.name || '学员')}', '${escapeJs(myClassMap[s.class_id] || '')}', '${escapeJs(s.quizzes?.chapters?.title || '')}', '${escapeJs(s.quizzes?.question_text || '')}', '${escapeJs(s.answer || '')}')" class="ml-4 px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex-shrink-0">批改</button>
           </div>
         </div>
       `).join('');
@@ -357,9 +361,10 @@
     }
 
     // 打开批改弹窗
-    function openGradeModal(id, studentName, className, question, answer) {
-      gradingItem = { id, studentName, className, question, answer };
+    function openGradeModal(id, studentName, className, chapterName, question, answer) {
+      gradingItem = { id, studentName, className, chapterName, question, answer };
       document.getElementById('grade-student-info').textContent = `${studentName} · ${className}`;
+      document.getElementById('grade-chapter').textContent = chapterName || '未关联章节';
       document.getElementById('grade-question').textContent = question;
       document.getElementById('grade-answer').textContent = answer;
       document.getElementById('grade-comment').value = '';
