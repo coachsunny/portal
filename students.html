@@ -458,7 +458,7 @@
     async function resetPassword() {
       if (!confirm('确定要重置该学员的密码为 123 吗？')) return;
       
-      const newPassword = '123';
+      const newPassword = '123456';
       try {
         // 调用RPC函数重置Auth系统密码
         const { data, error: rpcError } = await sb.rpc('admin_reset_password', {
@@ -476,7 +476,7 @@
         if (error) throw error;
         
         document.getElementById('edit-password').value = newPassword;
-        alert('密码已重置为：123\n\n请告诉学员：\n1. 用密码 123 登录\n2. 登录后请立即修改密码');
+        alert('密码已重置为：123456\n\n请告诉学员：\n1. 用密码 123456 登录\n2. 登录后请立即修改密码');
       } catch (e) {
         alert('重置密码失败：' + e.message);
       }
@@ -591,7 +591,7 @@
       btn.disabled = true; btn.textContent = '创建中...';
       
       try {
-        const password = '123'; // 预设密码，学员首次登录后自行修改
+        const password = '123456'; // 预设密码（至少6位），学员首次登录后自行修改
         const expiryDate = new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString();
         
         let userId;
