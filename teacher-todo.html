@@ -144,6 +144,8 @@
     let myClassMap = {};
     let gradingItem = null;
     let replyingItem = null;
+    let todoQuizzesMap = {};
+    let todoReflectionsMap = {};
 
     // 页面初始化
     window.addEventListener('load', async () => {
@@ -267,6 +269,18 @@
         return;
       }
 
+      todoQuizzesMap = {};
+      (submissions || []).forEach(s => {
+        todoQuizzesMap[s.id] = {
+          id: s.id,
+          studentName: s.profiles?.name || '学员',
+          className: myClassMap[s.class_id] || '未知班级',
+          chapterName: s.quizzes?.category || '未关联章节',
+          question: s.quizzes?.question_text || '题目',
+          answer: s.answer || ''
+        };
+      });
+
       container.innerHTML = submissions.map(s => `
         <div class="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
           <div class="flex items-start justify-between">
@@ -279,7 +293,7 @@
               <p class="text-sm text-gray-600 font-medium mb-1">${escapeHtml(s.quizzes?.question_text || '题目')}</p>
               <p class="text-sm text-gray-500 truncate">${escapeHtml(s.answer || '（未填写答案）')}</p>
             </div>
-            <button onclick="openGradeModal(${s.id}, '${escapeJs(s.profiles?.name || '学员')}', '${escapeJs(myClassMap[s.class_id] || '')}', '${escapeJs(s.quizzes?.category || '')}', '${escapeJs(s.quizzes?.question_text || '')}', '${escapeJs(s.answer || '')}')" class="ml-4 px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex-shrink-0">批改</button>
+            <button onclick="openGradeModal(${s.id})" class="ml-4 px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex-shrink-0">批改</button>
           </div>
         </div>
       `).join('');
@@ -335,6 +349,17 @@
         const titleMap = {};
         (chapters || []).forEach(c => { titleMap[c.id] = c.title; });
 
+        todoReflectionsMap = {};
+        (reflections || []).forEach(r => {
+          todoReflectionsMap[r.id] = {
+            id: r.id,
+            studentName: nameMap[r.user_id] || '学员',
+            className: myClassMap[r.class_id] || '未知班级',
+            chapter: titleMap[r.chapter_id] || '章节',
+            content: r.content || ''
+          };
+        });
+
         container.innerHTML = reflections.map(r => `
           <div class="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
             <div class="flex items-start justify-between">
@@ -347,7 +372,7 @@
                 <p class="text-sm text-gray-600 font-medium mb-1">${escapeHtml(titleMap[r.chapter_id] || '章节')}</p>
                 <p class="text-sm text-gray-500 line-clamp-2">${escapeHtml(r.content)}</p>
               </div>
-              <button onclick="openReplyModal(${r.id}, '${escapeJs(nameMap[r.user_id] || '学员')}', '${escapeJs(myClassMap[r.class_id] || '')}', '${escapeJs(titleMap[r.chapter_id] || '')}', '${escapeJs(r.content)}')" class="ml-4 px-3 py-1.5 text-xs bg-purple-500 text-white rounded-lg hover:bg-purple-600 flex-shrink-0">回复</button>
+              <button onclick="openReplyModal(${r.id})" class="ml-4 px-3 py-1.5 text-xs bg-purple-500 text-white rounded-lg hover:bg-purple-600 flex-shrink-0">回复</button>
             </div>
           </div>
       `).join('');
@@ -361,12 +386,14 @@
     }
 
     // 打开批改弹窗
-    function openGradeModal(id, studentName, className, chapterName, question, answer) {
-      gradingItem = { id, studentName, className, chapterName, question, answer };
-      document.getElementById('grade-student-info').textContent = `${studentName} · ${className}`;
-      document.getElementById('grade-chapter').textContent = chapterName || '未关联章节';
-      document.getElementById('grade-question').textContent = question;
-      document.getElementById('grade-answer').textContent = answer;
+    function openGradeModal(id) {
+      const item = todoQuizzesMap[id];
+      if (!item) return;
+      gradingItem = item;
+      document.getElementById('grade-student-info').textContent = `${item.studentName} · ${item.className}`;
+      document.getElementById('grade-chapter').textContent = item.chapterName || '未关联章节';
+      document.getElementById('grade-question').textContent = item.question;
+      document.getElementById('grade-answer').textContent = item.answer;
       document.getElementById('grade-comment').value = '';
       document.querySelectorAll('input[name="grade-score"]').forEach(r => r.checked = false);
       document.getElementById('grade-modal').classList.remove('hidden');
@@ -405,11 +432,13 @@
     }
 
     // 打开回复弹窗
-    function openReplyModal(id, studentName, className, chapter, content) {
-      replyingItem = { id, studentName, className, chapter, content };
-      document.getElementById('reply-student-info').textContent = `${studentName} · ${className}`;
-      document.getElementById('reply-chapter').textContent = chapter;
-      document.getElementById('reply-content').textContent = content;
+    function openReplyModal(id) {
+      const item = todoReflectionsMap[id];
+      if (!item) return;
+      replyingItem = item;
+      document.getElementById('reply-student-info').textContent = `${item.studentName} · ${item.className}`;
+      document.getElementById('reply-chapter').textContent = item.chapter;
+      document.getElementById('reply-content').textContent = item.content;
       document.getElementById('reply-text').value = '';
       document.getElementById('reply-modal').classList.remove('hidden');
       document.getElementById('reply-modal').classList.add('flex');
@@ -502,10 +531,6 @@
       const div = document.createElement('div');
       div.textContent = text || '';
       return div.innerHTML;
-    }
-
-    function escapeJs(text) {
-      return (text || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
     }
 
     function formatDate(dateStr) {
