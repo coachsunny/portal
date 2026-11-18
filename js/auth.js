@@ -380,6 +380,7 @@ function loadOpenCC(callback) {
   script.onload = function() {
     openccLoaded = true;
     s2tConverter = OpenCC.Converter({ from: 'cn', to: 'tw' });
+    window.s2tConverter = s2tConverter;
     t2sConverter = OpenCC.Converter({ from: 'tw', to: 'cn' });
     callback();
   };

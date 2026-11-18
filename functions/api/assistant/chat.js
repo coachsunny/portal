@@ -17,7 +17,7 @@ export async function onRequestPost(context) {
 
   try {
     const body = await request.json();
-    const { message, classId, history = [] } = body;
+    const { message, classId, history = [], lang = 'traditional' } = body;
 
     if (!message || typeof message !== 'string' || !message.trim()) {
       return new Response(JSON.stringify({ error: '提问内容不能为空' }), {
@@ -116,7 +116,7 @@ export async function onRequestPost(context) {
 2. 解答要清晰、条理分明，适度运用粗体与要点列项（Bullet points）。
 3. 如果讲义中有提及，请准确转述其精髓；若讲义中未提及，请诚实说明讲义中未详述此点，并建议学员向带班教练或通过「学员提问」功能请教，切勿臆造虚假的课程规定。
 4. 在回答最后，可以给学员一句温和的教练式启发或鼓励语句。
-5. 请使用繁体中文或学员提问所使用的语言自然回应。
+5. 【语言规范】：${lang === 'simplified' ? '请全程使用「简体中文」回答。' : '请务必全程使用「繁体中文（正体中文，台湾习惯用语，如：资讯、程式、讲义、连结、互动）」回答，切勿夹杂简体字。'}
 
 ${contextPrompt}`;
 

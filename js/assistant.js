@@ -1,6 +1,6 @@
 /**
  * 自牧平施教练班 - 学习小助手「小牧」前端组件
- * 包含：悬浮按钮 (FAB)、对话面板、讲义出处引用、即时问答
+ * 包含：悬浮按钮 (FAB)、对话面板、讲义出处引用、即时问答、简繁双语自动适配
  */
 
 (function () {
@@ -16,6 +16,20 @@
     currentClassId: null,
     storageKey: 'assistant_chat_history_v1'
   };
+
+  function isTraditional() {
+    return localStorage.getItem('language') === 'traditional';
+  }
+
+  function toLocale(text) {
+    if (!text) return '';
+    if (isTraditional() && window.s2tConverter) {
+      try {
+        return window.s2tConverter(text);
+      } catch (e) { }
+    }
+    return text;
+  }
 
   // 读取已保存的历史记录
   try {
@@ -40,13 +54,50 @@
 
   // 渲染 HTML
   function injectAssistantHtml() {
+    const isTrad = isTraditional();
+
+    // 界面多语言文本
+    const i18n = isTrad ? {
+      greeting: '👋 同學好，我是<b>小牧</b>！講義有疑問隨時問我 😊',
+      title: '小牧助教',
+      badge: 'AI 伴學',
+      subTitle: '依據自牧平施講義庫智慧解答',
+      welcomeTitle: '同學好！我是您的專屬學習小助手<b>小牧</b> 🌱',
+      welcomeDesc: '我能根據我們班級的課程講義與教材，為您解答觀念疑惑或梳理重點。請問有什麼想了解的嗎？',
+      guessAsk: '💡 猜你想問：',
+      q1: '📌 什麼是 GROW 模型的具體流程？',
+      q2: '👂 傾聽的三個層次分別是什麼？',
+      q3: '📝 總結核心重點',
+      typing: '小牧正在翻閱講義',
+      placeholder: '向小牧提問講義內容...',
+      disclaimer: '內容由 DeepSeek 依據自牧平施講義生成 · 僅供複習參考',
+      refHeader: '📖 引用講義來源：',
+      clearConfirm: '確定要清空與小牧的當前對話嗎？'
+    } : {
+      greeting: '👋 同学好，我是<b>小牧</b>！讲义有疑问随时问我 😊',
+      title: '小牧助教',
+      badge: 'AI 伴学',
+      subTitle: '依据自牧平施讲义库智能解答',
+      welcomeTitle: '同学好！我是您的专属学习小助手<b>小牧</b> 🌱',
+      welcomeDesc: '我能根据我们班级的课程讲义与教材，为您解答观念疑惑或梳理重点。请问有什么想了解的吗？',
+      guessAsk: '💡 猜你想问：',
+      q1: '📌 什么是 GROW 模型的具体流程？',
+      q2: '👂 倾听的三个层次分别是什么？',
+      q3: '📝 总结核心要点',
+      typing: '小牧正在翻阅讲义',
+      placeholder: '向小牧提问讲义内容...',
+      disclaimer: '内容由 DeepSeek 依据自牧平施讲义生成 · 仅供复习参考',
+      refHeader: '📖 引用讲义来源：',
+      clearConfirm: '确定要清空与小牧的当前对话吗？'
+    };
+
     const html = `
       <!-- 小牧学习小助手入口 -->
       <div id="ai-assistant-container" class="fixed bottom-6 right-6 z-50 font-sans">
         
         <!-- 首次进入页面的问候气泡 -->
         <div id="ai-assistant-greeting" class="hidden absolute bottom-16 right-0 mb-2 mr-1 bg-white text-gray-800 text-xs py-2 px-3.5 rounded-2xl shadow-xl border border-indigo-100 flex items-center gap-2 whitespace-nowrap cursor-pointer transition-all duration-300 hover:scale-105">
-          <span>👋 同学好，我是<b>小牧</b>！讲义有疑问随时问我 😊</span>
+          <span>${i18n.greeting}</span>
           <button onclick="event.stopPropagation(); document.getElementById('ai-assistant-greeting').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 ml-1 text-sm">×</button>
         </div>
 
@@ -64,7 +115,7 @@
           </svg>
         </button>
 
-        <!-- 弹出式对话视窗 -->
+        <!-- 弹出式对话视窗 (确保高悬于按钮上方 72px) -->
         <div id="ai-assistant-modal" class="hidden absolute right-0 w-[92vw] sm:w-[400px] h-[520px] max-h-[80vh] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col transition-all duration-300 origin-bottom-right" style="bottom: 72px;">
           
           <!-- 1. 顶部标题列 -->
@@ -76,10 +127,10 @@
               </div>
               <div>
                 <div class="flex items-center gap-1.5">
-                  <h4 class="text-sm font-bold tracking-wide">小牧助教</h4>
-                  <span class="text-[10px] px-1.5 py-0.2 bg-white/20 rounded text-blue-100">AI 伴学</span>
+                  <h4 class="text-sm font-bold tracking-wide">${i18n.title}</h4>
+                  <span class="text-[10px] px-1.5 py-0.2 bg-white/20 rounded text-blue-100">${i18n.badge}</span>
                 </div>
-                <p class="text-[11px] text-blue-100/80">依据自牧平施讲义库智能解答</p>
+                <p class="text-[11px] text-blue-100/80">${i18n.subTitle}</p>
               </div>
             </div>
             
@@ -101,23 +152,23 @@
                 牧
               </div>
               <div class="bg-white border border-gray-200 rounded-2xl rounded-tl-sm p-3 shadow-sm max-w-[85%] text-gray-800 space-y-2 leading-relaxed">
-                <p>同学好！我是您的专属学习小助手<b>小牧</b> 🌱</p>
-                <p class="text-gray-600">我能根据我们班级的课程讲义与教材，为您解答观念疑惑或梳理重点。请问有什么想了解的吗？</p>
+                <p>${i18n.welcomeTitle}</p>
+                <p class="text-gray-600">${i18n.welcomeDesc}</p>
               </div>
             </div>
 
             <!-- 快捷推荐问题 -->
             <div id="ai-quick-prompts" class="pl-9 space-y-1.5">
-              <p class="text-[11px] text-gray-400 font-medium">💡 猜你想问：</p>
+              <p class="text-[11px] text-gray-400 font-medium">${i18n.guessAsk}</p>
               <div class="flex flex-wrap gap-1.5">
-                <button onclick="sendAssistantQuickPrompt('什么是 GROW 模型的具体流程？')" class="text-[11px] bg-white hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 border border-gray-200 text-gray-700 px-2.5 py-1 rounded-full transition shadow-2xs">
-                  📌 什么是 GROW 模型？
+                <button onclick="sendAssistantQuickPrompt('${i18n.q1.slice(2)}')" class="text-[11px] bg-white hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 border border-gray-200 text-gray-700 px-2.5 py-1 rounded-full transition shadow-2xs">
+                  ${i18n.q1}
                 </button>
-                <button onclick="sendAssistantQuickPrompt('倾听的三个层次分别是什么？')" class="text-[11px] bg-white hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 border border-gray-200 text-gray-700 px-2.5 py-1 rounded-full transition shadow-2xs">
-                  👂 倾听的三个层次？
+                <button onclick="sendAssistantQuickPrompt('${i18n.q2.slice(2)}')" class="text-[11px] bg-white hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 border border-gray-200 text-gray-700 px-2.5 py-1 rounded-full transition shadow-2xs">
+                  ${i18n.q2}
                 </button>
-                <button onclick="sendAssistantQuickPrompt('请为我总结核心重点与注意事项')" class="text-[11px] bg-white hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 border border-gray-200 text-gray-700 px-2.5 py-1 rounded-full transition shadow-2xs">
-                  📝 总结核心要点
+                <button onclick="sendAssistantQuickPrompt('${i18n.q3.slice(2)}')" class="text-[11px] bg-white hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 border border-gray-200 text-gray-700 px-2.5 py-1 rounded-full transition shadow-2xs">
+                  ${i18n.q3}
                 </button>
               </div>
             </div>
@@ -131,7 +182,7 @@
                 牧
               </div>
               <div class="bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-3 py-2 shadow-sm text-gray-500 flex items-center gap-1.5">
-                <span>小牧正在翻阅讲义</span>
+                <span>${i18n.typing}</span>
                 <span class="inline-block w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce"></span>
                 <span class="inline-block w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style="animation-delay: 0.15s"></span>
                 <span class="inline-block w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style="animation-delay: 0.3s"></span>
@@ -142,12 +193,12 @@
           <!-- 3. 底部提问输入框 -->
           <div class="p-2.5 bg-white border-t border-gray-200 flex-shrink-0">
             <form id="ai-chat-form" onsubmit="handleAssistantSubmit(event)" class="flex items-center gap-2">
-              <input id="ai-user-input" type="text" placeholder="向小牧提问讲义内容..." class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition" />
+              <input id="ai-user-input" type="text" placeholder="${i18n.placeholder}" class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition" />
               <button id="ai-send-btn" type="submit" class="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white p-2 rounded-xl transition shadow flex-shrink-0 disabled:opacity-50">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
               </button>
             </form>
-            <p class="text-[10px] text-center text-gray-400 mt-1.5">内容由 DeepSeek 依据自牧平施讲义生成 · 仅供复习参考</p>
+            <p class="text-[10px] text-center text-gray-400 mt-1.5">${i18n.disclaimer}</p>
           </div>
 
         </div>
@@ -194,7 +245,8 @@
 
   // 清空对话
   window.clearAssistantChat = function () {
-    if (!confirm('确定要清空与小牧的当前对话吗？')) return;
+    const isTrad = isTraditional();
+    if (!confirm(isTrad ? '確定要清空與小牧的當前對話嗎？' : '确定要清空与小牧的当前对话吗？')) return;
     state.history = [];
     localStorage.removeItem(state.storageKey);
     const container = document.getElementById('ai-dynamic-history');
@@ -241,27 +293,35 @@
         body: JSON.stringify({
           message: text,
           classId: state.currentClassId,
-          history: state.history.slice(-6)
+          history: state.history.slice(-6),
+          lang: isTraditional() ? 'traditional' : 'simplified'
         })
       });
 
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || '连接助教服务失败');
+        throw new Error(data.error || (isTraditional() ? '連線助教服務失敗' : '连接助教服务失败'));
       }
 
       // 4. 渲染小牧回答
-      appendAssistantMessage(data.reply, data.sources);
+      let replyContent = data.reply;
+      if (isTraditional()) {
+        replyContent = toLocale(replyContent);
+      }
+
+      appendAssistantMessage(replyContent, data.sources);
       state.history.push({
         role: 'assistant',
-        content: data.reply,
+        content: replyContent,
         sources: data.sources || []
       });
       saveHistory();
 
     } catch (err) {
-      appendAssistantMessage(`抱歉，小牧遇到了点小状况：${err.message}。请稍后再试。`);
+      appendAssistantMessage(isTraditional()
+        ? `抱歉，小牧遇到了點小狀況：${err.message}。請稍後再試。`
+        : `抱歉，小牧遇到了点小状况：${err.message}。请稍后再试。`);
     } finally {
       state.isLoading = false;
       if (sendBtn) sendBtn.disabled = false;
@@ -288,6 +348,7 @@
   // 添加小助手消息节点
   function appendAssistantMessage(reply, sources = []) {
     const container = document.getElementById('ai-dynamic-history');
+    const isTrad = isTraditional();
     const formattedContent = formatMarkdown(reply);
 
     let sourcesHtml = '';
@@ -295,12 +356,12 @@
       sourcesHtml = `
         <div class="mt-2 pt-2 border-t border-indigo-100/60 space-y-1">
           <p class="text-[10px] text-gray-400 font-medium flex items-center gap-1">
-            <span>📖</span> 引用讲义来源：
+            <span>📖</span> ${isTrad ? '引用講義來源：' : '引用讲义来源：'}
           </p>
           <div class="flex flex-wrap gap-1.5">
             ${sources.map(s => `
               <div class="bg-indigo-50/80 border border-indigo-100 text-indigo-700 text-[10px] px-2 py-0.5 rounded flex items-center gap-1">
-                <span class="font-medium">《${escapeHtml(s.title)}》第 ${s.pageNumber} 页</span>
+                <span class="font-medium">《${escapeHtml(toLocale(s.title))}》第 ${s.pageNumber} ${isTrad ? '頁' : '页'}</span>
                 <span class="text-indigo-400">(${s.similarity}%)</span>
               </div>
             `).join('')}
@@ -334,7 +395,7 @@
       if (item.role === 'user') {
         appendUserMessage(item.content);
       } else if (item.role === 'assistant') {
-        appendAssistantMessage(item.content, item.sources || []);
+        appendAssistantMessage(toLocale(item.content), item.sources || []);
       }
     });
   }
