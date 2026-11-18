@@ -56,12 +56,18 @@ export async function onRequestPost(context) {
       embedding: embeddings[i]
     }));
 
+    // 获取前端透传的用户 Auth Token 或使用 service_role
+    const incomingAuth = request.headers.get('Authorization');
+    const authHeader = env.SUPABASE_SERVICE_ROLE_KEY
+      ? `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+      : (incomingAuth || `Bearer ${supabaseKey}`);
+
     // 批量写入 Supabase document_chunks 表
     const insertRes = await fetch(`${supabaseUrl}/rest/v1/document_chunks`, {
       method: 'POST',
       headers: {
         'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`,
+        'Authorization': authHeader,
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal'
       },

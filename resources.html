@@ -229,11 +229,16 @@
             </div>
           </div>
           <div class="flex items-center space-x-2 flex-shrink-0 ml-4">
-            ${r.type === 'pdf' && r.file_url ? `
-              <button id="sync-ai-btn-${r.id}" onclick="syncPdfToAssistant(${r.id}, '${r.file_url}', '${escapeHtml(r.title)}', ${r.class_id || 'null'})" class="px-2.5 py-1.5 text-xs ${chunkCount > 0 ? 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100' : 'text-purple-600 bg-purple-50 hover:bg-purple-100 font-semibold'} rounded-lg transition flex items-center gap-1" title="将此讲义解析并同步至小牧 AI 知识库">
-                <span>⚡</span><span>${chunkCount > 0 ? '重新同步AI' : '同步至小牧AI'}</span>
-              </button>
-              <a href="${r.file_url}" target="_blank" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">查看</a>
+            ${r.type === 'pdf' && r.file_url ? `
+
+              <button id="sync-ai-btn-${r.id}" onclick="syncPdfToAssistant(${r.id}, '${r.file_url}', '${escapeHtml(r.title)}', ${r.class_id || 'null'})" class="px-2.5 py-1.5 text-xs ${chunkCount > 0 ? 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100' : 'text-purple-600 bg-purple-50 hover:bg-purple-100 font-semibold'} rounded-lg transition flex items-center gap-1" title="将此讲义解析并同步至小牧 AI 知识库">
+
+                <span>⚡</span><span>${chunkCount > 0 ? '重新同步AI' : '同步至小牧AI'}</span>
+
+              </button>
+
+              <a href="${r.file_url}" target="_blank" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">查看</a>
+
             ` : ''}
             ${r.type === 'video' && r.file_url ? `<button onclick="copyVideoLink('${r.file_url}', '${r.extraction_code || ''}')" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">复制链接</button>` : ''}
             <button onclick="editResource(${r.id})" class="px-2 py-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition text-sm" title="编辑">✏️</button>
