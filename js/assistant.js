@@ -65,7 +65,7 @@
         </button>
 
         <!-- 弹出式对话视窗 -->
-        <div id="ai-assistant-modal" class="hidden absolute bottom-18 right-0 w-[92vw] sm:w-[400px] h-[520px] max-h-[80vh] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col transition-all duration-300 origin-bottom-right">
+        <div id="ai-assistant-modal" class="hidden absolute right-0 w-[92vw] sm:w-[400px] h-[520px] max-h-[80vh] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col transition-all duration-300 origin-bottom-right" style="bottom: 72px;">
           
           <!-- 1. 顶部标题列 -->
           <div class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-3.5 text-white flex items-center justify-between flex-shrink-0 shadow-md">
