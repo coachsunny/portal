@@ -238,6 +238,14 @@ function renderNavbar(session, currentPage) {
   
   // 应用语言设置（简繁切换）
   applyLanguageSetting();
+
+  // 自动挂载学习小助手「小牧」
+  if (!document.getElementById('ai-assistant-script')) {
+    const s = document.createElement('script');
+    s.id = 'ai-assistant-script';
+    s.src = 'js/assistant.js';
+    document.body.appendChild(s);
+  }
 }
 
 /**

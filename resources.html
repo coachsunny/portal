@@ -6,6 +6,7 @@
   <title>资源管理 - 自牧平施教练班</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/pdfjs/pdf.min.js"></script>
 </head>
 <body class="bg-gray-50 min-h-screen">
   <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -134,6 +135,7 @@
     let allResources = [];
     let allClasses = [];
     let resourceStats = {};
+    let aiIndexedStats = {};
     let selectedPdfFile = null;
     let editingResourceId = null;
 
@@ -174,6 +176,16 @@
             resourceStats[read.resource_id].count++;
             resourceStats[read.resource_id].users.add(read.user_id);
           });
+          // 统计小牧助教 AI 知识库同步状态
+          try {
+            const { data: chunks } = await sb.from('document_chunks').select('resource_id');
+            aiIndexedStats = {};
+            (chunks || []).forEach(c => {
+              aiIndexedStats[c.resource_id] = (aiIndexedStats[c.resource_id] || 0) + 1;
+            });
+          } catch (ae) {
+            console.warn('获取 AI 切片统计失败:', ae);
+          }
         }
 
         renderResourceList();
@@ -203,17 +215,26 @@
         const statsLabel = stats
           ? `<span class="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded ml-1" title="查看${stats.count}次，${stats.users.size}人看过">👁 ${stats.users.size}人 / ${stats.count}次</span>`
           : '';
+        const chunkCount = aiIndexedStats[r.id] || 0;
+        const aiStatusLabel = chunkCount > 0
+          ? `<span class="text-xs px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded ml-1 font-normal" title="小牧助教已收录此讲义 (${chunkCount} 个切片)">🤖 AI已同步(${chunkCount}段)</span>`
+          : '';
         return `
         <div class="flex items-center justify-between p-4 bg-white border border-gray-100 rounded-xl hover:shadow-sm transition">
           <div class="flex items-center flex-1 min-w-0">
             <span class="text-2xl mr-4 flex-shrink-0">${r.type === 'pdf' ? '📄' : '🎬'}</span>
             <div class="min-w-0">
-              <p class="font-medium text-gray-800 truncate">${escapeHtml(r.title)} ${scopeLabel}${statsLabel}</p>
+              <p class="font-medium text-gray-800 truncate">${escapeHtml(r.title)} ${scopeLabel}${statsLabel}${aiStatusLabel}</p>
               <p class="text-xs text-gray-400 truncate mt-1">${escapeHtml(r.description || (r.type === 'pdf' ? 'PDF文档' : '视频 · 提取码: ' + (r.extraction_code || '无')))}</p>
             </div>
           </div>
           <div class="flex items-center space-x-2 flex-shrink-0 ml-4">
-            ${r.type === 'pdf' && r.file_url ? `<a href="${r.file_url}" target="_blank" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">查看</a>` : ''}
+            ${r.type === 'pdf' && r.file_url ? `
+              <button id="sync-ai-btn-${r.id}" onclick="syncPdfToAssistant(${r.id}, '${r.file_url}', '${escapeHtml(r.title)}', ${r.class_id || 'null'})" class="px-2.5 py-1.5 text-xs ${chunkCount > 0 ? 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100' : 'text-purple-600 bg-purple-50 hover:bg-purple-100 font-semibold'} rounded-lg transition flex items-center gap-1" title="将此讲义解析并同步至小牧 AI 知识库">
+                <span>⚡</span><span>${chunkCount > 0 ? '重新同步AI' : '同步至小牧AI'}</span>
+              </button>
+              <a href="${r.file_url}" target="_blank" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">查看</a>
+            ` : ''}
             ${r.type === 'video' && r.file_url ? `<button onclick="copyVideoLink('${r.file_url}', '${r.extraction_code || ''}')" class="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition">复制链接</button>` : ''}
             <button onclick="editResource(${r.id})" class="px-2 py-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition text-sm" title="编辑">✏️</button>
             <button onclick="deleteResource(${r.id})" class="px-2 py-1.5 text-red-500 hover:bg-red-50 rounded-lg transition text-sm" title="删除">🗑️</button>
@@ -388,6 +409,86 @@
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
+    }
+
+    // 同步讲义 PDF 至小牧助教知识库
+    async function syncPdfToAssistant(resourceId, fileUrl, title, classId) {
+      const btn = document.getElementById(`sync-ai-btn-${resourceId}`);
+      if (!confirm(`确定要将讲义《${title}》解析并同步至小牧助教的知识库吗？`)) return;
+
+      try {
+        if (btn) { btn.disabled = true; btn.innerHTML = '<span>⏳ 加载PDF...</span>'; }
+
+        if (window.pdfjsLib) {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = 'js/pdfjs/pdf.worker.min.js';
+        }
+
+        const loadingTask = pdfjsLib.getDocument(fileUrl);
+        const pdfDoc = await loadingTask.promise;
+        const totalPages = pdfDoc.numPages;
+
+        let allChunks = [];
+        for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+          if (btn) btn.innerHTML = `<span>⏳ 解析第 ${pageNum}/${totalPages} 页...</span>`;
+          const page = await pdfDoc.getPage(pageNum);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map(item => item.str).join(' ').replace(/\s+/g, ' ').trim();
+
+          if (!pageText || pageText.length < 20) continue;
+
+          // 按 450 字切片，重叠 50 字
+          const chunkSize = 450;
+          const overlap = 50;
+          for (let i = 0; i < pageText.length; i += (chunkSize - overlap)) {
+            const chunkText = pageText.slice(i, i + chunkSize).trim();
+            if (chunkText.length > 20) {
+              allChunks.push({
+                pageNumber: pageNum,
+                chunkIndex: allChunks.length,
+                content: chunkText
+              });
+            }
+          }
+        }
+
+        if (allChunks.length === 0) {
+          alert('未能从该 PDF 中提取出有效文本，请确认文件是否为纯扫描图片。');
+          return;
+        }
+
+        if (btn) btn.innerHTML = `<span>⏳ 向量化中 (共 ${allChunks.length} 段)...</span>`;
+
+        // 1. 清理该资源旧切片
+        await sb.from('document_chunks').delete().eq('resource_id', resourceId);
+
+        // 2. 批量入库 (每批 10 个切片)
+        const batchSize = 10;
+        for (let i = 0; i < allChunks.length; i += batchSize) {
+          const batch = allChunks.slice(i, i + batchSize);
+          if (btn) btn.innerHTML = `<span>⏳ 向量入库 (${i + batch.length}/${allChunks.length})...</span>`;
+          const res = await fetch('/api/assistant/ingest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              resourceId: resourceId,
+              classId: classId,
+              chunks: batch
+            })
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            throw new Error(data.error || '入库失败');
+          }
+        }
+
+        alert(`讲义《${title}》已成功同步至小牧知识库！\n共切分为 ${allChunks.length} 个知识片段，小牧已全部学完。`);
+        await loadResources();
+      } catch (err) {
+        console.error('同步至小牧失败:', err);
+        alert('同步至小牧失败: ' + err.message);
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '⚡ 同步至小牧AI'; }
+      }
     }
   </script>
 </body>
